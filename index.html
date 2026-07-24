@@ -9,6 +9,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- ExcelJS: se usa SOLO para el descuento de stock por Dropbox, porque a diferencia de
+         SheetJS SÍ conserva colores, bordes y formato del Excel al modificar y volver a guardar. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2305,6 +2308,49 @@
         </div>
     </div>
 
+    <!-- MODAL: CONTRASEÑA PARA EDITAR EL KARDEX -->
+    <div class="modal" id="kardexPasswordModal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h2 class="modal-title">🔒 Editar Kardex</h2>
+                <button class="modal-close" onclick="cerrarModalEditarKardex()">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ingresa la contraseña para habilitar la edición</label>
+                <input type="password" class="form-input" id="kardexPasswordInput" placeholder="Contraseña" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmarPasswordEditarKardex();}">
+            </div>
+            <p style="font-size:0.8em;color:#718096;margin-top:-6px;">Solo con la contraseña correcta se puede modificar el stock del Kardex directamente desde el sistema. El cambio se sube al mismo Excel de Dropbox.</p>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-danger" onclick="cerrarModalEditarKardex()">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmarPasswordEditarKardex()">🔓 Desbloquear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EXPORTAR STOCK DEL KARDEX -->
+    <div class="modal" id="exportStockModal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h2 class="modal-title">📤 Exportar Stock</h2>
+                <button class="modal-close" onclick="cerrarModalExportarStock()">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Selecciona qué productos exportar</label>
+                <select class="form-input" id="exportStockGrupo">
+                    <option value="todo">📦 Exportar todo</option>
+                    <option value="san_jacinto">San Jacinto</option>
+                    <option value="la_bellota">La Bellota</option>
+                    <option value="telas">Telas</option>
+                </select>
+            </div>
+            <p style="font-size:0.8em;color:#718096;margin-top:-6px;">Se exporta el stock de la hoja del Kardex actualmente seleccionada, en un archivo Excel (.xlsx) con Código, Descripción y Stock actual.</p>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-danger" onclick="cerrarModalExportarStock()">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="exportarStockKardex()">📤 Exportar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- SISTEMA DE COTIZACIÓN -->
     <div class="container" id="appContainer" style="display:none;">
         <div class="header">
@@ -2314,7 +2360,7 @@
                 <button type="button" onclick="cerrarSesion()">Salir</button>
             </div>
             <h1>🏨 Cotizador Profesional</h1>
-            <div class="subtitle">Sistema Integrado de Cotización y Envíos a Provincias · v5.1 — Historial · Descuentos · Multi-color · Clientes DB</div>
+            <div class="subtitle">Sistema Integrado de Cotización y Envíos a Provincias · v5.7 — Historial · Descuentos · Multi-color · Clientes DB</div>
         </div>
 
 
@@ -2326,6 +2372,8 @@
                 <button class="tab" onclick="switchTab('historial')">🕓 Historial</button>
                 <button class="tab" onclick="switchTab('productos')">📦 Productos</button>
                 <button class="tab" onclick="switchTab('kardex')">📊 Kardex</button>
+                <button class="tab" onclick="switchTab('controldiario')">🗑️ Control Diario</button>
+                <button class="tab" onclick="switchTab('movstock')">📦 Ingreso/Egreso</button>
                 <button class="tab" onclick="switchTab('ajustes')">⚙️ Ajustes</button>
                 <button class="tab" onclick="switchTab('fichas')">📄 Fichas Técnicas</button>
             </div>
@@ -2515,9 +2563,14 @@
                     <h3>📊 Kardex (Dropbox)</h3>
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
                         <button type="button" id="btnActualizarStock" class="btn btn-success" onclick="cargarKardex(true)">🔄 Actualizar desde Dropbox</button>
+                        <button type="button" id="btnExportarStock" class="btn btn-primary" onclick="abrirModalExportarStock()">📤 Exportar Stock</button>
+                        <button type="button" id="btnEditarKardex" class="btn" style="background:#805ad5;color:white;" onclick="abrirModalEditarKardex()">🔒 Editar Kardex</button>
+                        <button type="button" id="btnGuardarEdicionKardex" class="btn btn-success" style="display:none;" onclick="guardarEdicionKardex()">💾 Guardar cambios</button>
+                        <button type="button" id="btnCancelarEdicionKardex" class="btn btn-danger" style="display:none;" onclick="cancelarEdicionKardex()">✖️ Cancelar edición</button>
                         <div id="kardexUltimaActualizacion" style="color:white;font-size:0.85em;opacity:0.85;"></div>
                     </div>
                     <div id="kardexColorWarning" style="display:none;background:#fefcbf;color:#744210;padding:8px 12px;border-radius:8px;font-size:0.82em;margin-bottom:10px;"></div>
+                    <div id="kardexEdicionAviso" style="display:none;background:#e9d8fd;color:#44337a;padding:8px 12px;border-radius:8px;font-size:0.82em;margin-bottom:10px;">🔓 Modo edición activo: cambia las cantidades de la columna de stock y presiona "💾 Guardar cambios" para subirlas al Kardex de Dropbox.</div>
                     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
                         <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0;">
                             <label class="form-label" style="color:white;">📑 Hoja del Excel</label>
@@ -2533,6 +2586,25 @@
                 </div>
 
                 <div class="add-product-section">
+                    <div class="add-product-title" style="cursor:pointer;" onclick="toggleIdentificacionPanel()">
+                        🔗 Identificación de productos sin código (<span id="kardexSinCodigoCount">0</span>) <span id="identificacionToggleIcon">▼</span>
+                    </div>
+                    <div id="identificacionPanelBody" style="display:none;margin-top:10px;">
+                        <p style="font-size:0.82em;color:#718096;margin-bottom:10px;">
+                            Estos productos no tienen código en la columna <strong>ARTICULO</strong> del Kardex, así que el sistema los identifica
+                            y vincula automáticamente usando su texto en la columna <strong>DESCRIPCION</strong>. Con esa vinculación se
+                            reconocen igual en Control Diario, Orden de Compra y Exportar Stock, sin necesidad de asignarles un código manualmente.
+                        </p>
+                        <div class="products-table-container" style="max-height:300px;overflow-y:auto;">
+                            <table class="products-table">
+                                <thead><tr><th>Descripción (Kardex)</th><th>Stock</th><th>Clave interna generada</th></tr></thead>
+                                <tbody id="identificacionBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="add-product-section">
                     <div class="add-product-title">📄 Filas en esta hoja (<span id="kardexCount">0</span>)</div>
                 </div>
                 <div class="products-table-container" style="overflow-x:auto;">
@@ -2542,6 +2614,131 @@
                         </thead>
                         <tbody id="kardexListBody"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- TAB: CONTROL DIARIO (descarte directo de stock en el Kardex) -->
+            <div class="tab-content" id="tab-controldiario">
+                <div class="new-form-section">
+                    <h3>🗑️ Control Diario — Descarte de Stock</h3>
+                    <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
+                        Registra aquí el descarte diario de productos (mermas, roturas, control de calidad, etc.).
+                        Al registrar, se descuenta el stock <strong>directamente en el Kardex</strong> (igual que una Orden de Compra)
+                        y queda guardado en el historial de movimientos para su consulta.
+                    </p>
+                    <div class="form-group" style="position:relative;">
+                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o nombre/descripción)</label>
+                        <input type="text" class="form-input" id="cdBuscarProducto" placeholder="Ej: 7015, o 'toalla belleza baño'..." autocomplete="off" oninput="buscarProductosControlDiario(this.value)">
+                        <div class="cliente-db-dropdown" id="cdBuscarDropdown"></div>
+                    </div>
+                    <div id="cdProductoInfo" style="display:none;background:rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:white;font-size:0.88em;">
+                        <div id="cdProductoStockActual"></div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="max-width:160px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📉 Cantidad a descartar</label>
+                            <input type="number" min="0.01" step="0.01" class="form-input" id="cdCantidad" placeholder="0">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📝 Motivo (opcional)</label>
+                            <input type="text" class="form-input" id="cdMotivo" placeholder="Ej: producto dañado, control de calidad...">
+                        </div>
+                        <button type="button" id="btnRegistrarControlDiario" class="btn btn-danger" onclick="registrarControlDiario()">📉 Registrar Descarte</button>
+                    </div>
+                </div>
+
+                <div class="add-product-section">
+                    <div class="add-product-title">🕓 Consulta de Movimientos de Control Diario</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Desde</label>
+                            <input type="date" class="form-input" id="cdFiltroDesde" onchange="cargarMovimientosControlDiario()">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Hasta</label>
+                            <input type="date" class="form-input" id="cdFiltroHasta" onchange="cargarMovimientosControlDiario()">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0;">
+                            <label class="form-label">Buscar por código, descripción o usuario</label>
+                            <input type="text" class="form-input" id="cdFiltroTexto" placeholder="Buscar..." oninput="pintarMovimientosControlDiario()">
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="cargarMovimientosControlDiario()">🔄 Actualizar</button>
+                    </div>
+                </div>
+                <div class="products-table-container" style="overflow-x:auto;">
+                    <table class="products-table">
+                        <thead>
+                            <tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Registrado por</th></tr>
+                        </thead>
+                        <tbody id="cdMovimientosBody">
+                            <tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">Presiona "🔄 Actualizar" para ver los movimientos.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB: INGRESO / EGRESO RÁPIDO DE STOCK (reemplaza el llenado manual del Excel) -->
+            <div class="tab-content" id="tab-movstock">
+                <div class="new-form-section">
+                    <h3>📥 Ingreso de Stock (San Jacinto / La Bellota)</h3>
+                    <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
+                        Reemplaza el llenado manual del Excel: busca el producto, indica qué marca llegó y la cantidad.
+                        El sistema suma automáticamente en INGRESO CANT SJACINTO/BELLOTA, actualiza el SALDO,
+                        y registra la fecha de hoy en FECHA INGRESO — directamente en el Kardex, conservando sus fórmulas.
+                    </p>
+                    <div class="form-group" style="position:relative;">
+                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o descripción)</label>
+                        <input type="text" class="form-input" id="ingBuscarProducto" placeholder="Ej: 7015, o 'sábana...'..." autocomplete="off" oninput="buscarProductosIngreso(this.value)">
+                        <div class="cliente-db-dropdown" id="ingBuscarDropdown"></div>
+                    </div>
+                    <div id="ingProductoInfo" style="display:none;background:rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:white;font-size:0.88em;">
+                        <div id="ingProductoStockActual"></div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="min-width:180px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">🏷️ Marca que llegó</label>
+                            <select class="form-input" id="ingMarca">
+                                <option value="san_jacinto">San Jacinto</option>
+                                <option value="la_bellota">La Bellota</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="max-width:160px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📥 Cantidad que llegó</label>
+                            <input type="number" min="0.01" step="0.01" class="form-input" id="ingCantidad" placeholder="0">
+                        </div>
+                        <div class="form-group" style="max-width:180px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📅 Fecha de ingreso</label>
+                            <input type="date" class="form-input" id="ingFecha">
+                        </div>
+                        <button type="button" id="btnRegistrarIngreso" class="btn btn-success" onclick="registrarIngresoStock()">📥 Registrar Ingreso</button>
+                    </div>
+                </div>
+
+                <div class="new-form-section" style="margin-top:20px;">
+                    <h3>📤 Egreso del Día</h3>
+                    <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
+                        Registra la salida de stock del día. El sistema la suma en la columna del día correspondiente (1 al 31),
+                        actualiza TOTAL EGRESO y descuenta el SALDO — directamente en el Kardex, conservando sus fórmulas.
+                    </p>
+                    <div class="form-group" style="position:relative;">
+                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o descripción)</label>
+                        <input type="text" class="form-input" id="egrBuscarProducto" placeholder="Ej: 7015, o 'sábana...'..." autocomplete="off" oninput="buscarProductosEgreso(this.value)">
+                        <div class="cliente-db-dropdown" id="egrBuscarDropdown"></div>
+                    </div>
+                    <div id="egrProductoInfo" style="display:none;background:rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:white;font-size:0.88em;">
+                        <div id="egrProductoStockActual"></div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="max-width:160px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📤 Cantidad de salida</label>
+                            <input type="number" min="0.01" step="0.01" class="form-input" id="egrCantidad" placeholder="0">
+                        </div>
+                        <div class="form-group" style="max-width:180px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📅 Fecha de egreso</label>
+                            <input type="date" class="form-input" id="egrFecha">
+                        </div>
+                        <button type="button" id="btnRegistrarEgreso" class="btn btn-danger" onclick="registrarEgresoStock()">📤 Registrar Egreso</button>
+                    </div>
                 </div>
             </div>
 
@@ -3462,12 +3659,27 @@ async function iniciarSesion(event) {
     }
 }
 
+// Traduce el campo "categoria" del usuario (Back4App) a un nivel interno.
+// 'master'        -> acceso total (como hasta ahora).
+// 'control_diario' -> usuario creado SOLO para registrar/consultar el Control Diario;
+//                     solo ve las pestañas Control Diario y Kardex (ver aplicarPermisosPorNivel()).
+// cualquier otro valor -> 'estandar' (uso normal del cotizador, como hasta ahora).
+function traducirNivelUsuario(categoria) {
+    // Se normaliza (sin tildes, minúsculas, sin espacios/guiones) para que no dependa de
+    // que el campo "categoria" en Back4App esté escrito EXACTAMENTE igual
+    // (p.ej. "Control_Diario", "control diario" o "control-diario" también deben funcionar).
+    const valor = normalizarTexto(categoria || '').replace(/[\s_-]+/g, '');
+    if (valor === 'master') return 'master';
+    if (valor === 'controldiario') return 'control_diario';
+    return 'estandar';
+}
+
 function guardarSesion(data) {
     usuarioActual = {
         objectId: data.objectId,
         username: data.username,
         nombre: data.nombre || data.username,
-        nivel: data.categoria === 'master' ? 'master' : 'estandar',
+        nivel: traducirNivelUsuario(data.categoria),
         sessionToken: data.sessionToken
     };
     localStorage.setItem('sesionUsuario', JSON.stringify(usuarioActual));
@@ -3501,7 +3713,7 @@ async function verificarSesionGuardada() {
             objectId: data.objectId,
             username: data.username,
             nombre: data.nombre || data.username,
-            nivel: data.categoria === 'master' ? 'master' : 'estandar',
+            nivel: traducirNivelUsuario(data.categoria),
             sessionToken: sesion.sessionToken
         };
         localStorage.setItem('sesionUsuario', JSON.stringify(usuarioActual));
@@ -3567,9 +3779,6 @@ function mostrarApp() {
                 <div style="font-size: 0.8em; opacity: 0.8; margin-top: 5px;" id="itemsBreakdown"></div>
                 <div id="envioInfo" style="font-size: 0.85em; margin-top: 10px;"></div>
                 <div class="global-discount-row">
-                    <span>🏷️ Desc.:</span>
-                    <input type="number" class="global-discount-input" id="globalDiscount" min="0" max="100" step="0.5" placeholder="0" value="" oninput="renderTable()">
-                    <span>%</span>
                     <span style="margin-left:10px;">📄</span>
                     <select id="tipoDocumento" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:3px 7px;font-size:0.85em;font-weight:700;cursor:pointer;">
                         <option value="cotizacion">Cotización</option>
@@ -3878,6 +4087,268 @@ function mostrarApp() {
             columnaColor: 'DESCRIPCION: INV 01/6'
         };
 
+        // Contraseña para desbloquear la edición manual del Kardex desde el propio sistema
+        // (botón "🔒 Editar Kardex"). Cámbiala por la que quieras usar en tu equipo.
+        const KARDEX_EDIT_CONFIG = {
+            password: 'Fabexsa2026'
+        };
+
+        // Clase de Back4App donde se guarda cada movimiento del Control Diario (para el
+        // sistema de consulta), igual que CLASE_COTIZACIONES guarda el historial de cotizaciones.
+        const CLASE_CONTROL_DIARIO = 'ControlDiario';
+
+        // ============================================
+        // IDENTIFICACIÓN INTELIGENTE DE PRODUCTOS (columna ARTICULO + columna DESCRIPCION)
+        // ============================================
+        // Varias filas del Kardex no tienen código en la columna ARTICULO y solo se distinguen
+        // por su texto en la columna DESCRIPCION. Para poder referenciarlas de forma estable
+        // (Control Diario, Exportar Stock, edición manual, etc.) se genera una "clave" única:
+        //   - Si la fila SÍ tiene código en ARTICULO -> la clave ES ese código, tal cual.
+        //   - Si NO tiene código -> la clave es "DESC::" + el texto de DESCRIPCION normalizado
+        //     (sin tildes, en minúsculas, espacios colapsados), para que la fila se siga
+        //     reconociendo como LA MISMA aunque el Excel cambie mayúsculas/tildes entre meses.
+        function normalizarClaveDescripcion(descripcion) {
+            return 'DESC::' + normalizarTexto(descripcion).replace(/\s+/g, ' ').trim();
+        }
+
+        // Ubica, dentro de una lista de encabezados de una hoja, cuál es la columna ARTICULO
+        // (código) y cuál es la columna DESCRIPCION (nombre/detalle del producto).
+        function encontrarColumnasIdentificacion(encabezados) {
+            const colArticulo = encabezados.find(h => /^art[ií]culo$/i.test(h))
+                || encabezados.find(h => /art[ií]culo|c[oó]digo|sku/i.test(h));
+            const colDescripcion = encabezados.find(h => /^descripci[oó]n$/i.test(h))
+                || encabezados.find(h => /descripci[oó]n/i.test(h));
+            return { colArticulo, colDescripcion };
+        }
+
+        // Identifica una fila del Kardex (objeto plano, como lo entrega SheetJS) y devuelve
+        // { clave, codigo, descripcion, tieneCodigo }.
+        function identificarFilaKardex(fila, colArticulo, colDescripcion) {
+            const codigo = colArticulo ? String(fila[colArticulo] || '').trim() : '';
+            const descripcion = colDescripcion ? String(fila[colDescripcion] || '').trim() : '';
+            if (codigo) return { clave: codigo, codigo, descripcion, tieneCodigo: true };
+            return { clave: normalizarClaveDescripcion(descripcion || 'sin descripcion'), codigo: '', descripcion, tieneCodigo: false };
+        }
+
+        // Devuelve TODAS las filas de la hoja activa del Kardex ya identificadas con su clave
+        // y su stock, listas para usarse en Control Diario, Exportar Stock, etc.
+        function obtenerFilasKardexIdentificadas() {
+            const nombreHoja = resolverNombreHojaKardex(kardexNombresHojas);
+            const filas = kardexHojasData[nombreHoja];
+            if (!filas || filas.length === 0) return [];
+            const encabezados = Object.keys(filas[0]);
+            const { colArticulo, colDescripcion } = encontrarColumnasIdentificacion(encabezados);
+            const colStock = KARDEX_CONFIG.columnaStock || encabezados.find(h => /stock|saldo|cantidad|existenc/i.test(h));
+            return filas.map(fila => {
+                const id = identificarFilaKardex(fila, colArticulo, colDescripcion);
+                const stock = parseFloat(fila[colStock]);
+                return Object.assign({}, id, { stock: isNaN(stock) ? 0 : stock });
+            });
+        }
+
+        // Resuelve, dentro de un ExcelJS.Worksheet ya cargado, los índices de columna de
+        // ARTICULO, DESCRIPCION y STOCK (para las funciones que escriben en el Kardex).
+        function resolverColumnasHojaExcel(hoja) {
+            const encabezados = [];
+            hoja.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                encabezados[colNumber] = (cell.value ?? '').toString().trim();
+            });
+            const colArticulo = encabezados.findIndex(h => h && /^art[ií]culo$/i.test(h)) > -1
+                ? encabezados.findIndex(h => h && /^art[ií]culo$/i.test(h))
+                : encabezados.findIndex(h => h && /art[ií]culo|c[oó]digo|sku/i.test(h));
+            const colDescripcion = encabezados.findIndex(h => h && /^descripci[oó]n$/i.test(h)) > -1
+                ? encabezados.findIndex(h => h && /^descripci[oó]n$/i.test(h))
+                : encabezados.findIndex(h => h && /descripci[oó]n/i.test(h));
+            const colStock = encabezados.findIndex(h => h && /stock|saldo|cantidad|existenc/i.test(h));
+            return { colArticulo, colDescripcion, colStock, encabezados };
+        }
+
+        // Resuelve la "clave" (ARTICULO, o DESCRIPCION normalizada si no hay código) de una
+        // fila de un ExcelJS.Worksheet ya cargado.
+        function claveDeFilaExcel(fila, colArticulo, colDescripcion) {
+            const valorCodigo = colArticulo > -1 ? String(fila.getCell(colArticulo).value || '').trim() : '';
+            const valorDesc = colDescripcion > -1 ? String(fila.getCell(colDescripcion).value || '').trim() : '';
+            return valorCodigo ? valorCodigo : normalizarClaveDescripcion(valorDesc || '');
+        }
+
+        // ============================================
+        // ESCRITURA "AL ESTILO MANUAL" DEL KARDEX (Ingreso/Egreso rápido de stock)
+        // ============================================
+        // En el Kardex real, cuando llega o sale stock, NO se reemplaza el número: se le agrega
+        // un término a la fórmula de la celda (ej. la celda pasa de "=120+50" a "=120+50+30").
+        // Esta función replica EXACTAMENTE esa práctica: toma lo que ya haya en la celda (fórmula
+        // o número suelto) y le agrega "+cantidad" (o "-cantidad" si es negativo), dejando la
+        // celda como una fórmula viva con su resultado ya actualizado.
+        function agregarTerminoAFormula(celda, delta) {
+            const signo = delta >= 0 ? '+' : '-';
+            const magnitud = Math.abs(delta);
+            let formulaBase;
+            let resultadoAnterior;
+            if (celda.type === ExcelJS.ValueType.Formula) {
+                formulaBase = celda.formula || '0';
+                resultadoAnterior = parseFloat(celda.result) || 0;
+            } else {
+                const valorPlano = parseFloat(celda.value);
+                formulaBase = isNaN(valorPlano) ? '0' : String(valorPlano);
+                resultadoAnterior = isNaN(valorPlano) ? 0 : valorPlano;
+            }
+            const nuevoResultado = resultadoAnterior + delta;
+            celda.value = { formula: `${formulaBase}${signo}${magnitud}`, result: nuevoResultado };
+            return nuevoResultado;
+        }
+
+        // Para columnas "agregadas" (SALDO, TOTAL EGRESO): NO se toca el texto de la fórmula
+        // (puede ser un SUM/resta que referencia otras celdas), solo se refresca su resultado
+        // cacheado para que el sistema muestre el número correcto de inmediato. Si la celda no
+        // tiene fórmula (es un valor suelto), simplemente se le suma/resta el delta.
+        function actualizarResultadoCacheado(celda, delta) {
+            if (celda.type === ExcelJS.ValueType.Formula) {
+                const nuevoResultado = (parseFloat(celda.result) || 0) + delta;
+                celda.value = { formula: celda.formula, result: nuevoResultado }; // misma fórmula, solo se refresca el resultado
+                return nuevoResultado;
+            }
+            const nuevoValor = (parseFloat(celda.value) || 0) + delta;
+            celda.value = nuevoValor;
+            return nuevoValor;
+        }
+
+        // Config editable por si el auto-detectado de columnas no coincide exactamente con los
+        // encabezados reales del Excel: escribe aquí el nombre EXACTO tal como aparece en el
+        // Kardex y se usará ese en vez de la detección automática (mismo criterio que KARDEX_CONFIG).
+        const KARDEX_MOVIMIENTO_CONFIG = {
+            columnaIngresoSanJacinto: null, // ej: 'INGRESO CANT SJACINTO'
+            columnaIngresoBellota: null,    // ej: 'INGRESO CANT BELLOTA'
+            columnaFechaIngreso: null,      // ej: 'FECHA INGRESO'
+            columnaTotalEgreso: null        // ej: 'TOTAL EGRESO'
+        };
+
+        // Ubica, dentro de un ExcelJS.Worksheet, las columnas usadas por Ingreso/Egreso rápido:
+        // INGRESO CANT SJACINTO, INGRESO CANT BELLOTA, FECHA INGRESO, TOTAL EGRESO, y las 31
+        // columnas de día (1 al 31) usadas para el egreso diario.
+        function resolverColumnasMovimientoExcel(hoja) {
+            const base = resolverColumnasHojaExcel(hoja);
+            const encabezados = base.encabezados;
+
+            const colIngresoSanJacinto = KARDEX_MOVIMIENTO_CONFIG.columnaIngresoSanJacinto
+                ? encabezados.findIndex(h => h === KARDEX_MOVIMIENTO_CONFIG.columnaIngresoSanJacinto)
+                : encabezados.findIndex(h => h && /ingreso/i.test(h) && /san\s*jacinto|s\.?\s*jacinto|sjacinto/i.test(h));
+
+            const colIngresoBellota = KARDEX_MOVIMIENTO_CONFIG.columnaIngresoBellota
+                ? encabezados.findIndex(h => h === KARDEX_MOVIMIENTO_CONFIG.columnaIngresoBellota)
+                : encabezados.findIndex(h => h && /ingreso/i.test(h) && /bellota/i.test(h));
+
+            const colFechaIngreso = KARDEX_MOVIMIENTO_CONFIG.columnaFechaIngreso
+                ? encabezados.findIndex(h => h === KARDEX_MOVIMIENTO_CONFIG.columnaFechaIngreso)
+                : encabezados.findIndex(h => h && /fecha/i.test(h) && /ingreso/i.test(h));
+
+            const colTotalEgreso = KARDEX_MOVIMIENTO_CONFIG.columnaTotalEgreso
+                ? encabezados.findIndex(h => h === KARDEX_MOVIMIENTO_CONFIG.columnaTotalEgreso)
+                : encabezados.findIndex(h => h && /total/i.test(h) && /egreso/i.test(h));
+
+            // Columnas de día (1 al 31): se leen los valores CRUDOS de la fila de encabezados
+            // (no el texto ya convertido) porque en algunos Kardex esa columna es un número o
+            // texto simple ("1".."31"), y en otros es una FECHA real de Excel (ej. 22/06/2026)
+            // con formato de celda para mostrar solo el día. Se soportan ambos casos.
+            const colesDias = {};
+            hoja.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                const valorCrudo = cell.value;
+                let dia = null;
+                if (valorCrudo instanceof Date) {
+                    dia = valorCrudo.getDate();
+                } else if (typeof valorCrudo === 'number' && valorCrudo >= 1 && valorCrudo <= 31) {
+                    dia = valorCrudo;
+                } else if (valorCrudo !== null && valorCrudo !== undefined) {
+                    const texto = String(valorCrudo).trim();
+                    if (/^\d{1,2}$/.test(texto)) {
+                        dia = parseInt(texto, 10);
+                    } else {
+                        const m = texto.match(/(?:d[ií]a)\s*0*(\d{1,2})\b/i);
+                        if (m) dia = parseInt(m[1], 10);
+                    }
+                }
+                if (dia !== null && dia >= 1 && dia <= 31) colesDias[dia] = colNumber;
+            });
+
+            return Object.assign({}, base, { colIngresoSanJacinto, colIngresoBellota, colFechaIngreso, colTotalEgreso, colesDias });
+        }
+
+        // Formatea una fecha (yyyy-mm-dd, la que entrega un <input type="date">) como texto
+        // dd/mm/aaaa, igual a como se llena a mano la columna FECHA INGRESO del Kardex.
+        function formatearFechaDDMMAAAA(fechaISO) {
+            const [anio, mes, dia] = fechaISO.split('-');
+            return `${dia}/${mes}/${anio}`;
+        }
+
+        // ██  INGRESO DE STOCK (San Jacinto / La Bellota) — reemplaza el llenado manual  ██
+        async function registrarIngresoStockKardex({ clave, marca, cantidad, fechaISO }) {
+            const accessToken = await obtenerAccessTokenDropbox();
+
+            for (let intento = 1; intento <= 5; intento++) {
+                const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
+                const nombresHojas = workbook.worksheets.map(ws => ws.name);
+                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const hoja = workbook.getWorksheet(nombreHoja);
+                if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
+
+                const cols = resolverColumnasMovimientoExcel(hoja);
+                const colIngreso = marca === 'san_jacinto' ? cols.colIngresoSanJacinto : cols.colIngresoBellota;
+                const etiquetaMarca = marca === 'san_jacinto' ? 'San Jacinto' : 'La Bellota';
+                if (colIngreso < 0) throw new Error(`No se detectó la columna de ingreso de ${etiquetaMarca} en el Kardex (revisa KARDEX_MOVIMIENTO_CONFIG)`);
+                if (cols.colStock < 1) throw new Error('No se detectó la columna SALDO del Kardex');
+
+                let filaElegida = null;
+                for (let f = 2; f <= hoja.rowCount; f++) {
+                    const fila = hoja.getRow(f);
+                    if (claveDeFilaExcel(fila, cols.colArticulo, cols.colDescripcion) === clave) { filaElegida = fila; break; }
+                }
+                if (!filaElegida) throw new Error('No se encontró el producto en el Kardex');
+
+                agregarTerminoAFormula(filaElegida.getCell(colIngreso), cantidad);        // INGRESO CANT SJACINTO/BELLOTA: +cantidad
+                actualizarResultadoCacheado(filaElegida.getCell(cols.colStock), cantidad); // SALDO: se refresca (+cantidad)
+                if (cols.colFechaIngreso > -1) {
+                    filaElegida.getCell(cols.colFechaIngreso).value = formatearFechaDDMMAAAA(fechaISO); // FECHA INGRESO
+                }
+
+                const exito = await subirKardexConCandado(accessToken, workbook, rev);
+                if (exito) return;
+            }
+            throw new Error('No se pudo actualizar el Kardex después de varios intentos (mucha actividad simultánea)');
+        }
+
+        // ██  EGRESO DEL DÍA (columnas 1 al 31 + TOTAL EGRESO) — reemplaza el llenado manual  ██
+        async function registrarEgresoStockKardex({ clave, cantidad, fechaISO }) {
+            const accessToken = await obtenerAccessTokenDropbox();
+            const dia = parseInt(fechaISO.split('-')[2], 10);
+
+            for (let intento = 1; intento <= 5; intento++) {
+                const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
+                const nombresHojas = workbook.worksheets.map(ws => ws.name);
+                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const hoja = workbook.getWorksheet(nombreHoja);
+                if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
+
+                const cols = resolverColumnasMovimientoExcel(hoja);
+                const colDia = cols.colesDias[dia];
+                if (colDia === undefined) throw new Error(`No se detectó en el Kardex la columna del día ${dia}`);
+                if (cols.colStock < 1) throw new Error('No se detectó la columna SALDO del Kardex');
+
+                let filaElegida = null;
+                for (let f = 2; f <= hoja.rowCount; f++) {
+                    const fila = hoja.getRow(f);
+                    if (claveDeFilaExcel(fila, cols.colArticulo, cols.colDescripcion) === clave) { filaElegida = fila; break; }
+                }
+                if (!filaElegida) throw new Error('No se encontró el producto en el Kardex');
+
+                agregarTerminoAFormula(filaElegida.getCell(colDia), cantidad); // columna del día: +cantidad
+                if (cols.colTotalEgreso > -1) actualizarResultadoCacheado(filaElegida.getCell(cols.colTotalEgreso), cantidad); // TOTAL EGRESO: se refresca
+                actualizarResultadoCacheado(filaElegida.getCell(cols.colStock), -cantidad); // SALDO: se refresca (-cantidad)
+
+                const exito = await subirKardexConCandado(accessToken, workbook, rev);
+                if (exito) return;
+            }
+            throw new Error('No se pudo actualizar el Kardex después de varios intentos (mucha actividad simultánea)');
+        }
+
         // Resuelve el nombre real de la hoja a usar, soportando 'ULTIMA' (dinámico), un índice fijo,
         // o un nombre de hoja puntual — a partir de una lista de nombres de hoja ya conocida.
         function resolverNombreHojaKardex(listaNombresHojas) {
@@ -4149,6 +4620,9 @@ function mostrarApp() {
 
         // Descarga el Excel del Kardex directo desde Dropbox (con permisos de escritura) y
         // devuelve el workbook ya parseado junto con el "rev" (versión) que tenía en ese momento.
+        // Se usa ExcelJS (no SheetJS) porque ExcelJS conserva colores, bordes, anchos de columna
+        // y demás formato del archivo original al modificar solo algunas celdas y volver a guardar;
+        // SheetJS (usado en el resto del cotizador para SOLO LEER) descarta ese formato al reescribir.
         async function descargarKardexParaEscritura(accessToken) {
             const ruta = await obtenerRutaArchivoKardex(accessToken);
             const resp = await fetch('https://content.dropboxapi.com/2/files/download', {
@@ -4162,15 +4636,76 @@ function mostrarApp() {
             const metaHeader = resp.headers.get('dropbox-api-result');
             const meta = metaHeader ? JSON.parse(metaHeader) : {};
             const buffer = await resp.arrayBuffer();
-            const workbook = XLSX.read(buffer, { type: 'array' });
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(buffer);
             return { workbook, rev: meta.rev };
+        }
+
+        // ExcelJS a veces no logra volver a guardar un Excel que tiene "fórmulas compartidas"
+        // (una fórmula que se clona hacia abajo/derecha desde una celda "maestra") y lanza
+        // "Shared Formula master must exist above and or left of clone". Esto es un bug conocido
+        // de ExcelJS al re-serializar ese tipo de fórmulas, y puede pasar SIN IMPORTAR qué celda
+        // hayamos modificado. La solución NO es borrar las fórmulas (como se hacía antes): es
+        // "desconectarlas" de ese mecanismo compartido, dejando en cada celda la MISMA fórmula
+        // efectiva (ExcelJS la resuelve automáticamente) pero ya no declarada como "compartida".
+        // Así Excel la sigue viendo y recalculando como una fórmula normal — no se pierde nada.
+        function desconectarFormulasCompartidas(workbook) {
+            workbook.eachSheet(hoja => {
+                hoja.eachRow({ includeEmpty: false }, fila => {
+                    fila.eachCell({ includeEmpty: false }, celda => {
+                        if (celda.type === ExcelJS.ValueType.Formula) {
+                            try {
+                                const formulaTexto = celda.formula; // ExcelJS resuelve el texto real aunque sea una fórmula compartida
+                                if (formulaTexto) {
+                                    celda.value = { formula: formulaTexto, result: celda.result };
+                                }
+                            } catch (errorCelda) {
+                                // Caso extremo: ni siquiera se puede leer la fórmula de esta celda puntual.
+                                // Solo aquí, como último recurso, se deja el valor calculado (deja de ser fórmula).
+                                console.warn('No se pudo preservar la fórmula de una celda, se deja su valor calculado:', errorCelda.message);
+                                celda.value = (celda.result !== undefined && celda.result !== null) ? celda.result : '';
+                            }
+                        }
+                    });
+                });
+            });
+        }
+
+        // Último recurso ABSOLUTO (solo si ni siquiera "desconectarFormulasCompartidas" permite
+        // guardar): convierte todas las fórmulas del libro a su valor ya calculado. Se avisa
+        // siempre visiblemente al usuario si esto llega a ocurrir, porque significa que el Excel
+        // deja de tener fórmulas vivas en esas celdas.
+        function aplanarFormulasWorkbook(workbook) {
+            workbook.eachSheet(hoja => {
+                hoja.eachRow({ includeEmpty: false }, fila => {
+                    fila.eachCell({ includeEmpty: false }, celda => {
+                        if (celda.type === ExcelJS.ValueType.Formula) {
+                            celda.value = (celda.result !== undefined && celda.result !== null) ? celda.result : '';
+                        }
+                    });
+                });
+            });
         }
 
         // Sube el Excel modificado a Dropbox, pero SOLO si nadie más lo modificó mientras tanto
         // (usa el "rev" de la descarga como candado). Si alguien más escribió primero, Dropbox
         // rechaza la subida (409) y hay que reintentar con datos frescos.
         async function subirKardexConCandado(accessToken, workbook, revEsperada) {
-            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            let wbout;
+            try {
+                wbout = await workbook.xlsx.writeBuffer(); // conserva todo el formato y TODAS las fórmulas intactas
+            } catch (errorAlEscribir) {
+                console.warn('No se pudo guardar el Excel con sus fórmulas tal cual, se reintenta desconectando fórmulas compartidas (sin perderlas):', errorAlEscribir.message);
+                try {
+                    desconectarFormulasCompartidas(workbook);
+                    wbout = await workbook.xlsx.writeBuffer();
+                } catch (segundoError) {
+                    console.error('Tampoco se pudo guardar desconectando fórmulas compartidas; se aplanan a su valor calculado como último recurso:', segundoError.message);
+                    aplanarFormulasWorkbook(workbook);
+                    wbout = await workbook.xlsx.writeBuffer();
+                    mostrarNotificacion('⚠️ Atención: para poder guardar, algunas fórmulas del Kardex se convirtieron a su valor fijo. Revisa el archivo en Dropbox.', 'warning');
+                }
+            }
             const ruta = await obtenerRutaArchivoKardex(accessToken);
             const resp = await fetch('https://content.dropboxapi.com/2/files/upload', {
                 method: 'POST',
@@ -4190,44 +4725,242 @@ function mostrarApp() {
             return true;
         }
 
-        // Descuenta del Kardex las cantidades de una Orden de Compra. Reintenta hasta 5 veces si
-        // detecta que alguien más modificó el archivo justo en el mismo momento (evita pisar cambios).
-        async function descontarStockKardexDropbox(items) {
+        // Ajusta el Kardex según una lista de diferencias (una Orden de Compra nueva o editada).
+        // Cada item = { codigo, color, cantidad }. cantidad POSITIVA = se descuenta del stock
+        // (venta/aumento); cantidad NEGATIVA = se devuelve al stock (producto quitado o reducido
+        // en una edición). Modifica ÚNICAMENTE el valor numérico de la celda de stock de cada
+        // producto (no reconstruye la hoja), así se conserva el diseño original (colores, orden de
+        // columnas, anchos, etc.). Matchea por código+color cuando el Kardex tiene varias filas
+        // (variantes) para un mismo código, para no tocar el stock del color equivocado. Reintenta
+        // hasta 5 veces si detecta que alguien más modificó el archivo justo en el mismo momento.
+        async function ajustarStockKardexDropbox(items) {
             if (!items.length) return;
             const accessToken = await obtenerAccessTokenDropbox();
 
             for (let intento = 1; intento <= 5; intento++) {
                 const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
-                const nombreHoja = resolverNombreHojaKardex(workbook.SheetNames);
-                const hoja = workbook.Sheets[nombreHoja];
+                const nombresHojas = workbook.worksheets.map(ws => ws.name);
+                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const hoja = workbook.getWorksheet(nombreHoja);
                 if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
 
-                const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
-                const columnas = filas.length ? Object.keys(filas[0]) : [];
-                const colCodigo = KARDEX_CONFIG.columnaCodigo || columnas.find(c => /c[oó]digo|articulo|sku/i.test(c));
-                const colStock = KARDEX_CONFIG.columnaStock || columnas.find(c => /stock|saldo|cantidad|existenc/i.test(c));
-                if (!colCodigo || !colStock) throw new Error('No se detectaron las columnas de código/stock del Kardex');
+                // Encabezados de la fila 1, para ubicar las columnas de código, stock y color por su
+                // texto (sin tocar ninguna celda todavía).
+                const encabezados = [];
+                hoja.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    encabezados[colNumber] = (cell.value ?? '').toString().trim();
+                });
+                const encontrarColumna = (nombreExacto, regex) => {
+                    if (nombreExacto) {
+                        const idx = encabezados.findIndex(h => h === nombreExacto);
+                        if (idx > -1) return idx;
+                    }
+                    return encabezados.findIndex(h => h && regex.test(h));
+                };
+                const colCodigo = encontrarColumna(KARDEX_CONFIG.columnaCodigo, /c[oó]digo|articulo|sku/i);
+                const colStock = encontrarColumna(KARDEX_CONFIG.columnaStock, /stock|saldo|cantidad|existenc/i);
+                if (colCodigo < 1 || colStock < 1) throw new Error('No se detectaron las columnas de código/stock del Kardex');
+
+                // Columna de color: mismo criterio (exacto, tolerante a mayúsculas/acentos/espacios)
+                // que usa construirStockDesdeHojas() para mostrar el stock por color en el cotizador.
+                const colColorNormalizado = normalizarTexto(KARDEX_CONFIG.columnaColor || '').replace(/\s+/g, ' ').trim();
+                const colColor = colColorNormalizado
+                    ? encabezados.findIndex(h => h && normalizarTexto(h).replace(/\s+/g, ' ').trim() === colColorNormalizado)
+                    : -1;
+
+                // Un mismo código puede repetirse en varias filas (una por color). Se arma un índice
+                // código -> [ {fila, color} ] para no recorrer toda la hoja por cada producto y para
+                // poder matchear por código+color cuando corresponda.
+                const filasPorCodigo = {};
+                for (let f = 2; f <= hoja.rowCount; f++) {
+                    const fila = hoja.getRow(f);
+                    const valorCodigo = fila.getCell(colCodigo).value;
+                    if (valorCodigo === null || valorCodigo === undefined || valorCodigo === '') continue;
+                    const codigo = String(valorCodigo).trim();
+                    const color = colColor > -1 ? String(fila.getCell(colColor).value || '').trim() : '';
+                    if (!filasPorCodigo[codigo]) filasPorCodigo[codigo] = [];
+                    filasPorCodigo[codigo].push({ fila, color });
+                }
 
                 let huboCambios = false;
+                const noEncontrados = [];
                 items.forEach(item => {
-                    const fila = filas.find(f => String(f[colCodigo]).trim() === String(item.codigo).trim());
-                    if (fila) {
-                        const stockActual = parseFloat(fila[colStock]) || 0;
-                        fila[colStock] = Math.max(0, stockActual - item.cantidad);
+                    const candidatas = filasPorCodigo[String(item.codigo).trim()];
+                    if (!candidatas || candidatas.length === 0) { noEncontrados.push(item.codigo); return; }
+
+                    let filaElegida = null;
+                    const colorItem = String(item.color || '').trim();
+
+                    if (candidatas.length === 1) {
+                        // Solo hay una fila para este código en el Kardex: no hay ambigüedad de color.
+                        filaElegida = candidatas[0].fila;
+                    } else if (colColor > -1 && colorItem) {
+                        // Varias filas (varios colores) para el mismo código: hay que acertar la fila
+                        // correcta, si no se le descontaría el stock al color equivocado.
+                        const match = candidatas.find(c => c.color.toLowerCase() === colorItem.toLowerCase());
+                        filaElegida = match ? match.fila : null;
+                        if (!filaElegida) {
+                            console.warn(`⚠️ Kardex: el código ${item.codigo} tiene color "${colorItem}" en la cotización, pero ese color no aparece entre sus filas del Kardex (${candidatas.map(c => c.color).join(', ')}). No se descontó ese ítem.`);
+                            noEncontrados.push(`${item.codigo} (color "${colorItem}")`);
+                        }
+                    } else {
+                        // Varias filas para el mismo código pero no se puede distinguir (el producto no
+                        // trae color en la cotización, o el Kardex no tiene columna de color): mejor no
+                        // adivinar y avisar, en vez de descontarle a una fila al azar.
+                        console.warn(`⚠️ Kardex: el código ${item.codigo} tiene ${candidatas.length} filas (colores) y no se pudo determinar cuál descontar. No se descontó ese ítem.`);
+                        noEncontrados.push(`${item.codigo} (color ambiguo)`);
+                    }
+
+                    if (filaElegida) {
+                        const celdaStock = filaElegida.getCell(colStock);
+                        const stockActual = celdaStock.type === ExcelJS.ValueType.Formula
+                            ? (parseFloat(celdaStock.result) || 0)
+                            : (parseFloat(celdaStock.value) || 0);
+                        const nuevoStock = Math.max(0, stockActual - item.cantidad);
+                        if (celdaStock.type === ExcelJS.ValueType.Formula) {
+                            celdaStock.value = { formula: celdaStock.formula, result: nuevoStock }; // misma fórmula, solo se refresca el resultado
+                        } else {
+                            celdaStock.value = nuevoStock;
+                        }
                         huboCambios = true;
                     }
                 });
 
-                if (!huboCambios) return; // ningún producto de la orden existe en el Kardex, nada que tocar
+                if (noEncontrados.length > 0) {
+                    mostrarNotificacion(`⚠️ No se pudo ajustar en el Kardex: ${noEncontrados.join(', ')}`, 'warning');
+                }
 
-                const nuevaHoja = XLSX.utils.json_to_sheet(filas, { header: columnas });
-                workbook.Sheets[nombreHoja] = nuevaHoja;
+                if (!huboCambios) return; // ningún producto de la orden pudo descontarse, nada que subir
 
                 const exito = await subirKardexConCandado(accessToken, workbook, rev);
                 if (exito) return; // listo
                 // si no tuvo éxito, se repite el ciclo: se vuelve a descargar la versión más reciente
             }
             throw new Error('No se pudo actualizar el Kardex después de varios intentos (mucha actividad simultánea)');
+        }
+
+        // ██  DROPBOX — Descuento directo de stock por CLAVE (Control Diario)  ██
+        // ██████████████████████████████████████████████████████████████████████████
+        // Igual que ajustarStockKardexDropbox(), pero matchea por la CLAVE de identificación
+        // (código ARTICULO, o texto de DESCRIPCION normalizado cuando no hay código) en vez de
+        // por código+color. Se usa desde el Control Diario, que puede descartar productos que
+        // en el Kardex no tienen código y solo se distinguen por su descripción.
+        // items = [{ clave, codigo, descripcion, cantidad }], cantidad SIEMPRE se descuenta del stock.
+        async function ajustarStockKardexPorClave(items) {
+            if (!items.length) return;
+            const accessToken = await obtenerAccessTokenDropbox();
+
+            for (let intento = 1; intento <= 5; intento++) {
+                const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
+                const nombresHojas = workbook.worksheets.map(ws => ws.name);
+                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const hoja = workbook.getWorksheet(nombreHoja);
+                if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
+
+                const { colArticulo, colDescripcion, colStock } = resolverColumnasHojaExcel(hoja);
+                if (colStock < 1) throw new Error('No se detectó la columna de stock del Kardex');
+
+                let huboCambios = false;
+                const noEncontrados = [];
+                items.forEach(item => {
+                    let filaElegida = null;
+                    for (let f = 2; f <= hoja.rowCount; f++) {
+                        const fila = hoja.getRow(f);
+                        if (claveDeFilaExcel(fila, colArticulo, colDescripcion) === item.clave) { filaElegida = fila; break; }
+                    }
+                    if (!filaElegida) { noEncontrados.push(item.descripcion || item.codigo || item.clave); return; }
+                    const celdaStock = filaElegida.getCell(colStock);
+                    const stockActual = celdaStock.type === ExcelJS.ValueType.Formula
+                        ? (parseFloat(celdaStock.result) || 0)
+                        : (parseFloat(celdaStock.value) || 0);
+                    const nuevoStock = Math.max(0, stockActual - item.cantidad);
+                    if (celdaStock.type === ExcelJS.ValueType.Formula) {
+                        celdaStock.value = { formula: celdaStock.formula, result: nuevoStock }; // misma fórmula, solo se refresca el resultado
+                    } else {
+                        celdaStock.value = nuevoStock;
+                    }
+                    huboCambios = true;
+                });
+
+                if (noEncontrados.length > 0) {
+                    mostrarNotificacion(`⚠️ No se encontró en el Kardex: ${noEncontrados.join(', ')}`, 'warning');
+                }
+                if (!huboCambios) return;
+
+                const exito = await subirKardexConCandado(accessToken, workbook, rev);
+                if (exito) return;
+            }
+            throw new Error('No se pudo actualizar el Kardex después de varios intentos (mucha actividad simultánea)');
+        }
+
+        // ██  DROPBOX — Edición manual del Kardex (valores absolutos, protegida por contraseña)  ██
+        // ██████████████████████████████████████████████████████████████████████████
+        // cambiosPorClave = { clave: nuevoValorDeStock, ... }. A diferencia de las dos funciones
+        // de arriba (que RESTAN una cantidad), esta REEMPLAZA el valor de stock tal cual lo dejó
+        // la persona en el modo de edición del Kardex (botón "🔒 Editar Kardex").
+        async function aplicarValoresAbsolutosKardex(cambiosPorClave) {
+            const claves = Object.keys(cambiosPorClave);
+            if (claves.length === 0) return;
+            const accessToken = await obtenerAccessTokenDropbox();
+
+            for (let intento = 1; intento <= 5; intento++) {
+                const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
+                const nombresHojas = workbook.worksheets.map(ws => ws.name);
+                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const hoja = workbook.getWorksheet(nombreHoja);
+                if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
+
+                const { colArticulo, colDescripcion, colStock } = resolverColumnasHojaExcel(hoja);
+                if (colStock < 1) throw new Error('No se detectó la columna de stock del Kardex');
+
+                let huboCambios = false;
+                for (let f = 2; f <= hoja.rowCount; f++) {
+                    const fila = hoja.getRow(f);
+                    const clave = claveDeFilaExcel(fila, colArticulo, colDescripcion);
+                    if (Object.prototype.hasOwnProperty.call(cambiosPorClave, clave)) {
+                        fila.getCell(colStock).value = cambiosPorClave[clave];
+                        huboCambios = true;
+                    }
+                }
+                if (!huboCambios) return;
+
+                const exito = await subirKardexConCandado(accessToken, workbook, rev);
+                if (exito) return;
+            }
+            throw new Error('No se pudo actualizar el Kardex después de varios intentos (mucha actividad simultánea)');
+        }
+
+        // Compara lo que ya se había descontado del Kardex la última vez (anteriores) contra lo que
+        // hay AHORA en la tabla (actuales), y devuelve solo las diferencias por código+color:
+        //   - producto nuevo o cantidad aumentada  -> diferencia positiva (hay que descontar más)
+        //   - cantidad reducida o producto quitado -> diferencia negativa (hay que devolver stock)
+        //   - sin cambios -> no aparece en el resultado
+        // Así, al editar una Orden de Compra ya guardada, solo se toca el Kardex por lo que
+        // realmente cambió — no se vuelve a descontar lo que ya estaba.
+        function calcularDiferenciaProductos(anteriores, actuales) {
+            const clave = p => `${String(p.codigo).trim()}||${String(p.color || '').trim().toLowerCase()}`;
+
+            const sumarPorClave = (lista) => {
+                const mapa = {};
+                (lista || []).forEach(p => {
+                    const k = clave(p);
+                    mapa[k] = (mapa[k] || 0) + (parseFloat(p.cantidad) || 0);
+                });
+                return mapa;
+            };
+
+            const mapaAnt = sumarPorClave(anteriores);
+            const mapaAct = sumarPorClave(actuales);
+            const todasLasClaves = new Set([...Object.keys(mapaAnt), ...Object.keys(mapaAct)]);
+
+            const deltas = [];
+            todasLasClaves.forEach(k => {
+                const diferencia = (mapaAct[k] || 0) - (mapaAnt[k] || 0);
+                if (diferencia === 0) return;
+                const origen = (actuales || []).find(p => clave(p) === k) || (anteriores || []).find(p => clave(p) === k);
+                deltas.push({ codigo: origen.codigo, color: origen.color || '', cantidad: diferencia });
+            });
+            return deltas;
         }
 
         async function cargarKardex(mostrarAviso = true) {
@@ -4399,6 +5132,12 @@ function mostrarApp() {
         }
 
         // Renderiza la tabla completa (todas las columnas) de la hoja seleccionada
+        // Escapa comillas dobles para poder meter texto libre (código o descripción) dentro
+        // de un atributo HTML (data-clave="...") sin romper el marcado.
+        function escaparAtributo(texto) {
+            return String(texto || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        }
+
         function renderKardexTabCompleta() {
             const thead = document.getElementById('kardexTableHead');
             const tbody = document.getElementById('kardexListBody');
@@ -4412,6 +5151,7 @@ function mostrarApp() {
                 thead.innerHTML = '';
                 document.getElementById('kardexCount').textContent = 0;
                 tbody.innerHTML = `<tr><td style="text-align:center;color:#a0aec0;padding:20px;">${kardexNombresHojas.length === 0 ? 'Sin datos aún. Presiona "Actualizar desde Dropbox".' : 'Esta hoja no tiene filas de datos.'}</td></tr>`;
+                renderIdentificacionSinCodigo();
                 return;
             }
 
@@ -4428,12 +5168,521 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
 
             if (filtradas.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="${columnas.length}" style="text-align:center;color:#a0aec0;padding:20px;">Sin resultados para tu búsqueda.</td></tr>`;
+                renderIdentificacionSinCodigo();
                 return;
             }
 
-            tbody.innerHTML = filtradas.map(fila => `
-                <tr>${columnas.map(c => `<td>${fila[c] === '' ? '' : fila[c]}</td>`).join('')}</tr>
+            // Modo edición (desbloqueado con contraseña, ver abrirModalEditarKardex): la columna
+            // de stock se pinta como un input editable en vez de texto plano.
+            const { colArticulo, colDescripcion } = encontrarColumnasIdentificacion(columnas);
+            const colStockNombre = KARDEX_CONFIG.columnaStock || columnas.find(h => /stock|saldo|cantidad|existenc/i.test(h));
+
+            tbody.innerHTML = filtradas.map(fila => {
+                const id = identificarFilaKardex(fila, colArticulo, colDescripcion);
+                return `<tr>${columnas.map(c => {
+                    if (kardexEdicionActiva && c === colStockNombre) {
+                        const valorActual = Object.prototype.hasOwnProperty.call(kardexCambiosPendientes, id.clave)
+                            ? kardexCambiosPendientes[id.clave]
+                            : (fila[c] === '' ? 0 : fila[c]);
+                        return `<td><input type="number" step="0.01" class="kardex-edit-input" data-clave="${escaparAtributo(id.clave)}" value="${valorActual}" style="width:90px;padding:4px 6px;border:1.5px solid #805ad5;border-radius:6px;" onchange="marcarCambioKardex(this)"></td>`;
+                    }
+                    return `<td>${fila[c] === '' ? '' : fila[c]}</td>`;
+                }).join('')}</tr>`;
+            }).join('');
+
+            renderIdentificacionSinCodigo();
+        }
+
+        // ============================================
+        // PANEL: IDENTIFICACIÓN DE PRODUCTOS SIN CÓDIGO (dentro de la pestaña Kardex)
+        // ============================================
+        function toggleIdentificacionPanel() {
+            const body = document.getElementById('identificacionPanelBody');
+            const icon = document.getElementById('identificacionToggleIcon');
+            if (!body || !icon) return;
+            const abrir = body.style.display === 'none';
+            body.style.display = abrir ? 'block' : 'none';
+            icon.textContent = abrir ? '▲' : '▼';
+            if (abrir) renderIdentificacionSinCodigo();
+        }
+
+        function renderIdentificacionSinCodigo() {
+            const tbody = document.getElementById('identificacionBody');
+            const countEl = document.getElementById('kardexSinCodigoCount');
+            if (!tbody || !countEl) return;
+            const sinCodigo = obtenerFilasKardexIdentificadas().filter(f => !f.tieneCodigo);
+            countEl.textContent = sinCodigo.length;
+            if (sinCodigo.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#a0aec0;padding:12px;">Todas las filas de esta hoja tienen código en ARTICULO.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = sinCodigo.map(f => `
+                <tr><td>${f.descripcion || '(sin descripción)'}</td><td>${f.stock}</td><td style="font-family:monospace;font-size:0.78em;color:#718096;">${f.clave}</td></tr>
             `).join('');
+        }
+
+        // ============================================
+        // EDICIÓN MANUAL DEL KARDEX (protegida por contraseña)
+        // ============================================
+        let kardexEdicionActiva = false;
+        let kardexCambiosPendientes = {}; // { clave: nuevoValorDeStock, ... }
+
+        function abrirModalEditarKardex() {
+            const input = document.getElementById('kardexPasswordInput');
+            if (input) input.value = '';
+            document.getElementById('kardexPasswordModal').classList.add('active');
+        }
+
+        function cerrarModalEditarKardex() {
+            document.getElementById('kardexPasswordModal').classList.remove('active');
+        }
+
+        function confirmarPasswordEditarKardex() {
+            const pass = document.getElementById('kardexPasswordInput').value;
+            if (pass !== KARDEX_EDIT_CONFIG.password) {
+                mostrarNotificacion('❌ Contraseña incorrecta', 'warning');
+                return;
+            }
+            cerrarModalEditarKardex();
+            kardexEdicionActiva = true;
+            kardexCambiosPendientes = {};
+            document.getElementById('btnEditarKardex').style.display = 'none';
+            document.getElementById('btnGuardarEdicionKardex').style.display = 'inline-block';
+            document.getElementById('btnCancelarEdicionKardex').style.display = 'inline-block';
+            document.getElementById('kardexEdicionAviso').style.display = 'block';
+            mostrarNotificacion('🔓 Modo edición activado', 'success');
+            renderKardexTabCompleta();
+        }
+
+        function marcarCambioKardex(input) {
+            const clave = input.getAttribute('data-clave');
+            kardexCambiosPendientes[clave] = parseFloat(input.value) || 0;
+        }
+
+        async function guardarEdicionKardex() {
+            const claves = Object.keys(kardexCambiosPendientes);
+            if (claves.length === 0) { mostrarNotificacion('No hay cambios para guardar', 'warning'); return; }
+            if (!confirm(`¿Confirmas guardar ${claves.length} cambio(s) de stock directamente en el Kardex de Dropbox?`)) return;
+
+            const btn = document.getElementById('btnGuardarEdicionKardex');
+            try {
+                btn.disabled = true; btn.textContent = '⏳ Guardando...';
+                await aplicarValoresAbsolutosKardex(kardexCambiosPendientes);
+                kardexCambiosPendientes = {};
+                kardexEdicionActiva = false;
+                document.getElementById('btnGuardarEdicionKardex').style.display = 'none';
+                document.getElementById('btnCancelarEdicionKardex').style.display = 'none';
+                document.getElementById('btnEditarKardex').style.display = 'inline-block';
+                document.getElementById('kardexEdicionAviso').style.display = 'none';
+                await cargarKardex(false);
+                mostrarNotificacion('✅ Kardex actualizado en Dropbox', 'success');
+            } catch (e) {
+                console.error('Error al guardar edición de Kardex:', e);
+                mostrarNotificacion('⚠️ No se pudo guardar: ' + e.message, 'warning');
+            } finally {
+                btn.disabled = false; btn.textContent = '💾 Guardar cambios';
+            }
+        }
+
+        function cancelarEdicionKardex() {
+            kardexCambiosPendientes = {};
+            kardexEdicionActiva = false;
+            document.getElementById('btnGuardarEdicionKardex').style.display = 'none';
+            document.getElementById('btnCancelarEdicionKardex').style.display = 'none';
+            document.getElementById('btnEditarKardex').style.display = 'inline-block';
+            document.getElementById('kardexEdicionAviso').style.display = 'none';
+            renderKardexTabCompleta();
+        }
+
+        // ============================================
+        // EXPORTAR STOCK DEL KARDEX (San Jacinto / La Bellota / Telas / Todo)
+        // ============================================
+        const GRUPOS_EXPORT_STOCK = {
+            san_jacinto: ['7041', '7042', '7043', '7015', '7016', '7018', '7066', '7067', '7068'],
+            la_bellota: ['la bellota', 'bellota'],
+            telas: ['tela', 'telas']
+        };
+
+        function abrirModalExportarStock() {
+            document.getElementById('exportStockModal').classList.add('active');
+        }
+
+        function cerrarModalExportarStock() {
+            document.getElementById('exportStockModal').classList.remove('active');
+        }
+
+        function exportarStockKardex() {
+            const grupo = document.getElementById('exportStockGrupo').value;
+            const filas = obtenerFilasKardexIdentificadas();
+
+            let filtradas = filas;
+            if (grupo !== 'todo') {
+                const palabrasClave = GRUPOS_EXPORT_STOCK[grupo] || [];
+                filtradas = filas.filter(f => {
+                    const texto = normalizarTexto((f.codigo || '') + ' ' + (f.descripcion || ''));
+                    return palabrasClave.some(p => texto.includes(normalizarTexto(p)));
+                });
+            }
+
+            if (filtradas.length === 0) {
+                mostrarNotificacion('No se encontraron productos de ese grupo en la hoja actual del Kardex', 'warning');
+                return;
+            }
+
+            const datos = filtradas.map(f => ({
+                'Código': f.codigo || '(sin código)',
+                'Descripción': f.descripcion || '',
+                'Stock actual': f.stock
+            }));
+            const ws = XLSX.utils.json_to_sheet(datos);
+            const wb = XLSX.utils.book_new();
+            const nombreHojaSanitizado = (resolverNombreHojaKardex(kardexNombresHojas) || 'Stock').replace(/[\\/*?:\[\]]/g, '_').substring(0, 31);
+            XLSX.utils.book_append_sheet(wb, ws, nombreHojaSanitizado);
+
+            const etiquetaGrupo = { todo: 'Todo', san_jacinto: 'San_Jacinto', la_bellota: 'La_Bellota', telas: 'Telas' }[grupo] || grupo;
+            XLSX.writeFile(wb, `Stock_${etiquetaGrupo}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+            cerrarModalExportarStock();
+            mostrarNotificacion(`✅ Se exportaron ${filtradas.length} producto(s)`, 'success');
+        }
+
+        // ============================================
+        // CONTROL DIARIO (descarte directo de stock en el Kardex + consulta de movimientos)
+        // ============================================
+        let cdMatchesActuales = [];
+        let cdProductoSeleccionado = null;
+
+        function buscarProductosControlDiario(query) {
+            const dropdown = document.getElementById('cdBuscarDropdown');
+            if (!dropdown) return;
+            const q = normalizarTexto(query || '').trim();
+            if (q.length < 2) { dropdown.classList.remove('visible'); return; }
+
+            cdMatchesActuales = obtenerFilasKardexIdentificadas().filter(f =>
+                normalizarTexto(f.codigo).includes(q) || normalizarTexto(f.descripcion).includes(q)
+            ).slice(0, 8);
+
+            if (cdMatchesActuales.length === 0) {
+                dropdown.innerHTML = '<div style="padding:10px;color:#a0aec0;">Sin resultados en la hoja actual del Kardex</div>';
+                dropdown.classList.add('visible');
+                return;
+            }
+
+            dropdown.innerHTML = cdMatchesActuales.map((m, i) => `
+                <div class="cliente-db-item" onclick="seleccionarProductoControlDiario(${i})">
+                    <div class="cliente-db-item-name">${m.codigo ? m.codigo + ' — ' : ''}${m.descripcion || '(sin descripción)'}</div>
+                    <div class="cliente-db-item-sub">Stock actual: ${m.stock}${m.tieneCodigo ? '' : ' · sin código (vinculado por descripción)'}</div>
+                </div>
+            `).join('');
+            dropdown.classList.add('visible');
+        }
+
+        function seleccionarProductoControlDiario(i) {
+            const m = cdMatchesActuales[i];
+            if (!m) return;
+            cdProductoSeleccionado = m;
+            document.getElementById('cdBuscarProducto').value = (m.codigo ? m.codigo + ' — ' : '') + (m.descripcion || '');
+            document.getElementById('cdBuscarDropdown').classList.remove('visible');
+            document.getElementById('cdProductoStockActual').textContent = `📦 Stock actual en Kardex: ${m.stock}${m.tieneCodigo ? '' : ' (producto sin código, vinculado por descripción)'}`;
+            document.getElementById('cdProductoInfo').style.display = 'block';
+        }
+
+        // Cerrar el dropdown de Control Diario al hacer click fuera
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('cdBuscarDropdown');
+            const input = document.getElementById('cdBuscarProducto');
+            if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+                dropdown.classList.remove('visible');
+            }
+        });
+
+        async function registrarControlDiario() {
+            if (!cdProductoSeleccionado) { mostrarNotificacion('Busca y selecciona un producto del Kardex primero', 'warning'); return; }
+            const cantidad = parseFloat(document.getElementById('cdCantidad').value);
+            if (!cantidad || cantidad <= 0) { mostrarNotificacion('Ingresa una cantidad válida a descartar', 'warning'); return; }
+            const motivo = document.getElementById('cdMotivo').value.trim();
+
+            const etiquetaProducto = cdProductoSeleccionado.descripcion || cdProductoSeleccionado.codigo;
+            if (!confirm(`¿Confirmas descartar ${cantidad} und. de "${etiquetaProducto}"?\n\nEsto descuenta el stock directamente en el Kardex, igual que una Orden de Compra.`)) return;
+
+            const btn = document.getElementById('btnRegistrarControlDiario');
+            try {
+                btn.disabled = true; btn.textContent = '⏳ Descontando en el Kardex...';
+
+                await ajustarStockKardexPorClave([{
+                    clave: cdProductoSeleccionado.clave,
+                    codigo: cdProductoSeleccionado.codigo,
+                    descripcion: cdProductoSeleccionado.descripcion,
+                    cantidad
+                }]);
+                cargarKardex(false); // refresca los badges de stock con el nuevo saldo
+
+                const resp = await fetch(`${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_CONTROL_DIARIO}`, {
+                    method: 'POST',
+                    headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }),
+                    body: JSON.stringify({
+                        clave: cdProductoSeleccionado.clave,
+                        codigo: cdProductoSeleccionado.codigo || '',
+                        descripcion: cdProductoSeleccionado.descripcion || '',
+                        cantidad,
+                        motivo: motivo || '',
+                        usuario: usuarioActual?.username || '',
+                        usuarioNombre: usuarioActual?.nombre || '',
+                        activo: true
+                    })
+                });
+                if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status); }
+
+                mostrarNotificacion('✅ Descarte registrado y stock actualizado en el Kardex', 'success');
+                document.getElementById('cdCantidad').value = '';
+                document.getElementById('cdMotivo').value = '';
+                document.getElementById('cdBuscarProducto').value = '';
+                document.getElementById('cdProductoInfo').style.display = 'none';
+                cdProductoSeleccionado = null;
+                cargarMovimientosControlDiario();
+            } catch (e) {
+                console.error('Error al registrar Control Diario:', e);
+                mostrarNotificacion('⚠️ No se pudo registrar el descarte: ' + e.message, 'warning');
+            } finally {
+                btn.disabled = false; btn.textContent = '📉 Registrar Descarte';
+            }
+        }
+
+        let controlDiarioCache = [];
+
+        // Trae del Back4App los movimientos de Control Diario: los usuarios 'master' ven los de
+        // TODOS los usuarios; el resto (incluida la categoría 'control_diario') solo ve los suyos.
+        async function cargarMovimientosControlDiario() {
+            const tbody = document.getElementById('cdMovimientosBody');
+            if (!tbody) return;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">⏳ Cargando movimientos...</td></tr>`;
+
+            try {
+                const desde = document.getElementById('cdFiltroDesde')?.value;
+                const hasta = document.getElementById('cdFiltroHasta')?.value;
+                const where = { activo: true };
+                if (usuarioActual?.nivel !== 'master') where.usuario = usuarioActual?.username || '';
+                if (desde) where.createdAt = Object.assign({}, where.createdAt, { $gte: { __type: 'Date', iso: new Date(desde + 'T00:00:00').toISOString() } });
+                if (hasta) where.createdAt = Object.assign({}, where.createdAt, { $lte: { __type: 'Date', iso: new Date(hasta + 'T23:59:59').toISOString() } });
+
+                const url = `${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_CONTROL_DIARIO}?where=${encodeURIComponent(JSON.stringify(where))}&order=-createdAt&limit=300`;
+                const resp = await fetch(url, { headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }) });
+                if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status); }
+                const data = await resp.json();
+                controlDiarioCache = data.results || [];
+                pintarMovimientosControlDiario();
+            } catch (e) {
+                console.error('Error al cargar movimientos de Control Diario:', e);
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f56565;padding:16px;">⚠️ ${e.message}</td></tr>`;
+            }
+        }
+
+        function pintarMovimientosControlDiario() {
+            const tbody = document.getElementById('cdMovimientosBody');
+            if (!tbody) return;
+            const filtro = normalizarTexto((document.getElementById('cdFiltroTexto')?.value || '').trim());
+            const lista = filtro
+                ? controlDiarioCache.filter(m =>
+                    normalizarTexto(m.codigo || '').includes(filtro) ||
+                    normalizarTexto(m.descripcion || '').includes(filtro) ||
+                    normalizarTexto(m.usuarioNombre || m.usuario || '').includes(filtro))
+                : controlDiarioCache;
+
+            if (lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">Sin movimientos registrados.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = lista.map(m => `
+                <tr>
+                    <td>${new Date(m.createdAt).toLocaleString('es-PE')}</td>
+                    <td>${m.codigo ? m.codigo + ' — ' : ''}${m.descripcion || ''}</td>
+                    <td style="text-align:center;font-weight:700;color:#c53030;">-${m.cantidad}</td>
+                    <td>${m.motivo || '—'}</td>
+                    <td>${m.usuarioNombre || m.usuario || '—'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ============================================
+        // INGRESO / EGRESO RÁPIDO DE STOCK (reemplaza el llenado manual del Excel)
+        // ============================================
+        function inicializarFechasMovimientoStock() {
+            const hoyISO = new Date().toISOString().slice(0, 10);
+            const ingFecha = document.getElementById('ingFecha');
+            const egrFecha = document.getElementById('egrFecha');
+            if (ingFecha && !ingFecha.value) ingFecha.value = hoyISO;
+            if (egrFecha && !egrFecha.value) egrFecha.value = hoyISO;
+        }
+
+        // --- Ingreso ---
+        let ingMatchesActuales = [];
+        let ingProductoSeleccionado = null;
+
+        function buscarProductosIngreso(query) {
+            const dropdown = document.getElementById('ingBuscarDropdown');
+            if (!dropdown) return;
+            const q = normalizarTexto(query || '').trim();
+            if (q.length < 2) { dropdown.classList.remove('visible'); return; }
+
+            ingMatchesActuales = obtenerFilasKardexIdentificadas().filter(f =>
+                normalizarTexto(f.codigo).includes(q) || normalizarTexto(f.descripcion).includes(q)
+            ).slice(0, 8);
+
+            if (ingMatchesActuales.length === 0) {
+                dropdown.innerHTML = '<div style="padding:10px;color:#a0aec0;">Sin resultados en la hoja actual del Kardex</div>';
+                dropdown.classList.add('visible');
+                return;
+            }
+            dropdown.innerHTML = ingMatchesActuales.map((m, i) => `
+                <div class="cliente-db-item" onclick="seleccionarProductoIngreso(${i})">
+                    <div class="cliente-db-item-name">${m.codigo ? m.codigo + ' — ' : ''}${m.descripcion || '(sin descripción)'}</div>
+                    <div class="cliente-db-item-sub">Stock actual: ${m.stock}${m.tieneCodigo ? '' : ' · sin código (vinculado por descripción)'}</div>
+                </div>
+            `).join('');
+            dropdown.classList.add('visible');
+        }
+
+        function seleccionarProductoIngreso(i) {
+            const m = ingMatchesActuales[i];
+            if (!m) return;
+            ingProductoSeleccionado = m;
+            document.getElementById('ingBuscarProducto').value = (m.codigo ? m.codigo + ' — ' : '') + (m.descripcion || '');
+            document.getElementById('ingBuscarDropdown').classList.remove('visible');
+            document.getElementById('ingProductoStockActual').textContent = `📦 SALDO actual en Kardex: ${m.stock}${m.tieneCodigo ? '' : ' (producto sin código, vinculado por descripción)'}`;
+            document.getElementById('ingProductoInfo').style.display = 'block';
+        }
+
+        async function registrarIngresoStock() {
+            if (!ingProductoSeleccionado) { mostrarNotificacion('Busca y selecciona un producto del Kardex primero', 'warning'); return; }
+            const cantidad = parseFloat(document.getElementById('ingCantidad').value);
+            if (!cantidad || cantidad <= 0) { mostrarNotificacion('Ingresa una cantidad válida', 'warning'); return; }
+            const marca = document.getElementById('ingMarca').value;
+            const fechaISO = document.getElementById('ingFecha').value || new Date().toISOString().slice(0, 10);
+            const etiquetaMarca = marca === 'san_jacinto' ? 'San Jacinto' : 'La Bellota';
+            const etiquetaProducto = ingProductoSeleccionado.descripcion || ingProductoSeleccionado.codigo;
+
+            if (!confirm(`¿Confirmas el ingreso de ${cantidad} und. de "${etiquetaProducto}" (${etiquetaMarca})?\\n\\nSe sumará en INGRESO CANT ${etiquetaMarca.toUpperCase()}, en SALDO, y se registrará la fecha en FECHA INGRESO — directamente en el Kardex.`)) return;
+
+            const btn = document.getElementById('btnRegistrarIngreso');
+            try {
+                btn.disabled = true; btn.textContent = '⏳ Actualizando el Kardex...';
+                await registrarIngresoStockKardex({ clave: ingProductoSeleccionado.clave, marca, cantidad, fechaISO });
+                await cargarKardex(false);
+                mostrarNotificacion('✅ Ingreso registrado en el Kardex', 'success');
+                document.getElementById('ingCantidad').value = '';
+                document.getElementById('ingBuscarProducto').value = '';
+                document.getElementById('ingProductoInfo').style.display = 'none';
+                ingProductoSeleccionado = null;
+            } catch (e) {
+                console.error('Error al registrar ingreso de stock:', e);
+                mostrarNotificacion('⚠️ No se pudo registrar el ingreso: ' + e.message, 'warning');
+            } finally {
+                btn.disabled = false; btn.textContent = '📥 Registrar Ingreso';
+            }
+        }
+
+        // --- Egreso ---
+        let egrMatchesActuales = [];
+        let egrProductoSeleccionado = null;
+
+        function buscarProductosEgreso(query) {
+            const dropdown = document.getElementById('egrBuscarDropdown');
+            if (!dropdown) return;
+            const q = normalizarTexto(query || '').trim();
+            if (q.length < 2) { dropdown.classList.remove('visible'); return; }
+
+            egrMatchesActuales = obtenerFilasKardexIdentificadas().filter(f =>
+                normalizarTexto(f.codigo).includes(q) || normalizarTexto(f.descripcion).includes(q)
+            ).slice(0, 8);
+
+            if (egrMatchesActuales.length === 0) {
+                dropdown.innerHTML = '<div style="padding:10px;color:#a0aec0;">Sin resultados en la hoja actual del Kardex</div>';
+                dropdown.classList.add('visible');
+                return;
+            }
+            dropdown.innerHTML = egrMatchesActuales.map((m, i) => `
+                <div class="cliente-db-item" onclick="seleccionarProductoEgreso(${i})">
+                    <div class="cliente-db-item-name">${m.codigo ? m.codigo + ' — ' : ''}${m.descripcion || '(sin descripción)'}</div>
+                    <div class="cliente-db-item-sub">Stock actual: ${m.stock}${m.tieneCodigo ? '' : ' · sin código (vinculado por descripción)'}</div>
+                </div>
+            `).join('');
+            dropdown.classList.add('visible');
+        }
+
+        function seleccionarProductoEgreso(i) {
+            const m = egrMatchesActuales[i];
+            if (!m) return;
+            egrProductoSeleccionado = m;
+            document.getElementById('egrBuscarProducto').value = (m.codigo ? m.codigo + ' — ' : '') + (m.descripcion || '');
+            document.getElementById('egrBuscarDropdown').classList.remove('visible');
+            document.getElementById('egrProductoStockActual').textContent = `📦 SALDO actual en Kardex: ${m.stock}${m.tieneCodigo ? '' : ' (producto sin código, vinculado por descripción)'}`;
+            document.getElementById('egrProductoInfo').style.display = 'block';
+        }
+
+        async function registrarEgresoStock() {
+            if (!egrProductoSeleccionado) { mostrarNotificacion('Busca y selecciona un producto del Kardex primero', 'warning'); return; }
+            const cantidad = parseFloat(document.getElementById('egrCantidad').value);
+            if (!cantidad || cantidad <= 0) { mostrarNotificacion('Ingresa una cantidad válida', 'warning'); return; }
+            const fechaISO = document.getElementById('egrFecha').value || new Date().toISOString().slice(0, 10);
+            const dia = parseInt(fechaISO.split('-')[2], 10);
+            const etiquetaProducto = egrProductoSeleccionado.descripcion || egrProductoSeleccionado.codigo;
+
+            if (!confirm(`¿Confirmas el egreso de ${cantidad} und. de "${etiquetaProducto}" el día ${dia}?\\n\\nSe sumará en la columna del día ${dia}, en TOTAL EGRESO, y se descontará del SALDO — directamente en el Kardex.`)) return;
+
+            const btn = document.getElementById('btnRegistrarEgreso');
+            try {
+                btn.disabled = true; btn.textContent = '⏳ Actualizando el Kardex...';
+                await registrarEgresoStockKardex({ clave: egrProductoSeleccionado.clave, cantidad, fechaISO });
+                await cargarKardex(false);
+                mostrarNotificacion('✅ Egreso registrado en el Kardex', 'success');
+                document.getElementById('egrCantidad').value = '';
+                document.getElementById('egrBuscarProducto').value = '';
+                document.getElementById('egrProductoInfo').style.display = 'none';
+                egrProductoSeleccionado = null;
+            } catch (e) {
+                console.error('Error al registrar egreso de stock:', e);
+                mostrarNotificacion('⚠️ No se pudo registrar el egreso: ' + e.message, 'warning');
+            } finally {
+                btn.disabled = false; btn.textContent = '📤 Registrar Egreso';
+            }
+        }
+
+        // Cerrar los dropdowns de Ingreso/Egreso al hacer click fuera
+        document.addEventListener('click', function(e) {
+            const pares = [['ingBuscarDropdown', 'ingBuscarProducto'], ['egrBuscarDropdown', 'egrBuscarProducto']];
+            pares.forEach(([dropdownId, inputId]) => {
+                const dropdown = document.getElementById(dropdownId);
+                const input = document.getElementById(inputId);
+                if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+                    dropdown.classList.remove('visible');
+                }
+            });
+        });
+
+        // ============================================
+        // PERMISOS POR NIVEL (categoría 'control_diario' -> solo ve Control Diario + Kardex)
+        // ============================================
+        function aplicarPermisosPorNivel() {
+            const esControlDiario = usuarioActual?.nivel === 'control_diario';
+            console.log('🔐 aplicarPermisosPorNivel -> nivel detectado:', usuarioActual?.nivel);
+
+            document.querySelectorAll('.tabs > .tab').forEach(btn => {
+                const onclick = btn.getAttribute('onclick') || '';
+                const permitidoParaControlDiario = onclick.includes("'controldiario'") || onclick.includes("'kardex'");
+                btn.style.display = (!esControlDiario || permitidoParaControlDiario) ? '' : 'none';
+            });
+
+            if (esControlDiario) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                const btnCD = document.querySelector('.tabs > .tab[onclick*="controldiario"]');
+                if (btnCD) btnCD.classList.add('active');
+                const contenidoCD = document.getElementById('tab-controldiario');
+                if (contenidoCD) contenidoCD.classList.add('active');
+                tabActual = 'controldiario';
+                cargarMovimientosControlDiario();
+            }
         }
 
         const CANTIDAD_PAQUETE_DEFAULT = 32; // Ajustable a futuro (Fernando lo modifica aquí o por producto)
@@ -5274,6 +6523,10 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                 renderHistorial();
             } else if (tab === 'kardex') {
                 renderKardexTabCompleta();
+            } else if (tab === 'controldiario') {
+                cargarMovimientosControlDiario();
+            } else if (tab === 'movstock') {
+                inicializarFechasMovimientoStock();
             } else if (tab === 'fichas') {
                 if (productosFicha[categoriaFichaActiva] === null) {
                     cargarProductosFicha(categoriaFichaActiva);
@@ -5530,7 +6783,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
             });
 
             // Descuento global
-            const globalDescPct = parseFloat(document.getElementById('globalDiscount').value) || 0;
+            const globalDescPct = parseFloat(document.getElementById('globalDiscount')?.value) || 0;
             const descGlobalMonto = totalBruto * globalDescPct / 100;
             const totalFinal = totalBruto - descGlobalMonto;
 
@@ -5604,7 +6857,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                 const desc = p.descuento || 0;
                 totalBruto += p.cantidad * precio * (1 - desc / 100);
             });
-            const globalDescPct = parseFloat(document.getElementById('globalDiscount').value) || 0;
+            const globalDescPct = parseFloat(document.getElementById('globalDiscount')?.value) || 0;
             const totalFinal = mostrarConIGV
                 ? calcularPrecioConIGV(totalBruto * (1 - globalDescPct / 100))
                 : totalBruto * (1 - globalDescPct / 100);
@@ -5619,7 +6872,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
             if (confirm('¿Limpiar la cotización? Los datos del cliente se conservan.')) {
                 productosEnTabla = [];
                 sucursalSeleccionada = null;
-                document.getElementById('globalDiscount').value = '';
+                if (document.getElementById('globalDiscount')) document.getElementById('globalDiscount').value = '';
                 document.getElementById('montoAdelanto').value = '';
                 document.getElementById('saldoPendienteLabel').textContent = '';
                 document.getElementById('pagoResumen').textContent = '';
@@ -6441,7 +7694,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
             // TABLA DE PRODUCTOS
             const printTableBody = document.getElementById('printTableBody');
             let totalSinIGV = 0;
-            const globalDescPct = parseFloat(document.getElementById('globalDiscount').value) || 0;
+            const globalDescPct = parseFloat(document.getElementById('globalDiscount')?.value) || 0;
 
             printTableBody.innerHTML = productosEnTabla.map(producto => {
                 const cantidad = producto.cantidad;
@@ -6675,7 +7928,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
 
             const cliente = getClienteData();
             const fecha = new Date().toLocaleDateString('es-PE', { year:'numeric', month:'long', day:'numeric' });
-            const globalDescPct = parseFloat(document.getElementById('globalDiscount').value) || 0;
+            const globalDescPct = parseFloat(document.getElementById('globalDiscount')?.value) || 0;
 
             let msg = `🏨 *Confort Line / Fabexsa*\n`;
             msg += `📋 *COTIZACIÓN — ${fecha}*\n`;
@@ -6838,7 +8091,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
         async function guardarEnHistorial() {
             if (productosEnTabla.length === 0) { mostrarNotificacion('Agrega productos primero', 'warning'); return; }
             const cliente = getClienteData();
-            const globalDescPct = parseFloat(document.getElementById('globalDiscount').value) || 0;
+            const globalDescPct = parseFloat(document.getElementById('globalDiscount')?.value) || 0;
             let subtotal = 0;
             productosEnTabla.forEach(p => {
                 const precio = p.precioOverride !== undefined ? p.precioOverride : obtenerPrecio(p, p.cantidad);
@@ -6860,6 +8113,9 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                 return;
             }
 
+            const registroExistente = registroEnCurso[tipoContador];
+            const esPrimerGuardado = !registroExistente?.objectId; // false = ya existía, es una regeneración/edición
+
             const entrada = {
                 cliente: cliente.nombre || 'Sin nombre',
                 empresaCliente: cliente.empresa || '',
@@ -6873,13 +8129,19 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                 tipoDocumento: tipoContador,
                 correlativo,
                 activo: true,
-                usuario: usuarioActual?.username || '',
-                usuarioNombre: usuarioActual?.nombre || ''
+                // Quién hizo el último cambio, para trazabilidad (siempre se actualiza).
+                ultimaEdicionPor: usuarioActual?.username || '',
+                ultimaEdicionPorNombre: usuarioActual?.nombre || ''
             };
+            // El "dueño" (usuario/usuarioNombre) SOLO se fija al crear el registro. En una edición
+            // no se incluye en el PUT, así Parse deja el valor original intacto — la cotización
+            // sigue apareciendo en el panel de quien la creó, aunque otro usuario la haya editado.
+            if (esPrimerGuardado) {
+                entrada.usuario = usuarioActual?.username || '';
+                entrada.usuarioNombre = usuarioActual?.nombre || '';
+            }
 
             try {
-                const registroExistente = registroEnCurso[tipoContador];
-                const esPrimerGuardado = !registroExistente?.objectId; // false = ya existía, es una regeneración
                 let resp;
                 if (registroExistente?.objectId) {
                     // Ya existe un registro para esta misma cotización: se actualiza en vez de duplicar
@@ -6897,24 +8159,49 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                 }
                 if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status); }
                 const data = await resp.json();
-                registroEnCurso[tipoContador] = { objectId: registroExistente?.objectId || data.objectId, correlativo };
+                const objectId = registroExistente?.objectId || data.objectId;
+                registroEnCurso[tipoContador] = {
+                    objectId,
+                    correlativo,
+                    productosDescontados: registroExistente?.productosDescontados || []
+                };
                 guardarEstado();
                 renderHistorial();
                 const etiquetaDoc = tipoContador === 'orden_compra' ? 'Orden de Compra' : (tipoContador === 'despacho' ? 'Despacho' : 'Cotización');
                 mostrarNotificacion(`✅ ${etiquetaDoc} N° ${String(correlativo).padStart(6, '0')} guardada en la nube`, 'success');
 
-                // Descuento de stock en el Kardex: SOLO la primera vez que se guarda una Orden de
-                // Compra (crear registro nuevo). Si vuelves a generar la imagen/PDF de la MISMA
-                // orden para corregir el nombre, agregar un adelanto, etc., NO se descuenta de nuevo.
-                if (tipoContador === 'orden_compra' && esPrimerGuardado) {
+                // Ajuste de stock en el Kardex: se compara lo que YA se había descontado (snapshot
+                // guardado la última vez) contra lo que hay AHORA en la tabla, y solo se toca el
+                // Kardex por la diferencia. Así, si se agrega un producto nuevo en una edición, solo
+                // se descuenta ESE producto (no se vuelve a descontar lo que ya estaba), y si se quita
+                // o se reduce algo, esa diferencia se DEVUELVE al Kardex.
+                if (tipoContador === 'orden_compra') {
                     try {
-                        const itemsDescuento = productosEnTabla.map(p => ({ codigo: p.codigo, cantidad: p.cantidad }));
-                        await descontarStockKardexDropbox(itemsDescuento);
-                        mostrarNotificacion('📉 Stock descontado en el Kardex', 'success');
-                        cargarKardex(false); // refresca los badges de stock con el nuevo saldo
+                        const productosActuales = productosEnTabla.map(p => ({ codigo: p.codigo, cantidad: p.cantidad, color: p.color || '' }));
+                        const productosAnteriores = esPrimerGuardado ? [] : (registroExistente?.productosDescontados || []);
+                        const deltas = calcularDiferenciaProductos(productosAnteriores, productosActuales);
+
+                        if (deltas.length > 0) {
+                            await ajustarStockKardexDropbox(deltas);
+                            const huboAumentos = deltas.some(d => d.cantidad > 0);
+                            const huboDevoluciones = deltas.some(d => d.cantidad < 0);
+                            let msg = '📉 Stock descontado en el Kardex';
+                            if (huboAumentos && huboDevoluciones) msg = '📉↩️ Kardex ajustado (productos añadidos y removidos/reducidos)';
+                            else if (huboDevoluciones) msg = '↩️ Kardex actualizado: se devolvió stock de lo removido/reducido';
+                            mostrarNotificacion(msg, 'success');
+                            cargarKardex(false); // refresca los badges de stock con el nuevo saldo
+                        }
+
+                        // Actualiza el snapshot de "lo que ya está descontado" para la próxima edición.
+                        await fetch(`${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_COTIZACIONES}/${objectId}`, {
+                            method: 'PUT',
+                            headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }),
+                            body: JSON.stringify({ productosDescontados: productosActuales })
+                        });
+                        registroEnCurso[tipoContador].productosDescontados = productosActuales;
                     } catch (eKardex) {
-                        console.error('Error al descontar stock del Kardex:', eKardex);
-                        mostrarNotificacion('⚠️ La orden se guardó, pero no se pudo descontar el Kardex: ' + eKardex.message, 'warning');
+                        console.error('Error al ajustar stock del Kardex:', eKardex);
+                        mostrarNotificacion('⚠️ La orden se guardó, pero no se pudo ajustar el Kardex: ' + eKardex.message, 'warning');
                     }
                 }
             } catch (e) {
@@ -7114,6 +8401,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                     cotizacion:   { color: '#3730a3', fondo: '#e0e7ff', etiqueta: '📋 COTIZACIÓN' }
                 }[entry.tipoDocumento] || { color: '#3730a3', fondo: '#e0e7ff', etiqueta: '📋 COTIZACIÓN' };
                 const correlativoTexto = entry.correlativo ? `N° ${String(entry.correlativo).padStart(6, '0')}` : 'N° —';
+                const editadoPorOtro = entry.ultimaEdicionPor && entry.usuario && entry.ultimaEdicionPor !== entry.usuario;
                 return `
                     <div class="historial-card">
                         <div class="historial-card-left">
@@ -7121,6 +8409,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                                 <span style="font-weight:800;font-size:0.95em;padding:2px 10px;border-radius:6px;background:${infoTipoDoc.fondo};color:${infoTipoDoc.color};">${correlativoTexto}</span>
                                 <span style="font-size:0.72em;font-weight:700;color:${infoTipoDoc.color};">${infoTipoDoc.etiqueta}</span>
                                 ${mostrarVendedorPorTarjeta ? `<span style="font-size:0.72em;font-weight:700;color:#4a5568;background:#edf2f7;padding:2px 8px;border-radius:6px;">🧑‍💼 ${entry.usuarioNombre || entry.usuario || 'Desconocido'}</span>` : ''}
+                                ${editadoPorOtro ? `<span style="font-size:0.72em;font-weight:700;color:#975a16;background:#fefcbf;padding:2px 8px;border-radius:6px;" title="Última edición por otro usuario">✏️ editado por ${entry.ultimaEdicionPorNombre || entry.ultimaEdicionPor}</span>` : ''}
                             </div>
                             <div class="historial-card-title">👤 ${entry.cliente}${entry.empresaCliente ? ' — ' + entry.empresaCliente : ''}</div>
                             <div class="historial-card-meta">
@@ -7153,7 +8442,7 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
             if (!confirm(`¿Cargar cotización de "${entry.cliente}"? Se reemplazará la cotización actual.`)) return;
             productosEnTabla = JSON.parse(JSON.stringify(entry.productos)).map(migrarProductoLegacy);
             sucursalSeleccionada = entry.sucursal || null;
-            document.getElementById('globalDiscount').value = entry.globalDescPct || '';
+            if (document.getElementById('globalDiscount')) document.getElementById('globalDiscount').value = entry.globalDescPct || '';
             // Cargar datos del cliente
             document.getElementById('clienteNombre').value = entry.cliente === 'Sin nombre' ? '' : entry.cliente;
             document.getElementById('clienteEmpresa').value = entry.empresaCliente || '';
@@ -7163,7 +8452,15 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
             const tipoContador = entry.tipoDocumento === 'orden_compra' ? 'orden_compra' : (entry.tipoDocumento === 'despacho' ? 'despacho' : 'cotizacion');
             const valorSelect = tipoContador === 'orden_compra' ? 'ORDEN DE COMPRA' : (tipoContador === 'despacho' ? 'DESPACHO' : 'cotizacion');
             document.getElementById('tipoDocumento').value = valorSelect;
-            registroEnCurso[tipoContador] = { objectId: entry.objectId, correlativo: entry.correlativo || null };
+            // productosDescontados = snapshot de lo que YA se descontó del Kardex la última vez.
+            // Si el registro es de antes de este cambio (no tiene ese campo todavía), se asume que
+            // todo lo que tiene "productos" ya fue descontado (mejor suposición posible para no
+            // duplicar ni perder el ajuste en la primera edición de un registro viejo).
+            registroEnCurso[tipoContador] = {
+                objectId: entry.objectId,
+                correlativo: entry.correlativo || null,
+                productosDescontados: entry.productosDescontados || entry.productos || []
+            };
 
             actualizarResumenCliente();
             renderTable();
@@ -7454,6 +8751,8 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
             if (empresaSelect) empresaSelect.value = empresaActiva;
             cargarKardexDesdeCache();
             cargarKardex(false); // actualización automática y silenciosa en segundo plano
+            aplicarPermisosPorNivel(); // restringe pestañas si el usuario es de la categoría 'control_diario'
+            inicializarFechasMovimientoStock(); // fecha de hoy por defecto en Ingreso/Egreso rápido
             const fichaCatBtn = document.getElementById('fichaCatBtn_' + categoriaFichaActiva);
             if (fichaCatBtn) { document.querySelectorAll('.ficha-cat-btn').forEach(b => b.classList.remove('active')); fichaCatBtn.classList.add('active'); }
             renderPickerFicha();
