@@ -232,6 +232,7 @@
                             document.getElementById('clienteEmail').value = estado.cliente.email || '';
                             document.getElementById('clienteDireccion').value = estado.cliente.direccion || '';
                             document.getElementById('clienteNotas').value = estado.cliente.notas || '';
+                            olvidarAutocompletadoRUCDNI();
                             actualizarResumenCliente();
                         }
                         renderTable();
@@ -670,6 +671,7 @@
                     const el = document.getElementById(id);
                     if (el) el.value = '';
                 });
+                olvidarAutocompletadoRUCDNI();
                 actualizarResumenCliente();
                 clienteDBObjectIdEnCurso = null; // nueva transacción: se olvida cualquier vínculo con un cliente anterior
                 // "Limpiar" siempre marca el inicio de una transacción nueva: la próxima vez que se
@@ -2010,6 +2012,7 @@
             document.getElementById('clienteEmail').value = entry.email || '';
             document.getElementById('clienteDireccion').value = entry.direccion || '';
             document.getElementById('clienteNotas').value = entry.notas || '';
+            olvidarAutocompletadoRUCDNI();
             // Recupera el vínculo exacto con la base de clientes (si esta cotización se guardó ya
             // con este fix activo). Si es un registro viejo que no lo tiene, queda en null y
             // cualquier corrección volverá a buscar por nombre+empresa como respaldo.
@@ -2093,6 +2096,7 @@
             document.getElementById('clienteEmail').value = oc.email || '';
             document.getElementById('clienteDireccion').value = oc.direccion || '';
             document.getElementById('clienteNotas').value = oc.notas || '';
+            olvidarAutocompletadoRUCDNI();
             clienteDBObjectIdEnCurso = oc.clienteObjectId || null;
 
             // Fija el tipo de documento en DESPACHO. El bloqueo del selector se aplica después, con

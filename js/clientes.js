@@ -5,6 +5,11 @@
         let clientesDBCache = [];       // copia en memoria, para que el buscador responda al instante mientras escribes
         let clientesDBCargando = null;  // evita disparar la misma carga varias veces en paralelo
 
+        // Recuerda qué campos rellenó la última búsqueda de RUC/DNI exitosa (buscarRUCDNI, más
+        // abajo), para poder borrarlos si el usuario cambia el número por otro antes de tener
+        // datos mezclados de dos personas/empresas distintas en el formulario.
+        let rucDniAutocompletado = null; // { campos: ['clienteEmpresa', ...] } | null
+
         // SWITCH: controla si al entrar a Historial se ejecuta la migración que sube los clientes
         // de las cotizaciones ya existentes hacia la clase "Clientes" en la nube (ver
         // migrarClientesDesdeHistorialSiHaceFalta más abajo). Una vez que confirmes que tus
@@ -237,12 +242,131 @@
             document.getElementById('clienteDireccion').value = c.direccion || '';
             document.getElementById('clienteNotas').value = c.notas || '';
             document.getElementById('clienteDBDropdown').classList.remove('visible');
+            olvidarAutocompletadoRUCDNI();
             // Queda vinculado a ESTE registro exacto de la base de clientes: cualquier corrección
             // posterior (aunque sea al nombre) actualizará este mismo registro en vez de crear uno
             // nuevo por no encontrar coincidencia de nombre+empresa.
             clienteDBObjectIdEnCurso = c.objectId || null;
             actualizarResumenCliente();
             mostrarNotificacion(`${c.nombre} cargado`, 'success');
+        }
+
+        // ============================================
+        // BÚSQUEDA DE RUC/DNI (API Perú - apisperu.com)
+        // ============================================
+        const RUC_DNI_API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6InJhZG94aTcxMzNAa2lrYWdhLmNvbSJ9.ajliXIBJVvsaPAoITu_p4SpRUuFh2lib6YL0nAxKxHQ";
+
+        // El usuario puede escribir un RUC, luego borrarlo y escribir un DNI (o viceversa) sin
+        // volver a apretar "Buscar". En ese momento los datos que había traído la búsqueda
+        // anterior ya no corresponden a nadie real, así que se borran de inmediato en cuanto se
+        // toca el campo — evita mezclar el nombre de una búsqueda con la empresa de otra.
+        function onClienteRUCInput() {
+            limpiarAutocompletadoRUCDNI();
+            actualizarResumenCliente();
+        }
+
+        function limpiarAutocompletadoRUCDNI() {
+            if (rucDniAutocompletado) {
+                rucDniAutocompletado.campos.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+            }
+            olvidarAutocompletadoRUCDNI();
+        }
+
+        // Se usa cuando el formulario de cliente se llena desde otro lado (base de clientes,
+        // historial, orden de compra, restaurar sesión): esos datos ya son completos y reales, así
+        // que no hay nada que borrar, pero sí hay que olvidar cualquier búsqueda de RUC/DNI previa
+        // para que no borre por error un campo que acaba de llegar de ese registro.
+        function olvidarAutocompletadoRUCDNI() {
+            rucDniAutocompletado = null;
+            const statusEl = document.getElementById('clienteRUCStatus');
+            if (statusEl) statusEl.textContent = '';
+        }
+
+        async function buscarRUCDNI() {
+            const input = document.getElementById('clienteRUC');
+            const statusEl = document.getElementById('clienteRUCStatus');
+            const btn = document.getElementById('btnBuscarRUCDNI');
+            const valor = input.value.trim().replace(/\D/g, '');
+
+            // Una nueva búsqueda reemplaza cualquier dato que haya dejado la anterior, sea del
+            // mismo tipo (RUC/DNI corregido) o del contrario.
+            limpiarAutocompletadoRUCDNI();
+
+            if (!valor) {
+                statusEl.textContent = 'Ingresa un RUC (11 dígitos) o DNI (8 dígitos)';
+                statusEl.style.color = 'var(--danger)';
+                return;
+            }
+
+            let tipo;
+            if (valor.length === 11) tipo = 'ruc';
+            else if (valor.length === 8) tipo = 'dni';
+            else {
+                statusEl.textContent = 'Debe tener 11 dígitos (RUC) u 8 dígitos (DNI)';
+                statusEl.style.color = 'var(--danger)';
+                return;
+            }
+
+            btn.disabled = true;
+            const textoOriginal = btn.textContent;
+            btn.textContent = '⏳ Buscando...';
+            statusEl.textContent = 'Consultando...';
+            statusEl.style.color = 'var(--gray-500)';
+
+            try {
+                const url = `https://dniruc.apisperu.com/api/v1/${tipo}/${valor}?token=${RUC_DNI_API_TOKEN}`;
+                const resp = await fetch(url);
+                const data = await resp.json();
+
+                if (!resp.ok || data.error || data.message) {
+                    statusEl.textContent = '✗ ' + (data.message || data.error || 'No se encontraron datos');
+                    statusEl.style.color = 'var(--danger)';
+                    return;
+                }
+
+                const camposTocados = [];
+
+                if (tipo === 'ruc') {
+                    if (data.razonSocial) {
+                        document.getElementById('clienteEmpresa').value = data.razonSocial;
+                        camposTocados.push('clienteEmpresa');
+                        if (!document.getElementById('clienteNombre').value.trim()) {
+                            document.getElementById('clienteNombre').value = data.razonSocial;
+                            camposTocados.push('clienteNombre');
+                        }
+                    }
+                    const direccionPartes = [data.direccion, data.distrito, data.provincia, data.departamento]
+                        .filter(p => p && p.trim());
+                    if (direccionPartes.length) {
+                        document.getElementById('clienteDireccion').value = direccionPartes.join(', ');
+                        camposTocados.push('clienteDireccion');
+                    }
+                    statusEl.textContent = '✓ RUC encontrado: ' + (data.razonSocial || '');
+                    statusEl.style.color = 'var(--success)';
+                } else {
+                    const nombreCompleto = [data.nombres, data.apellidoPaterno, data.apellidoMaterno]
+                        .filter(p => p && p.trim())
+                        .join(' ');
+                    if (nombreCompleto) {
+                        document.getElementById('clienteNombre').value = nombreCompleto;
+                        camposTocados.push('clienteNombre');
+                    }
+                    statusEl.textContent = '✓ DNI encontrado: ' + (nombreCompleto || '');
+                    statusEl.style.color = 'var(--success)';
+                }
+
+                rucDniAutocompletado = { campos: camposTocados };
+                actualizarResumenCliente();
+            } catch (err) {
+                statusEl.textContent = '✗ Error al consultar el servicio (revisa tu conexión)';
+                statusEl.style.color = 'var(--danger)';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = textoOriginal;
+            }
         }
 
         // Cerrar dropdown de clientes al click fuera

@@ -274,6 +274,27 @@
         .cliente-save-btn:hover { background: #5568d3; }
         .cliente-field-wrap { position: relative; }
 
+        .ruc-buscar-row { display: flex; gap: 6px; }
+        .ruc-buscar-row input { flex: 1; }
+        .ruc-buscar-btn {
+            padding: 0 12px;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+            white-space: nowrap;
+        }
+        .ruc-buscar-btn:hover { background: #5568d3; }
+        .ruc-buscar-btn:disabled { opacity: 0.6; cursor: default; }
+        .ruc-buscar-status {
+            font-size: 0.78em;
+            margin-top: 3px;
+            min-height: 1em;
+        }
+
         /* BADGE */
         .badge {
             display: inline-block;

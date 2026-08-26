@@ -444,7 +444,11 @@
                             </div>
                             <div class="cliente-field">
                                 <label>RUC / DNI</label>
-                                <input type="text" id="clienteRUC" placeholder="20XXXXXXXXX / DNI" oninput="actualizarResumenCliente()">
+                                <div class="ruc-buscar-row">
+                                    <input type="text" id="clienteRUC" placeholder="20XXXXXXXXX / DNI" oninput="onClienteRUCInput()" onkeydown="if(event.key==='Enter'){event.preventDefault(); buscarRUCDNI();}">
+                                    <button type="button" class="ruc-buscar-btn" id="btnBuscarRUCDNI" onclick="buscarRUCDNI()" title="Buscar datos por RUC o DNI">🔍 Buscar</button>
+                                </div>
+                                <div class="ruc-buscar-status" id="clienteRUCStatus"></div>
                             </div>
                             <div class="cliente-field">
                                 <label>Teléfono / WhatsApp</label>
