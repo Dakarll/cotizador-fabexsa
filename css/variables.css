@@ -1,0 +1,54 @@
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* ============================================
+               PALETA REDUCIDA — 2 colores con propósito + neutros
+               --primary  = tinta/texto principal (todo lo "serio": títulos, texto, botones secundarios)
+               --secondary = acción/marca (el ÚNICO color que se usa para llamar la atención: botón
+                              principal, links activos, foco). Todo lo demás son variaciones de gris.
+               ============================================ */
+            --primary: #2d3748;
+            --secondary: #667eea;
+            --accent: #b08d57;      /* dorado — uso puntual: login y detalles "premium", nunca como color de acción */
+
+            /* Estados semánticos (solo 3: éxito / alerta / error). No agregar más tonos nuevos. */
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+
+            /* Escala de neutros — reemplaza los ~9 grises casi-idénticos que había sueltos por el CSS */
+            --gray-50:  #f7fafc;
+            --gray-100: #edf2f7;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e0;
+            --gray-400: #a0aec0;
+            --gray-500: #718096;
+            --gray-600: #4a5568;
+            --gray-700: #2d3748;
+            --gray-800: #1a202c;
+
+            --border: var(--gray-200);
+            --bg-light: var(--gray-50);
+
+            /* Pares fondo-claro/texto-oscuro para chips y badges de estado — antes cada badge
+               inventaba su propio tono; ahora todos los "success" comparten el mismo par, etc. */
+            --chip-success-bg: #c6f6d5;  --chip-success-text: #22543d;
+            --chip-warning-bg: #fed7aa;  --chip-warning-text: #9a3412;
+            --chip-danger-bg:  #fed7d7;  --chip-danger-text:  #c53030;
+            --chip-info-bg:    #e0e7ff;  --chip-info-text:    #3730a3;
+
+            /* Pantalla de acceso: reutiliza --primary y --accent en vez de tener su propia paleta */
+            --auth-ink: var(--primary);
+            --auth-ink-soft: var(--gray-500);
+            --auth-gold: var(--accent);
+            --auth-gold-light: #d9c19b;
+            --auth-cream: #ffffff;
+            --auth-bg-1: #faf7f2;
+            --auth-bg-2: #f1e9db;
+            --auth-line: var(--gray-200);
+        }
+

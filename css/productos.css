@@ -1,0 +1,179 @@
+        .galeria-cat-btn {
+            border-radius: 8px !important;
+            border: 1.5px solid var(--border) !important;
+            padding: 8px 16px !important;
+        }
+
+        .galeria-cat-btn.active {
+            background: var(--secondary) !important;
+            color: white !important;
+            border-color: var(--secondary) !important;
+        }
+
+        .galeria-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .galeria-item {
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .galeria-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+
+        .galeria-item img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            display: block;
+            background: #f1f5f9;
+        }
+
+        .galeria-item-nombre {
+            padding: 8px 10px;
+            font-size: 0.85em;
+            font-weight: 600;
+            color: var(--text);
+            text-align: center;
+        }
+
+        .ficha-cat-btn {
+            border-radius: 8px !important;
+            border: 1.5px solid var(--border) !important;
+            padding: 8px 16px !important;
+        }
+
+        .ficha-cat-btn.active {
+            background: var(--secondary) !important;
+            color: white !important;
+            border-color: var(--secondary) !important;
+        }
+
+        .ajustes-subtab-btn {
+            border-radius: 8px !important;
+            border: 1.5px solid var(--border) !important;
+            padding: 8px 16px !important;
+        }
+
+        .ajustes-subtab-btn.active {
+            background: var(--secondary) !important;
+            color: white !important;
+            border-color: var(--secondary) !important;
+        }
+
+        .ficha-producto-icono {
+            font-size: 2.5em;
+            text-align: center;
+            padding: 20px 0 8px 0;
+            background: #f8fafc;
+        }
+
+        .ficha-producto-card.seleccionado {
+            border-color: var(--secondary);
+            border-width: 2px;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+        }
+
+        .ficha-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .ficha-preview-panel {
+            position: sticky;
+            top: 16px;
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .ficha-preview-panel img {
+            width: 100%;
+            border-radius: 10px;
+            border: 1.5px solid var(--border);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        @media (max-width: 900px) {
+            .ficha-layout {
+                grid-template-columns: 1fr;
+            }
+            .ficha-preview-panel {
+                position: static;
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.ficha-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.ficha-section h3 {
+    color: var(--primary);
+    margin-bottom: 15px;
+    font-size: 1.3em;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 10px;
+}
+
+.ficha-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.ficha-item {
+    padding: 10px;
+    background: white;
+    border-radius: 6px;
+}
+
+.ficha-item-label {
+    font-weight: 600;
+    color: var(--gray-500);
+    font-size: 0.85em;
+    margin-bottom: 5px;
+}
+
+.ficha-item-value {
+    color: var(--primary);
+    font-size: 1.05em;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    .ficha-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>

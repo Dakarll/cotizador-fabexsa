@@ -1,0 +1,141 @@
+        /* RESPONSIVE MÓVIL */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+                /* Espacio para que el contenido no quede tapado por la barra inferior fija
+                   (altura aprox. de la barra + zona segura del gesto de inicio en iOS). */
+                padding-bottom: calc(64px + env(safe-area-inset-bottom, 0));
+            }
+
+            /* En móvil el menú de pestañas de arriba se reemplaza por la barra inferior fija
+               (ver .tabs-mobile-bar) — el pulgar llega mejor abajo que arriba. */
+            .tabs { display: none; }
+            .tabs-mobile { display: block; }
+
+            .header h1 {
+                font-size: 1.2em;
+            }
+
+            .header .subtitle {
+                font-size: 0.75em;
+            }
+
+            .header {
+                padding: 15px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-user-panel {
+                align-items: flex-start;
+                width: 100%;
+            }
+
+            .user-badge {
+                width: fit-content;
+            }
+
+            .content {
+                padding: 15px;
+            }
+
+            .info-banner {
+                font-size: 0.8em;
+                padding: 10px;
+            }
+
+            .total-section {
+                padding: 15px;
+            }
+
+            .total-amount {
+                font-size: 1.5em;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .action-buttons .btn {
+                width: 100%;
+            }
+
+            .sucursal-grid {
+                grid-template-columns: 1fr;
+                max-height: 500px;
+            }
+
+            .products-table th,
+            .products-table td {
+                padding: 8px 4px;
+                font-size: 0.75em;
+            }
+
+            .cantidad-input {
+                width: 50px;
+                font-size: 0.85em;
+            }
+
+            .btn {
+                padding: 8px 15px;
+                font-size: 0.85em;
+            }
+
+            .modal-content {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .price-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .notification {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+
+            /* La tarjeta ya es una columna por defecto (ver .historial-card arriba); en móvil
+               solo se reduce un poco el tamaño del total, el flex-wrap del pie ya evita que
+               los botones se aprieten contra el monto. */
+            .historial-card-total {
+                font-size: 1em;
+            }
+
+            .historial-header-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .chip-filtro-historial {
+                padding: 5px 11px;
+                font-size: 0.76em;
+            }
+
+            .header-user-panel #correlativoPreview > div {
+                text-align: left !important;
+                align-items: flex-start !important;
+            }
+
+            .new-form-section {
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1em;
+            }
+
+            .total-amount {
+                font-size: 1.3em;
+            }
+
+            .btn-edit,
+            .btn-remove {
+                padding: 4px 8px;
+                font-size: 0.75em;
+            }
+        }

@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotizador Profesional - Fabexsa/Confort Line</title>
+    
+    <!-- Scripts externos CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- ExcelJS: se usa SOLO para el descuento de stock por Dropbox, porque a diferencia de
+         SheetJS SÍ conserva colores, bordes y formato del Excel al modificar y volver a guardar. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/cotizacion.css">
+    <link rel="stylesheet" href="css/sucursales.css">
+    <link rel="stylesheet" href="css/productos.css">
+    <link rel="stylesheet" href="css/componentes.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+    <!-- PANTALLA DE ACCESO -->
+    <div id="authScreen">
+        <div class="auth-card">
+            <div class="auth-brand">
+                <div class="auth-brand-mark">🏨</div>
+                <h1>Cotizador Profesional</h1>
+                <p>Fabexsa · Confort Line</p>
+            </div>
+
+            <div class="auth-error" id="authError"></div>
+
+            <!-- FORMULARIO: INICIAR SESIÓN -->
+            <form class="auth-form active" id="authFormLogin" onsubmit="iniciarSesion(event)">
+                <div class="auth-field">
+                    <label>Usuario</label>
+                    <input type="text" id="loginUsuario" autocomplete="username" required>
+                </div>
+                <div class="auth-field">
+                    <label>Contraseña</label>
+                    <input type="password" id="loginPassword" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="auth-submit" id="btnLogin">Ingresar</button>
+            </form>
+
+            <div class="auth-footer-note">Acceso exclusivo del equipo Fabexsa · Confort Line</div>
+        </div>
+    </div>
+
+    <!-- LOADING OVERLAY -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div style="font-weight: 600; color: #2d3748;">Generando cotización...</div>
+            <div style="margin-top: 10px; color: #718096; font-size: 0.9em;">Por favor espere</div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR PRODUCTO -->
+    <div class="modal" id="editProductoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">✏️ Editar Producto</h2>
+                <button class="modal-close" onclick="closeEditProductoModal()">×</button>
+            </div>
+            <form id="editProductoForm">
+                <div class="form-group">
+                    <label class="form-label">Código del Producto</label>
+                    <input type="text" class="form-input" id="editProductoCodigo" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre del Producto</label>
+                    <input type="text" class="form-input" id="editProductoNombre" required>
+                </div>
+                <div class="price-grid">
+                    <div class="form-group">
+                        <label class="form-label">Precio Por Unidad (S/)</label>
+                        <input type="number" step="0.01" min="0" class="form-input" id="editProductoMenor" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Precio Por Mayor (S/)</label>
+                        <input type="number" step="0.01" min="0" class="form-input" id="editProductoMayor" required>
+                    </div>
+                </div>
+                <div class="form-group" style="background:#f7fafc;border:1.5px dashed #cbd5e0;border-radius:8px;padding:12px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:8px;font-weight:700;color:#2d3748;cursor:pointer;">
+                        <input type="checkbox" id="editProductoEscalonado" onchange="toggleCamposEscalonado()" style="width:18px;height:18px;">
+                        Habilitar precio escalonado (1/4 Docena + Mayor/Paquete)
+                    </label>
+                    <div id="camposEscalonado" style="display:none;margin-top:12px;">
+                        <div class="price-grid">
+                            <div class="form-group">
+                                <label class="form-label">Precio 1/4 Docena (S/)</label>
+                                <input type="number" step="0.01" min="0" class="form-input" id="editProductoCuarto" placeholder="Opcional">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cantidad mínima 1/4 Docena</label>
+                                <input type="number" step="1" min="1" class="form-input" id="editProductoCantCuarto" placeholder="3">
+                            </div>
+                        </div>
+                        <div class="price-grid">
+                            <div class="form-group">
+                                <label class="form-label">Tipo de nivel "Mayor"</label>
+                                <select class="form-input" id="editProductoTipoMayor" onchange="actualizarCantidadMayorSugerida()">
+                                    <option value="docena">Por Docena (12 und)</option>
+                                    <option value="paquete">Por Paquete</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cantidad mínima "Mayor"</label>
+                                <input type="number" step="1" min="1" class="form-input" id="editProductoCantMayor" placeholder="12">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditProductoModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-success">💾 Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIGURAR EMPRESA (LOGO + DATOS BANCARIOS) -->
+    <div class="modal" id="editEmpresaModal">
+        <div class="modal-content" style="max-width:560px;">
+            <div class="modal-header">
+                <h2 class="modal-title">🏢 Configurar Empresa</h2>
+                <button class="modal-close" onclick="closeEditEmpresaModal()">×</button>
+            </div>
+            <form id="editEmpresaForm" onsubmit="guardarEmpresaModal(event)">
+                <div class="form-group">
+                    <label class="form-label">Empresa a editar</label>
+                    <select class="form-input" id="editEmpresaSelect" onchange="cargarDatosEmpresaEnModal()">
+                        <option value="fabexsa">Fabexsa</option>
+                        <option value="confortline">Confort Line</option>
+                    </select>
+                </div>
+                <div class="price-grid">
+                    <div class="form-group">
+                        <label class="form-label">Nombre comercial</label>
+                        <input type="text" class="form-input" id="editEmpresaNombreComercial" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Razón social / Marca</label>
+                        <input type="text" class="form-input" id="editEmpresaRazonSocial">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Dirección</label>
+                    <input type="text" class="form-input" id="editEmpresaDireccion">
+                </div>
+                <div class="price-grid">
+                    <div class="form-group">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" class="form-input" id="editEmpresaTelefono">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Red social / Web</label>
+                        <input type="text" class="form-input" id="editEmpresaRedSocial" placeholder="@usuario · sitio.pe">
+                    </div>
+                </div>
+                <div style="background:#f7fafc;border:1.5px dashed #cbd5e0;border-radius:8px;padding:12px;margin-top:6px;">
+                    <div style="font-weight:700;color:#2d3748;margin-bottom:10px;">💳 Datos bancarios (aparecen en la cotización/orden de compra)</div>
+                    <div class="price-grid">
+                        <div class="form-group">
+                            <label class="form-label">Banco</label>
+                            <input type="text" class="form-input" id="editEmpresaBanco" placeholder="BCP, BBVA, Interbank...">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cuenta S/</label>
+                            <input type="text" class="form-input" id="editEmpresaCuenta">
+                        </div>
+                    </div>
+                    <div class="price-grid">
+                        <div class="form-group">
+                            <label class="form-label">CCI</label>
+                            <input type="text" class="form-input" id="editEmpresaCCI">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Yape / Plin</label>
+                            <input type="text" class="form-input" id="editEmpresaYape">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label class="form-label">Código SVG del logo</label>
+                    <textarea class="form-input" id="editEmpresaLogoSVG" rows="5" style="font-family:monospace;font-size:0.78em;" placeholder="Pega aquí el código <svg>...</svg> del logo" oninput="actualizarPreviewLogoEmpresa()"></textarea>
+                    <div style="margin-top:8px;padding:12px;background:white;border:1px solid #e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:center;min-height:60px;" id="previewLogoEmpresa"></div>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditEmpresaModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-success">💾 Guardar Empresa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR SUCURSAL -->
+    <div class="modal" id="editSucursalModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">✏️ Editar Sucursal</h2>
+                <button class="modal-close" onclick="closeEditSucursalModal()">×</button>
+            </div>
+            <form id="editSucursalForm">
+                <div class="form-group">
+                    <label class="form-label">Nombre de la Sucursal</label>
+                    <input type="text" class="form-input" id="editSucursalNombre" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Dirección</label>
+                    <input type="text" class="form-input" id="editSucursalDireccion" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Ciudad</label>
+                    <input type="text" class="form-input" id="editSucursalCiudad" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Provincia</label>
+                    <input type="text" class="form-input" id="editSucursalProvincia" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-input" id="editSucursalTipo" required>
+                        <option value="Grande / Co">Grande / Co</option>
+                        <option value="Mediana">Mediana</option>
+                        <option value="Pequeña">Pequeña</option>
+                        <option value="Terminal">Terminal</option>
+                        <option value="Micro">Micro</option>
+                        <option value="Mini-micro">Mini-micro</option>
+                        <option value="Micro E/r">Micro E/r</option>
+                    </select>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditSucursalModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-success">💾 Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CONTRASEÑA PARA EDITAR EL KARDEX -->
+    <div class="modal" id="verCotizacionModal" onclick="if(event.target===this) cerrarVerCotizacionModal()">
+        <div class="modal-content ver-cotizacion-modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="verCotizacionTitulo">📋 Documento</h2>
+                <button class="modal-close" onclick="cerrarVerCotizacionModal()">×</button>
+            </div>
+            <div id="verCotizacionBody"></div>
+            <div class="modal-buttons" style="margin-top:18px;">
+                <button class="btn btn-small" style="background:#edf2f7;color:var(--primary);" onclick="cerrarVerCotizacionModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ACTUALIZAR PAGO — edita el monto adelantado de una OC de forma aislada, sin tocar
+         productos ni disparar el ajuste de Kardex (guardarEnHistorial() se salta por completo). -->
+    <div class="modal" id="actualizarPagoModal" onclick="if(event.target===this) cerrarModalActualizarPago()">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h2 class="modal-title">💰 Actualizar Pago</h2>
+                <button class="modal-close" onclick="cerrarModalActualizarPago()">×</button>
+            </div>
+            <input type="hidden" id="actualizarPagoObjectId">
+            <div style="margin-bottom:14px;">
+                <div style="font-weight:700;color:var(--primary);" id="actualizarPagoCorrelativo"></div>
+                <div style="font-size:0.85em;color:#718096;" id="actualizarPagoCliente"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Total de la Orden de Compra</label>
+                <div style="font-weight:700;font-size:1.1em;color:var(--primary);" id="actualizarPagoTotal">S/ 0.00</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Monto adelantado / pagado</label>
+                <input type="number" class="form-input" id="inputActualizarPagoAdelanto" min="0" step="0.5" placeholder="0.00" oninput="actualizarSaldoModalPago()">
+            </div>
+            <div style="font-weight:700;margin-top:6px;" id="actualizarPagoSaldoLabel"></div>
+            <div class="modal-buttons" style="margin-top:18px;">
+                <button class="btn btn-small" style="background:#edf2f7;color:var(--primary);" onclick="cerrarModalActualizarPago()">Cancelar</button>
+                <button class="btn btn-small btn-primary" id="btnGuardarActualizarPago" onclick="guardarActualizacionPago()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="kardexPasswordModal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h2 class="modal-title">🔒 Editar Kardex</h2>
+                <button class="modal-close" onclick="cerrarModalEditarKardex()">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ingresa la contraseña para habilitar la edición</label>
+                <input type="password" class="form-input" id="kardexPasswordInput" placeholder="Contraseña" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmarPasswordEditarKardex();}">
+            </div>
+            <p style="font-size:0.8em;color:#718096;margin-top:-6px;">Solo con la contraseña correcta se puede modificar el stock del Kardex directamente desde el sistema. El cambio se sube al mismo Excel de Dropbox.</p>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalEditarKardex()">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmarPasswordEditarKardex()">🔓 Desbloquear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EXPORTAR STOCK DEL KARDEX -->
+    <div class="modal" id="exportStockModal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h2 class="modal-title">📤 Exportar Stock</h2>
+                <button class="modal-close" onclick="cerrarModalExportarStock()">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Selecciona qué productos exportar</label>
+                <select class="form-input" id="exportStockGrupo">
+                    <option value="todo">📦 Exportar todo</option>
+                    <option value="san_jacinto">San Jacinto</option>
+                    <option value="la_bellota">La Bellota</option>
+                    <option value="telas">Telas</option>
+                </select>
+            </div>
+            <p style="font-size:0.8em;color:#718096;margin-top:-6px;">Se exporta el stock de la hoja del Kardex actualmente seleccionada, en un archivo Excel (.xlsx) con Código, Descripción y Stock actual.</p>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalExportarStock()">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="exportarStockKardex()">📤 Exportar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SISTEMA DE COTIZACIÓN -->
+    <div class="container" id="appContainer" style="display:none;">
+        <div class="header">
+            <div class="header-title-block">
+                <h1>📊 S.I.A</h1>
+                <div class="subtitle">Sistema Integral Administrativo · v8.15 </div>
+            </div>
+            <div class="header-user-panel" id="headerUserPanel">
+                <div class="user-badge" id="userBadge" style="display:none;">
+                    <div class="user-badge-avatar" id="userBadgeAvatar">?</div>
+                    <span id="userBadgeNombre">—</span>
+                    <button type="button" id="btnToggleModoPrueba" onclick="toggleModoDesarrollador()" style="display:none;font-size:0.75em;background:#fefcbf;color:#744210;border:1px solid #d69e2e;border-radius:6px;padding:2px 8px;cursor:pointer;font-weight:700;" title="Modo desarrollador: genera documentos de prueba sin afectar el correlativo real ni el Kardex">🧪 Prueba</button>
+                    <button type="button" onclick="cerrarSesion()">Salir</button>
+                </div>
+                <div id="correlativoPreview"></div>
+            </div>
+        </div>
+
+        <!-- FIX: banner de "Modo Desarrollador" — bien visible mientras está activo, para que nunca
+             quede prendido sin que el usuario se dé cuenta. Los documentos que se generen con este
+             modo activo usan contadores de correlativo COMPLETAMENTE APARTE de los reales
+             (tipoDocumento termina en "_prueba") y jamás tocan el Kardex ni el historial normal. -->
+        <div id="bannerModoPrueba" style="display:none;background:#744210;color:#fefcbf;text-align:center;font-weight:700;font-size:0.85em;padding:6px 12px;">
+            🧪 MODO PRUEBA ACTIVO — lo que generes aquí NO afecta el correlativo real ni el Kardex
+            <button type="button" onclick="toggleModoDesarrollador()" style="margin-left:10px;background:#fefcbf;color:#744210;border:none;border-radius:5px;padding:2px 10px;cursor:pointer;font-weight:700;">Desactivar</button>
+        </div>
+
+
+        <div class="content">
+            <!-- MENÚ — versión escritorio: 3 pestañas fijas (uso diario) + desplegable "Más" -->
+            <div class="tabs" id="tabsDesktop">
+                <button class="tab active" data-tab="cotizar" onclick="switchTab('cotizar')">Cotizar</button>
+                <button class="tab" data-tab="sucursales" onclick="switchTab('sucursales')">Sucursales</button>
+                <button class="tab" data-tab="historial" onclick="switchTab('historial')">Historial</button>
+
+                <div class="tabs-more" id="tabsMore">
+                    <button type="button" class="tab tabs-more-trigger" onclick="toggleTabsMore(event)">
+                        Más <span class="tabs-more-caret">⌄</span>
+                    </button>
+                    <div class="tabs-more-panel">
+                        <button class="tab" data-tab="kardex" onclick="switchTab('kardex')">📊 Kardex</button>
+                        <button class="tab" data-tab="productos" onclick="switchTab('productos')">📦 Productos</button>
+                        <button class="tab" data-tab="controldiario" onclick="switchTab('controldiario')" hidden>🗑️ Control Diario</button>
+                        <button class="tab" data-tab="movstock" onclick="switchTab('movstock')" hidden>📦 Ingreso/Egreso</button>
+                        <button class="tab" data-tab="fichas" onclick="switchTab('fichas')">📄 Fichas Técnicas</button>
+                        <div class="tabs-more-divider"></div>
+                        <button class="tab" data-tab="ajustes" onclick="switchTab('ajustes')">⚙️ Ajustes</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MENÚ — versión móvil: barra fija abajo (zona del pulgar) + hoja para el resto -->
+            <div class="tabs-mobile" id="tabsMobile">
+                <div class="tabs-mobile-bar">
+                    <button class="tab tabs-mobile-item active" data-tab="cotizar" onclick="switchTab('cotizar')">
+                        <span class="tabs-mobile-item-icon">📋</span>Cotizar
+                    </button>
+                    <button class="tab tabs-mobile-item" data-tab="sucursales" onclick="switchTab('sucursales')">
+                        <span class="tabs-mobile-item-icon">🚚</span>Sucursales
+                    </button>
+                    <button class="tab tabs-mobile-item" data-tab="historial" onclick="switchTab('historial')">
+                        <span class="tabs-mobile-item-icon">🕓</span>Historial
+                    </button>
+                    <button type="button" class="tabs-mobile-item tabs-mobile-bar-more-item" onclick="toggleTabsMobileMore(event)">
+                        <span class="tabs-mobile-item-icon">☰</span>Más
+                    </button>
+                </div>
+
+                <div class="tabs-mobile-more" id="tabsMobileMore">
+                    <div class="tabs-mobile-sheet-overlay" onclick="toggleTabsMobileMore(event)"></div>
+                    <div class="tabs-mobile-sheet">
+                        <div class="tabs-mobile-sheet-handle"></div>
+                        <button class="tab" data-tab="kardex" onclick="switchTab('kardex')"><span class="tabs-mobile-item-icon">📊</span>Kardex</button>
+                        <button class="tab" data-tab="productos" onclick="switchTab('productos')"><span class="tabs-mobile-item-icon">📦</span>Productos</button>
+                        <button class="tab" data-tab="controldiario" onclick="switchTab('controldiario')" hidden><span class="tabs-mobile-item-icon">🗑️</span>Control diario</button>
+                        <button class="tab" data-tab="movstock" onclick="switchTab('movstock')" hidden><span class="tabs-mobile-item-icon">📦</span>Ingreso / egreso</button>
+                        <button class="tab" data-tab="fichas" onclick="switchTab('fichas')"><span class="tabs-mobile-item-icon">📄</span>Fichas técnicas</button>
+                        <div class="tabs-mobile-sheet-divider"></div>
+                        <button class="tab" data-tab="ajustes" onclick="switchTab('ajustes')"><span class="tabs-mobile-item-icon">⚙️</span>Ajustes</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- TAB: COTIZAR -->
+            <div class="tab-content active" id="tab-cotizar">
+
+                <!-- PANEL DATOS DEL CLIENTE -->
+                <div class="cliente-panel">
+                    <div class="cliente-panel-header" onclick="toggleClientePanel()">
+                        <div class="cliente-panel-title">
+                            👤 Datos del Cliente
+                            <span class="cliente-panel-badge" id="clienteBadge" style="display:none">Completado</span>
+                        </div>
+                        <div id="clienteResumen" class="cliente-summary"></div>
+                        <span class="cliente-panel-toggle" id="clienteToggleIcon">▼</span>
+                    </div>
+                    <div class="cliente-panel-body" id="clientePanelBody">
+                        <div class="cliente-grid">
+                            <div class="cliente-field">
+                                <label>Nombre del Cliente</label>
+                                <div class="cliente-field-wrap">
+                                    <input type="text" id="clienteNombre" placeholder="Buscar o escribir nombre..." autocomplete="off" oninput="actualizarResumenCliente(); buscarClienteDB(this.value); if (!this.value.trim()) clienteDBObjectIdEnCurso = null;">
+                                    <div class="cliente-db-dropdown" id="clienteDBDropdown"></div>
+                                </div>
+                            </div>
+                            <div class="cliente-field">
+                                <label>Empresa / Razón Social</label>
+                                <input type="text" id="clienteEmpresa" placeholder="Empresa (opcional)" oninput="actualizarResumenCliente()">
+                            </div>
+                            <div class="cliente-field">
+                                <label>RUC / DNI</label>
+                                <input type="text" id="clienteRUC" placeholder="20XXXXXXXXX / DNI" oninput="actualizarResumenCliente()">
+                            </div>
+                            <div class="cliente-field">
+                                <label>Teléfono / WhatsApp</label>
+                                <input type="text" id="clienteTelefono" placeholder="9XX XXX XXX" oninput="actualizarResumenCliente()">
+                            </div>
+                            <div class="cliente-field">
+                                <label>Email</label>
+                                <input type="email" id="clienteEmail" placeholder="correo@empresa.com" oninput="actualizarResumenCliente()">
+                            </div>
+                            <div class="cliente-field">
+                                <label>Dirección de entrega</label>
+                                <input type="text" id="clienteDireccion" placeholder="Dirección (opcional)" oninput="actualizarResumenCliente()">
+                            </div>
+                            <div class="cliente-field full-row">
+                                <label>Notas / Observaciones</label>
+                                <textarea id="clienteNotas" rows="2" placeholder="Pedido especial, colores, indicaciones de entrega..." oninput="actualizarResumenCliente()"></textarea>
+                            </div>
+                        </div>
+                        <button class="cliente-save-btn" onclick="guardarClienteDB()">💾 Guardar cliente en base de datos</button>
+                    </div>
+                </div>
+
+                <div class="cliente-panel">
+                    <div class="cliente-panel-header" onclick="toggleAgregarProductoPanel()">
+                        <div class="cliente-panel-title">
+                            ➕ Agregar Producto a la Cotización
+                        </div>
+                        <span class="cliente-panel-toggle" id="agregarProductoToggleIcon">▼</span>
+                    </div>
+                    <div class="cliente-panel-body" id="agregarProductoPanelBody">
+                        <div class="search-container">
+                            <span class="search-icon">🔍</span>
+                            <input 
+                                type="text" 
+                                id="searchInput" 
+                                class="search-input" 
+                                placeholder="Buscar producto por nombre, código o color..."
+                                autocomplete="off"
+                            >
+                            <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+                        </div>
+
+                        <!-- EXTRAS ROW: Color + Cantidad inicial (+ Precio, solo si es producto nuevo) -->
+                        <div class="add-extras-row" id="addExtrasRow">
+                            <div class="extra-field" id="nuevoProductoPrecioField" style="max-width:140px;display:none;">
+                                <label>💲 Precio (nuevo)</label>
+                                <input type="number" id="inputNuevoProductoPrecio" min="0" step="0.5" placeholder="0.00" style="text-align:center;">
+                            </div>
+                            <div class="extra-field" style="max-width:260px;">
+                                <label>🎨 Color / Variante</label>
+                                <input type="text" id="inputColor" placeholder="Ej: Blanco, Azul..." autocomplete="off" oninput="filtrarChipsColorAgregar(this.value)">
+                                <div class="color-chips" id="colorChips"></div>
+                            </div>
+                            <div class="extra-field" style="max-width:110px;">
+                                <label>📦 Cant. inicial</label>
+                                <input type="number" id="inputCantidadInicial" value="1" min="1" style="text-align:center;" oninput="actualizarDisponibleColorSeleccionado(document.getElementById('inputColor').value)">
+                            </div>
+                        </div>
+                        <div id="nuevoProductoAviso" style="display:none;margin-top:6px;font-size:0.8em;color:#9a3412;background:#fed7aa;padding:6px 10px;border-radius:6px;">✨ Estás creando un producto nuevo. Se guardará en la nube con un código genérico y no llevará control de Kardex.</div>
+                        <div id="disponibleColorLabel" style="font-size:0.8em;margin-top:4px;min-height:1.2em;"></div>
+
+                        <div style="margin-top:10px;">
+                            <button id="btnAdd" class="btn btn-primary" disabled>Agregar a la Cotización</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="products-table-container">
+                    <table class="products-table" id="productsTable">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto / Color</th>
+                                <th>Cant.</th>
+                                <th>Precio Unit.</th>
+                                <th>Total</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr class="empty-state">
+                                <td colspan="6">📋 No hay productos agregados</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB: SUCURSALES -->
+            <div class="tab-content" id="tab-sucursales">
+                <div class="add-product-section">
+                    <div class="add-product-title">🔍 Buscar Sucursal para Envío</div>
+                    <div class="search-container">
+                        <span class="search-icon">📍</span>
+                        <input 
+                            type="text" 
+                            id="searchSucursal" 
+                            class="search-input" 
+                            placeholder="Buscar por ciudad, provincia, dirección..."
+                        >
+                    </div>
+                    <div class="filter-section" id="filterSection">
+                        <button class="filter-btn active" onclick="filterByTipo('all')">🌍 Todas</button>
+                        <button class="filter-btn" onclick="filterByTipo('Grande / Co')">🏢 Grande</button>
+                        <button class="filter-btn" onclick="filterByTipo('Mediana')">🏪 Mediana</button>
+                        <button class="filter-btn" onclick="filterByTipo('Pequeña')">🏠 Pequeña</button>
+                        <button class="filter-btn" onclick="filterByTipo('Terminal')">🚌 Terminal</button>
+                        <button class="filter-btn" onclick="filterByTipo('Micro')">📦 Micro</button>
+                    </div>
+                    <div id="sucursalSeleccionada" style="margin-top: 15px; display: none;">
+                        <strong style="color: var(--success);">✅ Sucursal seleccionada:</strong>
+                        <div id="sucursalInfo" style="margin-top: 10px; padding: 15px; background: #f0fff4; border-radius: 8px; border: 2px solid var(--success);"></div>
+                        <div class="deselect-hint show" id="deselectHint">
+                            💡 <strong>Tip:</strong> Click nuevamente en la sucursal para deseleccionarla
+                        </div>
+                    </div>
+                    <div class="sucursal-stats" id="sucursalStats"></div>
+                </div>
+                <div class="sucursal-grid" id="sucursalGrid"></div>
+            </div>
+
+            <!-- TAB: GESTIÓN DE PRODUCTOS -->
+            <div class="tab-content" id="tab-productos">
+                <div class="add-product-section">
+                    <div class="add-product-title">📦 Catálogo de Productos (<span id="productCountRapido">0</span>)</div>
+                    <div class="search-container">
+                        <span class="search-icon">🔍</span>
+                        <input 
+                            type="text" 
+                            id="searchProductosRapido" 
+                            class="search-input" 
+                            placeholder="Buscar por nombre, código o color..."
+                            autocomplete="off"
+                            oninput="renderProductosVistaRapida()"
+                        >
+                    </div>
+                </div>
+                <div class="products-table-container">
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Precio Und.</th>
+                                <th>Precio Mayor</th>
+                                <th>Stock total</th>
+                                <th>Colores disponibles</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productListBodyRapido"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB: KARDEX (STOCK DESDE DROPBOX) -->
+            <div class="tab-content" id="tab-kardex">
+                <div class="new-form-section">
+                    <h3>📊 Kardex (Dropbox)</h3>
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+                        <button type="button" id="btnActualizarStock" class="btn btn-success" onclick="cargarKardex(true)">🔄 Actualizar desde Dropbox</button>
+                        <button type="button" id="btnExportarStock" class="btn btn-primary" onclick="abrirModalExportarStock()">📤 Exportar Stock</button>
+                        <button type="button" id="btnEditarKardex" class="btn" style="background:#805ad5;color:white;" onclick="abrirModalEditarKardex()">🔒 Editar Kardex</button>
+                        <button type="button" id="btnGuardarEdicionKardex" class="btn btn-success" style="display:none;" onclick="guardarEdicionKardex()">💾 Guardar cambios</button>
+                        <button type="button" id="btnCancelarEdicionKardex" class="btn btn-secondary" style="display:none;" onclick="cancelarEdicionKardex()">✖️ Cancelar edición</button>
+                        <div id="kardexUltimaActualizacion" style="color:white;font-size:0.85em;opacity:0.85;"></div>
+                    </div>
+                    <div id="kardexColorWarning" style="display:none;background:#fefcbf;color:#744210;padding:8px 12px;border-radius:8px;font-size:0.82em;margin-bottom:10px;"></div>
+                    <div id="kardexEdicionAviso" style="display:none;background:#e9d8fd;color:#44337a;padding:8px 12px;border-radius:8px;font-size:0.82em;margin-bottom:10px;">🔓 Modo edición activo: cambia las cantidades de la columna de stock y presiona "💾 Guardar cambios" para subirlas al Kardex de Dropbox.</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                        <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📑 Hoja del Excel</label>
+                            <select class="form-input" id="kardexHojaSelect" onchange="cambiarHojaKardex()">
+                                <option value="">Cargando hojas...</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:2;min-width:220px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">🔍 Buscar en esta hoja</label>
+                            <input type="text" class="form-input" id="kardexSearchInput" placeholder="Buscar en cualquier columna..." oninput="renderKardexTabCompleta()">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="add-product-section">
+                    <div class="add-product-title" style="cursor:pointer;" onclick="toggleIdentificacionPanel()">
+                        🔗 Identificación de productos sin código (<span id="kardexSinCodigoCount">0</span>) <span id="identificacionToggleIcon">▼</span>
+                    </div>
+                    <div id="identificacionPanelBody" style="display:none;margin-top:10px;">
+                        <p style="font-size:0.82em;color:#718096;margin-bottom:10px;">
+                            Estos productos no tienen código en la columna <strong>ARTICULO</strong> del Kardex, así que el sistema los identifica
+                            y vincula automáticamente usando su texto en la columna <strong>DESCRIPCION</strong>. Con esa vinculación se
+                            reconocen igual en Control Diario, Orden de Compra y Exportar Stock, sin necesidad de asignarles un código manualmente.
+                        </p>
+                        <div class="products-table-container" style="max-height:300px;overflow-y:auto;">
+                            <table class="products-table">
+                                <thead><tr><th>Descripción (Kardex)</th><th>Stock</th><th>Clave interna generada</th></tr></thead>
+                                <tbody id="identificacionBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="add-product-section">
+                    <div class="add-product-title">📄 Filas en esta hoja (<span id="kardexCount">0</span>)</div>
+                </div>
+                <div class="products-table-container" style="overflow-x:auto;">
+                    <table class="products-table">
+                        <thead>
+                            <tr id="kardexTableHead"></tr>
+                        </thead>
+                        <tbody id="kardexListBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB: CONTROL DIARIO (descarte directo de stock en el Kardex) -->
+            <div class="tab-content" id="tab-controldiario">
+                <div class="new-form-section">
+                    <h3>🗑️ Control Diario — Descarte de Stock</h3>
+                    <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
+                        Registra aquí el descarte diario de productos (mermas, roturas, control de calidad, etc.).
+                        Al registrar, se descuenta el stock <strong>directamente en el Kardex</strong> (igual que una Orden de Compra)
+                        y queda guardado en el historial de movimientos para su consulta.
+                    </p>
+                    <div class="form-group" style="position:relative;">
+                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o nombre/descripción)</label>
+                        <input type="text" class="form-input" id="cdBuscarProducto" placeholder="Ej: 7015, o 'toalla belleza baño'..." autocomplete="off" oninput="buscarProductosControlDiario(this.value)">
+                        <div class="cliente-db-dropdown" id="cdBuscarDropdown"></div>
+                    </div>
+                    <div id="cdProductoInfo" style="display:none;background:rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:white;font-size:0.88em;">
+                        <div id="cdProductoStockActual"></div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="max-width:160px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📉 Cantidad a descartar</label>
+                            <input type="number" min="0.01" step="0.01" class="form-input" id="cdCantidad" placeholder="0">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📝 Motivo (opcional)</label>
+                            <input type="text" class="form-input" id="cdMotivo" placeholder="Ej: producto dañado, control de calidad...">
+                        </div>
+                        <button type="button" id="btnRegistrarControlDiario" class="btn btn-warning" onclick="registrarControlDiario()">📉 Registrar Descarte</button>
+                    </div>
+                </div>
+
+                <div class="add-product-section">
+                    <div class="add-product-title">🕓 Consulta de Movimientos de Control Diario</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Desde</label>
+                            <input type="date" class="form-input" id="cdFiltroDesde" onchange="cargarMovimientosControlDiario()">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Hasta</label>
+                            <input type="date" class="form-input" id="cdFiltroHasta" onchange="cargarMovimientosControlDiario()">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0;">
+                            <label class="form-label">Buscar por código, descripción o usuario</label>
+                            <input type="text" class="form-input" id="cdFiltroTexto" placeholder="Buscar..." oninput="pintarMovimientosControlDiario()">
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="cargarMovimientosControlDiario()">🔄 Actualizar</button>
+                    </div>
+                </div>
+                <div class="products-table-container" style="overflow-x:auto;">
+                    <table class="products-table">
+                        <thead>
+                            <tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Registrado por</th></tr>
+                        </thead>
+                        <tbody id="cdMovimientosBody">
+                            <tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">Presiona "🔄 Actualizar" para ver los movimientos.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB: INGRESO / EGRESO RÁPIDO DE STOCK (reemplaza el llenado manual del Excel) -->
+            <div class="tab-content" id="tab-movstock">
+                <div class="new-form-section">
+                    <h3>📥 Ingreso de Stock (San Jacinto / La Bellota)</h3>
+                    <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
+                        Reemplaza el llenado manual del Excel: busca el producto, indica qué marca llegó y la cantidad.
+                        El sistema suma automáticamente en INGRESO CANT SJACINTO/BELLOTA, actualiza el SALDO,
+                        y registra la fecha de hoy en FECHA INGRESO — directamente en el Kardex, conservando sus fórmulas.
+                    </p>
+                    <div class="form-group" style="position:relative;">
+                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o descripción)</label>
+                        <input type="text" class="form-input" id="ingBuscarProducto" placeholder="Ej: 7015, o 'sábana...'..." autocomplete="off" oninput="buscarProductosIngreso(this.value)">
+                        <div class="cliente-db-dropdown" id="ingBuscarDropdown"></div>
+                    </div>
+                    <div id="ingProductoInfo" style="display:none;background:rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:white;font-size:0.88em;">
+                        <div id="ingProductoStockActual"></div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="min-width:180px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">🏷️ Marca que llegó</label>
+                            <select class="form-input" id="ingMarca">
+                                <option value="san_jacinto">San Jacinto</option>
+                                <option value="la_bellota">La Bellota</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="max-width:160px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📥 Cantidad que llegó</label>
+                            <input type="number" min="0.01" step="0.01" class="form-input" id="ingCantidad" placeholder="0">
+                        </div>
+                        <div class="form-group" style="max-width:180px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📅 Fecha de ingreso</label>
+                            <input type="date" class="form-input" id="ingFecha">
+                        </div>
+                        <button type="button" id="btnRegistrarIngreso" class="btn btn-success" onclick="registrarIngresoStock()">📥 Registrar Ingreso</button>
+                    </div>
+                </div>
+
+                <div class="new-form-section" style="margin-top:20px;">
+                    <h3>📤 Egreso del Día</h3>
+                    <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
+                        Registra la salida de stock del día. El sistema la suma en la columna del día correspondiente (1 al 31),
+                        actualiza TOTAL EGRESO y descuenta el SALDO — directamente en el Kardex, conservando sus fórmulas.
+                    </p>
+                    <div class="form-group" style="position:relative;">
+                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o descripción)</label>
+                        <input type="text" class="form-input" id="egrBuscarProducto" placeholder="Ej: 7015, o 'sábana...'..." autocomplete="off" oninput="buscarProductosEgreso(this.value)">
+                        <div class="cliente-db-dropdown" id="egrBuscarDropdown"></div>
+                    </div>
+                    <div id="egrProductoInfo" style="display:none;background:rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:white;font-size:0.88em;">
+                        <div id="egrProductoStockActual"></div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="max-width:160px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📤 Cantidad de salida</label>
+                            <input type="number" min="0.01" step="0.01" class="form-input" id="egrCantidad" placeholder="0">
+                        </div>
+                        <div class="form-group" style="max-width:180px;margin-bottom:0;">
+                            <label class="form-label" style="color:white;">📅 Fecha de egreso</label>
+                            <input type="date" class="form-input" id="egrFecha">
+                        </div>
+                        <button type="button" id="btnRegistrarEgreso" class="btn btn-warning" onclick="registrarEgresoStock()">📤 Registrar Egreso</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: AJUSTES (Gestión de Sucursales + Editar/Agregar Productos) -->
+            <div class="tab-content" id="tab-ajustes">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+                    <button type="button" class="tab ajustes-subtab-btn active" id="ajustesSubBtn_productos" onclick="cambiarAjustesSubTab('productos')">📦 Productos</button>
+                    <button type="button" class="tab ajustes-subtab-btn" id="ajustesSubBtn_sucursales" onclick="cambiarAjustesSubTab('sucursales')">🏢 Sucursales</button>
+                </div>
+
+                <!-- AJUSTES > PRODUCTOS -->
+                <div id="ajustesSub-productos" class="ajustes-subtab-content">
+                    <div class="new-form-section">
+                        <h3>➕ Agregar Nuevo Producto</h3>
+                        <form id="newProductForm" onsubmit="agregarNuevoProducto(event)">
+                            <div class="form-group">
+                                <label class="form-label" style="color: white;">Código del Producto</label>
+                                <input type="text" class="form-input" id="newProductCodigo" placeholder="Ej: TOA-008" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="color: white;">Nombre del Producto</label>
+                                <input type="text" class="form-input" id="newProductNombre" placeholder="Ej: Toalla Premium..." required>
+                            </div>
+                            <div class="price-grid">
+                                <div class="form-group">
+                                    <label class="form-label" style="color: white;">Precio Por Menor (S/)</label>
+                                    <input type="number" step="0.01" min="0" class="form-input" id="newProductMenor" placeholder="0.00" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" style="color: white;">Precio Por Mayor (S/)</label>
+                                    <input type="number" step="0.01" min="0" class="form-input" id="newProductMayor" placeholder="0.00" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success" style="width: 100%;">💾 Agregar Producto</button>
+                        </form>
+                    </div>
+
+                    <div class="add-product-section">
+                        <div class="add-product-title">📦 Lista de Productos (<span id="productCount">0</span>)</div>
+                    </div>
+                    <div class="products-table-container">
+                        <table class="products-table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Und</th>
+                                    <th>1/4 Docena</th>
+                                    <th>Mayor</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productListBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- AJUSTES > SUCURSALES -->
+                <div id="ajustesSub-sucursales" class="ajustes-subtab-content" style="display:none;">
+                    <div class="new-form-section">
+                        <h3>➕ Agregar Nueva Sucursal</h3>
+                        <form id="newSucursalForm" onsubmit="agregarNuevaSucursal(event)">
+                            <div class="form-group">
+                                <label class="form-label" style="color: white;">Nombre de la Sucursal</label>
+                                <input type="text" class="form-input" id="newSucursalNombre" placeholder="Ej: Lima Centro" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="color: white;">Dirección</label>
+                                <input type="text" class="form-input" id="newSucursalDireccion" placeholder="Ej: Av. Principal 123" required>
+                            </div>
+                            <div class="price-grid">
+                                <div class="form-group">
+                                    <label class="form-label" style="color: white;">Ciudad</label>
+                                    <input type="text" class="form-input" id="newSucursalCiudad" placeholder="Ej: Lima" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" style="color: white;">Provincia</label>
+                                    <input type="text" class="form-input" id="newSucursalProvincia" placeholder="Ej: Lima" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="color: white;">Tipo de Sucursal</label>
+                                <select class="form-input" id="newSucursalTipo" required>
+                                    <option value="">Seleccione un tipo...</option>
+                                    <option value="Grande / Co">Grande / Co</option>
+                                    <option value="Mediana">Mediana</option>
+                                    <option value="Pequeña">Pequeña</option>
+                                    <option value="Terminal">Terminal</option>
+                                    <option value="Micro">Micro</option>
+                                    <option value="Mini-micro">Mini-micro</option>
+                                    <option value="Micro E/r">Micro E/r</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-success" style="width: 100%;">💾 Agregar Sucursal</button>
+                        </form>
+                    </div>
+
+                    <!-- LISTA DE SUCURSALES -->
+                    <div class="add-product-section">
+                        <div class="add-product-title">🏢 Lista de Sucursales (<span id="sucursalCount">0</span>)</div>
+                        <div class="search-container">
+                            <span class="search-icon">🔍</span>
+                            <input 
+                                type="text" 
+                                id="searchSucursalGestion" 
+                                class="search-input" 
+                                placeholder="Buscar sucursal..."
+                            >
+                        </div>
+                    </div>
+                    <div class="products-table-container">
+                        <table class="products-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Dirección</th>
+                                    <th>Ciudad</th>
+                                    <th>Provincia</th>
+                                    <th>Tipo</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sucursalListBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+<!-- MÓDULO DE FICHAS TÉCNICAS - AGREGAR DESPUÉS DE LA LÍNEA 1100 (antes del cierre del div.content) -->
+<!-- ============================================ -->
+
+<!-- TAB: FICHAS TÉCNICAS -->
+<!-- TAB: HISTORIAL -->
+<div class="tab-content" id="tab-historial">
+    <div class="historial-header-row">
+        <div>
+            <strong style="font-size:1.1em; color:var(--primary);">🕓 Historial de Cotizaciones</strong>
+            <span class="historial-count-badge" id="historialCount">0</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button class="btn btn-small" id="btnExportarHistorialLocal" onclick="exportarHistorialLocal()" style="display:none;font-size:0.8em;background:#e6fffa;color:#234e52;">📤 Exportar historial local (temporal)</button>
+            <button class="btn btn-small" id="btnImportarHistorial" onclick="document.getElementById('inputImportarHistorial').click()" style="display:none;font-size:0.8em;background:#fefcbf;color:#744210;">📥 Importar cotizaciones desde archivo</button>
+            <input type="file" id="inputImportarHistorial" accept="application/json" style="display:none;" onchange="importarHistorialDesdeArchivo(event)">
+            <button class="btn btn-small" id="btnToggleMaster" onclick="toggleVerTodasCotizaciones()" style="display:none;font-size:0.8em;background:#edf2f7;color:var(--primary);">👥 Ver todas</button>
+            <button class="btn btn-danger btn-small" onclick="limpiarHistorial()" style="font-size:0.8em;">🗑️ Ocultar todo</button>
+        </div>
+    </div>
+    <div id="historialList">
+        <div class="historial-empty">No hay cotizaciones guardadas aún.<br><br>Después de armar una cotización, haz clic en <strong>"💾 Guardar"</strong> o genera un PDF/Imagen para guardarla automáticamente.</div>
+    </div>
+</div>
+
+<div class="tab-content" id="tab-fichas">
+    <!-- SELECTOR DE PRODUCTO POR CATEGORÍA -->
+    <div class="add-product-section">
+        <div class="add-product-title">🖼️ Imágenes de Productos</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;margin-top:10px;">
+            <button type="button" class="tab ficha-cat-btn" id="fichaCatBtn_catalogo" onclick="cambiarCategoriaFicha('catalogo')">📱 Catálogo</button>
+            <button type="button" class="tab ficha-cat-btn active" id="fichaCatBtn_toallas" onclick="cambiarCategoriaFicha('toallas')">🧺 Toallas</button>
+            <button type="button" class="tab ficha-cat-btn" id="fichaCatBtn_telas" onclick="cambiarCategoriaFicha('telas')">🧵 Telas</button>
+            <button type="button" class="tab ficha-cat-btn" id="fichaCatBtn_vestimenta" onclick="cambiarCategoriaFicha('vestimenta')">👕 Vestimenta</button>
+        </div>
+        <input type="text" class="form-input" id="fichaBuscarProducto" placeholder="🔍 Buscar por nombre..." oninput="renderPickerFicha()" style="margin-bottom:16px;">
+    </div>
+
+    <div class="ficha-layout">
+        <div id="fichaProductoGrid" class="galeria-grid"></div>
+        <div class="ficha-preview-panel">
+            <div id="fichaPreviewPanel">
+                <div style="text-align:center;color:#a0aec0;padding:40px 16px;">Selecciona un producto para ver su imagen aquí.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMULARIO DE FICHA TÉCNICA -->
+    <div id="fichaFormSection" style="display: none;">
+        <div class="new-form-section">
+            <h3>📝 Información Técnica del Producto</h3>
+            <form id="fichaForm">
+                <!-- INFORMACIÓN BÁSICA -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Código del Producto</label>
+                        <input type="text" class="form-input" id="fichaCodigo" placeholder="Escribe el código del producto">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Nombre del Producto</label>
+                        <input type="text" class="form-input" id="fichaNombre" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Marca</label>
+                        <input type="text" class="form-input" id="fichaMarca" placeholder="Línea Hotelera">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">País de Origen</label>
+                        <input type="text" class="form-input" id="fichaPais" placeholder="Perú">
+                    </div>
+                </div>
+
+                <!-- ESPECIFICACIONES TÉCNICAS -->
+                <h4 style="margin-top: 20px; margin-bottom: 15px; color: white;">🔧 Especificaciones Técnicas</h4>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Composición/Material</label>
+                        <input type="text" class="form-input" id="fichaComposicion" placeholder="Ej: 100% Algodón">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Gramaje (gr/m²)</label>
+                        <input type="number" class="form-input" id="fichaGramaje" placeholder="380">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Dimensiones</label>
+                        <input type="text" class="form-input" id="fichaDimensiones" placeholder="Ej: 120 x 60 cm">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Peso (kg)</label>
+                        <input type="number" step="0.01" class="form-input" id="fichaPeso" placeholder="0.380">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Color(es)</label>
+                        <input type="text" class="form-input" id="fichaColor" placeholder="Blanco, Beige, Gris">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Acabado</label>
+                        <input type="text" class="form-input" id="fichaAcabado" placeholder="Felpa, Liso, Jacquard">
+                    </div>
+                </div>
+
+                <!-- CARACTERÍSTICAS -->
+                <h4 style="margin-top: 20px; margin-bottom: 15px; color: white;">⭐ Características</h4>
+                
+                <div class="form-group">
+                    <label class="form-label" style="color: white;">Características Principales</label>
+                    <textarea class="form-input" id="fichaCaracteristicas" rows="3" placeholder="Ej:&#10;- Alta absorción&#10;- Secado rápido&#10;- Resistente al uso frecuente&#10;- Hipoalergénico"></textarea>
+                </div>
+
+                <!-- CUIDADOS E INSTRUCCIONES -->
+                <h4 style="margin-top: 20px; margin-bottom: 15px; color: white;">🧼 Instrucciones de Cuidado</h4>
+                
+                <div class="form-group">
+                    <label class="form-label" style="color: white;">Instrucciones de Lavado</label>
+                    <textarea class="form-input" id="fichaLavado" rows="3" placeholder="Ej:&#10;- Lavar a máquina máximo 60°C&#10;- No usar blanqueador con cloro&#10;- Secar en secadora a temperatura baja"></textarea>
+                </div>
+
+                <!-- USO Y APLICACIONES -->
+                <h4 style="margin-top: 20px; margin-bottom: 15px; color: white;">🏨 Uso y Aplicaciones</h4>
+                
+                <div class="form-group">
+                    <label class="form-label" style="color: white;">Uso Recomendado</label>
+                    <textarea class="form-input" id="fichaUso" rows="2" placeholder="Ej: Ideal para hoteles, spas, gimnasios y uso doméstico"></textarea>
+                </div>
+
+                <!-- INFORMACIÓN ADICIONAL -->
+                <h4 style="margin-top: 20px; margin-bottom: 15px; color: white;">📋 Información Adicional</h4>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Garantía</label>
+                        <input type="text" class="form-input" id="fichaGarantia" placeholder="12 meses">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="color: white;">Certificaciones</label>
+                        <input type="text" class="form-input" id="fichaCertificaciones" placeholder="OEKO-TEX, ISO 9001">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: white;">Notas Adicionales</label>
+                    <textarea class="form-input" id="fichaNotas" rows="2" placeholder="Información adicional relevante..."></textarea>
+                </div>
+
+                <button type="button" class="btn btn-success" onclick="generarFichaPDF()" style="width: 100%; margin-top: 20px;">
+                    📄 Generar Ficha Técnica en PDF
+                </button>
+            </form>
+        </div>
+
+        <!-- VISTA PREVIA -->
+        <div class="add-product-section" style="margin-top: 20px;">
+            <div class="add-product-title">👁️ Vista Previa</div>
+            <button class="btn btn-primary" onclick="mostrarVistaPrevia()" style="margin-bottom: 15px;">
+                🔄 Actualizar Vista Previa
+            </button>
+            <div id="fichaPreview" style="border: 2px solid var(--border); padding: 20px; background: white; border-radius: 8px;">
+                <p style="text-align: center; color: #718096;">Completa el formulario y click en "Actualizar Vista Previa"</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FICHA TÉCNICA PARA IMPRESIÓN -->
+<div class="ficha-print" id="fichaPrint" style="position: fixed; left: -9999px; top: 0; background: white; padding: 40px; width: 900px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--primary); padding-bottom: 20px; margin-bottom: 30px;">
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" viewBox="0 0 375 374.999991" height="80" preserveAspectRatio="xMidYMid meet" version="1.0"><defs><g/><clipPath id="6419b05467"><path d="M 7 84 L 306 84 L 306 165 L 7 165 Z M 7 84 " clip-rule="nonzero"/></clipPath><clipPath id="d2ff1b2756"><path d="M 7.578125 104.488281 L 301.839844 84.792969 L 305.886719 145.222656 L 11.621094 164.917969 Z M 7.578125 104.488281 " clip-rule="nonzero"/></clipPath><clipPath id="97ee6af1ff"><path d="M 3 21 L 298 21 L 298 69 L 3 69 Z M 3 21 " clip-rule="nonzero"/></clipPath><clipPath id="811528d0df"><path d="M 0.578125 20.488281 L 294.839844 0.792969 L 298.886719 61.222656 L 4.621094 80.917969 Z M 0.578125 20.488281 " clip-rule="nonzero"/></clipPath><clipPath id="b27bef7021"><path d="M 4.632812 81.042969 L 298.894531 61.34375 L 294.847656 0.914062 L 0.585938 20.613281 Z M 4.632812 81.042969 " clip-rule="nonzero"/></clipPath><clipPath id="f39224f628"><path d="M 4.632812 81.042969 L 298.894531 61.34375 L 294.847656 0.914062 L 0.585938 20.613281 Z M 4.632812 81.042969 " clip-rule="nonzero"/></clipPath><clipPath id="2b9cab224f"><rect x="0" width="299" y="0" height="81"/></clipPath><clipPath id="6223f5eb2f"><rect x="0" width="334" y="0" height="294"/></clipPath></defs><rect x="-37.5" width="450" fill="#ffffff" y="-37.499999" height="449.999989" fill-opacity="1"/><g transform="matrix(1, 0, 0, 1, 40, 14)"><g clip-path="url(#6223f5eb2f)"><g fill="#231f20" fill-opacity="1"><g transform="translate(1.139724, 203.780202)"><g><path d="M 74.515625 -26.34375 C 75.234375 -26.457031 75.96875 -26.5 76.71875 -26.46875 C 77.476562 -26.445312 78.21875 -26.238281 78.9375 -25.84375 C 79.050781 -25.726562 79.160156 -25.519531 79.265625 -25.21875 C 79.367188 -24.925781 79.453125 -24.644531 79.515625 -24.375 C 79.515625 -24.257812 79.445312 -24.117188 79.3125 -23.953125 C 79.175781 -23.796875 79.050781 -23.640625 78.9375 -23.484375 C 78.601562 -23.304688 78.273438 -23.175781 77.953125 -23.09375 C 73.703125 -22.257812 69.765625 -20.847656 66.140625 -18.859375 C 62.515625 -16.867188 59.066406 -14.5625 55.796875 -11.9375 C 51.335938 -8.46875 47.226562 -4.660156 43.46875 -0.515625 C 39.71875 3.628906 36.175781 7.960938 32.84375 12.484375 C 26.519531 20.984375 20.640625 29.804688 15.203125 38.953125 C 13.953125 41.066406 12.671875 43.132812 11.359375 45.15625 C 11.179688 45.539062 10.960938 45.894531 10.703125 46.21875 C 10.109375 47.195312 9.453125 48.117188 8.734375 48.984375 C 6.835938 51.003906 4.609375 51.492188 2.046875 50.453125 C 1.003906 49.921875 0.398438 49.210938 0.234375 48.328125 C 0.078125 47.453125 0.101562 46.523438 0.3125 45.546875 C 1.738281 32.648438 2.585938 19.769531 2.859375 6.90625 C 3.359375 -10.351562 3.6875 -27.613281 3.84375 -44.875 C 4.007812 -62.144531 3.738281 -79.394531 3.03125 -96.625 C 2.582031 -106.96875 2.003906 -117.335938 1.296875 -127.734375 C 0.960938 -132.492188 0.632812 -137.265625 0.3125 -142.046875 C 0.3125 -142.429688 0.265625 -142.789062 0.171875 -143.125 C 0.117188 -144.101562 0.09375 -145.082031 0.09375 -146.0625 C 0.238281 -147.570312 1.082031 -148.414062 2.625 -148.59375 C 3.550781 -148.75 4.378906 -148.660156 5.109375 -148.328125 C 5.835938 -148.003906 6.257812 -147.515625 6.375 -146.859375 C 6.96875 -144.421875 7.398438 -141.96875 7.671875 -139.5 C 7.671875 -138.789062 7.695312 -138.066406 7.75 -137.328125 C 8.726562 -123.859375 9.578125 -110.394531 10.296875 -96.9375 C 11.003906 -83.59375 11.34375 -70.234375 11.3125 -56.859375 C 11.289062 -43.492188 11.113281 -30.113281 10.78125 -16.71875 C 10.570312 -5.75 10.273438 5.226562 9.890625 16.21875 C 9.835938 18.78125 9.707031 21.320312 9.5 23.84375 C 9.375 25.300781 9.28125 26.742188 9.21875 28.171875 C 9.164062 29.421875 9.09375 30.695312 9 32 C 9 32.59375 8.972656 33.1875 8.921875 33.78125 C 9.117188 33.84375 9.28125 33.90625 9.40625 33.96875 C 9.613281 33.96875 9.804688 33.992188 9.984375 34.046875 C 10.304688 33.546875 10.632812 33.054688 10.96875 32.578125 C 11.820312 31.210938 12.710938 29.847656 13.640625 28.484375 C 19.703125 18.796875 26.398438 9.613281 33.734375 0.9375 C 37.453125 -3.457031 41.421875 -7.535156 45.640625 -11.296875 C 49.859375 -15.054688 54.476562 -18.378906 59.5 -21.265625 C 61.875 -22.566406 64.285156 -23.671875 66.734375 -24.578125 C 69.191406 -25.484375 71.785156 -26.070312 74.515625 -26.34375 Z M 74.515625 -26.34375 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(73.297867, 203.780202)"><g><path d="M 23.125 -18.09375 C 22.207031 -16.195312 20.640625 -14.085938 18.421875 -11.765625 C 16.210938 -9.453125 13.703125 -7.984375 10.890625 -7.359375 C 8.085938 -6.734375 5.410156 -7.695312 2.859375 -10.25 C 1.867188 -11.375 1.144531 -12.671875 0.6875 -14.140625 C 0.226562 -15.617188 0.0546875 -17.070312 0.171875 -18.5 C 0.171875 -18.882812 0.171875 -19.375 0.171875 -19.96875 C 0.171875 -21.476562 0.238281 -23.226562 0.375 -25.21875 C 0.507812 -27.21875 0.804688 -29.019531 1.265625 -30.625 C 1.734375 -32.226562 2.457031 -33.191406 3.4375 -33.515625 C 6.257812 -34.234375 7.785156 -33.253906 8.015625 -30.578125 C 8.015625 -29.710938 7.988281 -28.847656 7.9375 -27.984375 C 7.875 -27.546875 7.84375 -27.132812 7.84375 -26.75 C 7.78125 -25.5 7.722656 -24.25 7.671875 -23 C 7.671875 -22.019531 7.625 -21.039062 7.53125 -20.0625 C 7.46875 -15.75 8.429688 -13.179688 10.421875 -12.359375 C 12.421875 -11.546875 14.695312 -12.414062 17.25 -14.96875 C 19.800781 -17.53125 21.46875 -19.65625 22.25 -21.34375 C 23.039062 -23.039062 23.613281 -23.398438 23.96875 -22.421875 C 24.332031 -21.441406 24.050781 -20 23.125 -18.09375 Z M 7.4375 -42.703125 C 7.050781 -42.367188 6.582031 -42.15625 6.03125 -42.0625 C 5.488281 -41.976562 5.007812 -42.023438 4.59375 -42.203125 C 4.257812 -42.472656 4.046875 -42.820312 3.953125 -43.25 C 3.867188 -43.6875 3.828125 -44.203125 3.828125 -44.796875 C 3.828125 -44.910156 3.859375 -45.03125 3.921875 -45.15625 C 3.984375 -45.6875 4.117188 -46.21875 4.328125 -46.75 C 4.921875 -48.175781 6.148438 -48.832031 8.015625 -48.71875 C 8.671875 -48.625 9.1875 -48.351562 9.5625 -47.90625 C 9.9375 -47.46875 10.019531 -46.953125 9.8125 -46.359375 C 9.363281 -44.898438 8.570312 -43.679688 7.4375 -42.703125 Z M 7.4375 -42.703125 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(95.181536, 203.780202)"><g><path d="M 36.859375 -17.15625 C 39.148438 -20.78125 40.507812 -23.082031 40.9375 -24.0625 C 41.363281 -25.050781 41.703125 -25.007812 41.953125 -23.9375 C 42.210938 -22.863281 41.476562 -20.445312 39.75 -16.6875 C 38.03125 -12.925781 35.890625 -10.03125 33.328125 -8 C 30.773438 -5.96875 28.390625 -5.21875 26.171875 -5.75 C 23.960938 -6.28125 22.382812 -7.816406 21.4375 -10.359375 C 20.488281 -12.898438 20.207031 -16.101562 20.59375 -19.96875 C 20.59375 -20.03125 20.625 -20.191406 20.6875 -20.453125 C 20.738281 -21.109375 20.847656 -22.070312 21.015625 -23.34375 C 21.179688 -24.625 21.300781 -25.945312 21.375 -27.3125 C 21.445312 -28.6875 21.398438 -29.816406 21.234375 -30.703125 C 21.078125 -31.597656 20.671875 -31.910156 20.015625 -31.640625 C 18.441406 -30.785156 16.898438 -29.101562 15.390625 -26.59375 C 13.890625 -24.082031 12.53125 -21.453125 11.3125 -18.703125 C 10.101562 -15.953125 9.242188 -13.726562 8.734375 -12.03125 C 8.523438 -11.5 8.332031 -10.9375 8.15625 -10.34375 C 7.882812 -9.570312 7.585938 -8.796875 7.265625 -8.015625 C 6.398438 -5.796875 4.898438 -4.9375 2.765625 -5.4375 C 1.578125 -5.707031 0.878906 -6.4375 0.671875 -7.625 C 0.609375 -8.539062 0.578125 -9.414062 0.578125 -10.25 C 0.578125 -10.78125 0.546875 -11.269531 0.484375 -11.71875 C 0.367188 -18.3125 0.207031 -24.953125 0 -31.640625 C 0.0625 -32.410156 0.40625 -32.945312 1.03125 -33.25 C 1.65625 -33.550781 2.394531 -33.703125 3.25 -33.703125 C 3.90625 -33.703125 4.519531 -33.519531 5.09375 -33.15625 C 5.675781 -32.800781 6.046875 -32.0625 6.203125 -30.9375 C 6.253906 -30.550781 6.28125 -30.160156 6.28125 -29.765625 C 6.34375 -29.566406 6.375 -29.375 6.375 -29.1875 C 6.488281 -28.269531 6.546875 -27.484375 6.546875 -26.828125 C 6.546875 -25.847656 6.613281 -25.179688 6.75 -24.828125 C 6.882812 -24.472656 7.164062 -24.488281 7.59375 -24.875 C 8.03125 -25.257812 8.738281 -26.179688 9.71875 -27.640625 C 11.40625 -30.253906 13.5 -32.46875 16 -34.28125 C 18.289062 -35.90625 20.800781 -36.585938 23.53125 -36.328125 C 25.875 -36.085938 27.453125 -34.851562 28.265625 -32.625 C 28.585938 -31.5 28.75 -30.363281 28.75 -29.21875 C 28.75 -28.070312 28.675781 -26.921875 28.53125 -25.765625 C 28.46875 -24.578125 28.378906 -23.359375 28.265625 -22.109375 C 28.171875 -21.722656 28.09375 -21.335938 28.03125 -20.953125 C 27.644531 -16.703125 27.78125 -13.851562 28.4375 -12.40625 C 29.09375 -10.96875 30.085938 -10.492188 31.421875 -10.984375 C 32.753906 -11.472656 34.566406 -13.53125 36.859375 -17.15625 Z M 36.859375 -17.15625 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(134.402758, 203.780202)"><g><path d="M 42.96875 -21.53125 C 43.625 -21.914062 44.257812 -22.210938 44.875 -22.421875 C 45.5 -22.628906 45.90625 -22.613281 46.09375 -22.375 C 46.289062 -22.132812 46.035156 -21.597656 45.328125 -20.765625 C 43.097656 -18.210938 40.429688 -15.875 37.328125 -13.75 C 34.222656 -11.625 31.035156 -9.832031 27.765625 -8.375 C 25.210938 -7.21875 22.515625 -6.296875 19.671875 -5.609375 C 16.835938 -4.929688 14.03125 -4.785156 11.25 -5.171875 C 8.476562 -5.554688 5.945312 -6.789062 3.65625 -8.875 C 0.175781 -12.082031 -1.265625 -16.003906 -0.671875 -20.640625 C -0.160156 -24.316406 1.269531 -27.441406 3.625 -30.015625 C 5.988281 -32.585938 8.96875 -34.332031 12.5625 -35.25 C 15.570312 -35.90625 18.578125 -35.984375 21.578125 -35.484375 C 22.941406 -35.273438 24.1875 -34.8125 25.3125 -34.09375 C 26.351562 -33.289062 26.925781 -32.351562 27.03125 -31.28125 C 27.132812 -30.21875 26.726562 -29.195312 25.8125 -28.21875 C 23.90625 -26.519531 21.703125 -25.507812 19.203125 -25.1875 C 16.410156 -24.707031 13.601562 -24.410156 10.78125 -24.296875 C 9.414062 -24.296875 8.457031 -24.007812 7.90625 -23.4375 C 7.363281 -22.875 7.046875 -21.910156 6.953125 -20.546875 C 6.503906 -16.828125 7.691406 -13.796875 10.515625 -11.453125 C 12.265625 -10.054688 14.394531 -9.460938 16.90625 -9.671875 C 19.425781 -9.878906 22.097656 -10.554688 24.921875 -11.703125 C 27.742188 -12.847656 30.503906 -14.179688 33.203125 -15.703125 C 35.910156 -17.234375 38.347656 -18.6875 40.515625 -20.0625 C 41.429688 -20.65625 42.25 -21.144531 42.96875 -21.53125 Z M 11.984375 -29.46875 C 11.984375 -29.40625 11.941406 -29.375 11.859375 -29.375 C 11.734375 -29.25 11.570312 -29.101562 11.375 -28.9375 C 11.1875 -28.78125 11.007812 -28.617188 10.84375 -28.453125 C 10.6875 -28.296875 10.609375 -28.1875 10.609375 -28.125 C 10.671875 -27.914062 11.207031 -27.863281 12.21875 -27.96875 C 13.226562 -28.070312 14.335938 -28.25 15.546875 -28.5 C 16.765625 -28.75 17.78125 -29.085938 18.59375 -29.515625 C 19.414062 -29.953125 19.664062 -30.46875 19.34375 -31.0625 C 19.195312 -31.238281 19.007812 -31.394531 18.78125 -31.53125 C 18.5625 -31.664062 18.316406 -31.765625 18.046875 -31.828125 C 16.859375 -31.828125 15.773438 -31.59375 14.796875 -31.125 C 13.816406 -30.664062 12.878906 -30.113281 11.984375 -29.46875 Z M 11.984375 -29.46875 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(177.546103, 203.780202)"><g><path d="M 50.421875 -22.90625 C 49.609375 -20.414062 47.988281 -17.554688 45.5625 -14.328125 C 43.144531 -11.109375 40.125 -9.035156 36.5 -8.109375 C 32.875 -7.191406 29.738281 -7.316406 27.09375 -8.484375 C 24.445312 -9.660156 22.992188 -12.804688 22.734375 -17.921875 C 19.734375 -12.097656 16.875 -8.367188 14.15625 -6.734375 C 11.4375 -5.097656 8.601562 -4.472656 5.65625 -4.859375 C 2.332031 -5.390625 0.0820312 -6.679688 -1.09375 -8.734375 C -2.269531 -10.785156 -2.660156 -13.15625 -2.265625 -15.84375 C -1.878906 -18.53125 -1.066406 -21.109375 0.171875 -23.578125 C 1.160156 -25.421875 2.519531 -27.128906 4.25 -28.703125 C 5.988281 -30.273438 7.8125 -31.507812 9.71875 -32.40625 C 12.0625 -33.59375 14.421875 -34.15625 16.796875 -34.09375 C 19.179688 -34.03125 21.722656 -33.242188 24.421875 -31.734375 C 24.484375 -31.671875 24.515625 -31.726562 24.515625 -31.90625 C 24.515625 -32.175781 24.582031 -32.507812 24.71875 -32.90625 C 24.851562 -33.3125 25.082031 -33.632812 25.40625 -33.875 C 26.300781 -34.53125 27.351562 -34.859375 28.5625 -34.859375 C 29.78125 -34.859375 30.71875 -34.25 31.375 -33.03125 C 31.5 -31.457031 31.335938 -29.453125 30.890625 -27.015625 C 29.910156 -21.660156 29.910156 -17.804688 30.890625 -15.453125 C 31.867188 -13.109375 33.597656 -12.019531 36.078125 -12.1875 C 38.554688 -12.351562 41.769531 -14.804688 45.71875 -19.546875 C 49.675781 -24.285156 51.242188 -25.40625 50.421875 -22.90625 Z M 6.546875 -10.34375 C 7.921875 -9.363281 9.488281 -9.492188 11.25 -10.734375 C 13.019531 -11.984375 14.722656 -13.753906 16.359375 -16.046875 C 17.992188 -18.335938 19.367188 -20.625 20.484375 -22.90625 C 21.597656 -25.195312 22.210938 -26.890625 22.328125 -27.984375 C 19.003906 -29.773438 16.148438 -30.082031 13.765625 -28.90625 C 11.390625 -27.726562 9.492188 -25.8125 8.078125 -23.15625 C 6.671875 -20.5 5.832031 -17.914062 5.5625 -15.40625 C 5.300781 -12.894531 5.628906 -11.207031 6.546875 -10.34375 Z M 6.546875 -10.34375 "/></g></g></g><g clip-path="url(#6419b05467)"><g clip-path="url(#d2ff1b2756)"><g transform="matrix(1, 0, 0, 1, 7, 84)"><g clip-path="url(#2b9cab224f)"><g clip-path="url(#97ee6af1ff)"><g clip-path="url(#811528d0df)"><g clip-path="url(#b27bef7021)"><g clip-path="url(#f39224f628)"><path fill="#231f20" d="M 6.523438 43.804688 C 5.808594 43.050781 4.621094 43.011719 3.863281 43.722656 C 3.105469 44.429688 3.0625 45.613281 3.777344 46.367188 C 8.199219 51.078125 12.105469 54.679688 16.265625 57.554688 L 16.382812 57.628906 C 20.527344 60.480469 24.886719 62.578125 30.199219 64.285156 C 64.246094 75.230469 109.199219 60.496094 153.019531 46.128906 C 213.941406 26.152344 272.640625 6.90625 294.097656 60.125 C 294.480469 61.082031 295.578125 61.554688 296.542969 61.167969 C 297.511719 60.785156 297.980469 59.691406 297.589844 58.730469 C 274.820312 2.261719 214.484375 22.042969 151.855469 42.574219 C 108.601562 56.757812 64.238281 71.304688 31.339844 60.734375 C 26.386719 59.140625 22.339844 57.195312 18.511719 54.5625 L 18.40625 54.480469 C 14.511719 51.785156 10.785156 48.34375 6.527344 43.8125 Z M 6.523438 43.804688 " fill-opacity="1" fill-rule="evenodd"/></g></g></g></g></g></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(57.019243, 232.657937)"><g><path d="M 2.765625 -18.421875 L 4.734375 -18.421875 L 4.734375 -10.265625 L 15 -10.265625 L 15 -18.421875 L 16.96875 -18.421875 L 16.96875 0 L 15 0 L 15 -8.421875 L 4.734375 -8.421875 L 4.734375 0 L 2.765625 0 Z M 2.765625 -18.421875 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(93.605727, 232.657937)"><g><path d="M 11.046875 0.265625 C 9.734375 0.265625 8.5 0.0195312 7.34375 -0.46875 C 6.195312 -0.957031 5.191406 -1.628906 4.328125 -2.484375 C 3.472656 -3.347656 2.800781 -4.351562 2.3125 -5.5 C 1.820312 -6.65625 1.578125 -7.890625 1.578125 -9.203125 C 1.578125 -10.523438 1.820312 -11.757812 2.3125 -12.90625 C 2.800781 -14.050781 3.472656 -15.050781 4.328125 -15.90625 C 5.191406 -16.769531 6.195312 -17.445312 7.34375 -17.9375 C 8.5 -18.4375 9.734375 -18.6875 11.046875 -18.6875 C 12.367188 -18.6875 13.601562 -18.4375 14.75 -17.9375 C 15.894531 -17.445312 16.894531 -16.769531 17.75 -15.90625 C 18.613281 -15.050781 19.289062 -14.050781 19.78125 -12.90625 C 20.28125 -11.757812 20.53125 -10.523438 20.53125 -9.203125 C 20.53125 -7.890625 20.28125 -6.65625 19.78125 -5.5 C 19.289062 -4.351562 18.613281 -3.347656 17.75 -2.484375 C 16.894531 -1.628906 15.894531 -0.957031 14.75 -0.46875 C 13.601562 0.0195312 12.367188 0.265625 11.046875 0.265625 Z M 11.046875 -1.578125 C 12.097656 -1.578125 13.078125 -1.769531 13.984375 -2.15625 C 14.898438 -2.539062 15.695312 -3.070312 16.375 -3.75 C 17.050781 -4.4375 17.582031 -5.242188 17.96875 -6.171875 C 18.351562 -7.109375 18.546875 -8.117188 18.546875 -9.203125 C 18.546875 -10.296875 18.351562 -11.304688 17.96875 -12.234375 C 17.582031 -13.160156 17.050781 -13.96875 16.375 -14.65625 C 15.695312 -15.34375 14.898438 -15.878906 13.984375 -16.265625 C 13.078125 -16.648438 12.097656 -16.84375 11.046875 -16.84375 C 9.992188 -16.84375 9.007812 -16.648438 8.09375 -16.265625 C 7.1875 -15.878906 6.394531 -15.34375 5.71875 -14.65625 C 5.039062 -13.96875 4.507812 -13.160156 4.125 -12.234375 C 3.738281 -11.304688 3.546875 -10.296875 3.546875 -9.203125 C 3.546875 -8.117188 3.738281 -7.109375 4.125 -6.171875 C 4.507812 -5.242188 5.039062 -4.4375 5.71875 -3.75 C 6.394531 -3.070312 7.1875 -2.539062 8.09375 -2.15625 C 9.007812 -1.769531 9.992188 -1.578125 11.046875 -1.578125 Z M 11.046875 -1.578125 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(132.560295, 232.657937)"><g><path d="M 6.3125 -16.578125 L 0.53125 -16.578125 L 0.53125 -18.421875 L 14.078125 -18.421875 L 14.078125 -16.578125 L 8.28125 -16.578125 L 8.28125 0 L 6.3125 0 Z M 6.3125 -16.578125 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(164.015965, 232.657937)"><g><path d="M 2.765625 -18.421875 L 15.390625 -18.421875 L 15.390625 -16.578125 L 4.734375 -16.578125 L 4.734375 -10.53125 L 13.28125 -10.53125 L 13.28125 -8.6875 L 4.734375 -8.6875 L 4.734375 -1.84375 L 15.65625 -1.84375 L 15.65625 0 L 2.765625 0 Z M 2.765625 -18.421875 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(197.708148, 232.657937)"><g><path d="M 2.765625 -18.421875 L 4.734375 -18.421875 L 4.734375 -1.84375 L 14.203125 -1.84375 L 14.203125 0 L 2.765625 0 Z M 2.765625 -18.421875 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(229.295387, 232.657937)"><g><path d="M 2.765625 -18.421875 L 15.390625 -18.421875 L 15.390625 -16.578125 L 4.734375 -16.578125 L 4.734375 -10.53125 L 13.28125 -10.53125 L 13.28125 -8.6875 L 4.734375 -8.6875 L 4.734375 -1.84375 L 15.65625 -1.84375 L 15.65625 0 L 2.765625 0 Z M 2.765625 -18.421875 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(262.98757, 232.657937)"><g><path d="M 2.765625 -18.421875 L 10.125 -18.421875 C 10.945312 -18.421875 11.707031 -18.28125 12.40625 -18 C 13.101562 -17.71875 13.703125 -17.332031 14.203125 -16.84375 C 14.703125 -16.351562 15.085938 -15.769531 15.359375 -15.09375 C 15.640625 -14.414062 15.78125 -13.679688 15.78125 -12.890625 C 15.78125 -11.835938 15.578125 -10.972656 15.171875 -10.296875 C 14.773438 -9.617188 14.335938 -9.082031 13.859375 -8.6875 C 13.304688 -8.226562 12.675781 -7.875 11.96875 -7.625 L 16.3125 0 L 14.078125 0 L 10 -7.375 L 4.734375 -7.375 L 4.734375 0 L 2.765625 0 Z M 10.125 -9.203125 C 11.25 -9.203125 12.144531 -9.535156 12.8125 -10.203125 C 13.476562 -10.867188 13.8125 -11.765625 13.8125 -12.890625 C 13.8125 -14.015625 13.476562 -14.910156 12.8125 -15.578125 C 12.144531 -16.242188 11.25 -16.578125 10.125 -16.578125 L 4.734375 -16.578125 L 4.734375 -9.203125 Z M 10.125 -9.203125 "/></g></g></g><g fill="#231f20" fill-opacity="1"><g transform="translate(297.600678, 232.657937)"><g><path d="M 8.15625 -18.421875 L 10 -18.421875 L 17.625 0 L 15.53125 0 L 13.421875 -5.125 L 4.734375 -5.125 L 2.625 0 L 0.53125 0 Z M 12.625 -6.96875 L 9.078125 -15.65625 L 5.53125 -6.96875 Z M 12.625 -6.96875 "/></g></g></g></g></g></svg>
+        </div>
+        <div style="text-align: right;">
+            <h1 style="font-size: 2.5em; color: var(--primary); margin: 0;">FICHA TÉCNICA</h1>
+            <p style="color: #718096; margin-top: 5px;" id="fichaPrintFecha"></p>
+        </div>
+    </div>
+
+    <div id="fichaPrintContent">
+        <!-- El contenido se generará dinámicamente -->
+    </div>
+
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid var(--border);">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+            <div>
+                <h4 style="color: var(--primary); margin-bottom: 10px;">Contacto</h4>
+                <p style="margin: 5px 0;">📞 929 075 546</p>
+                <p style="margin: 5px 0;">🌐 @lineahotelera</p>
+            </div>
+            <div>
+                <h4 style="color: var(--primary); margin-bottom: 10px;">Empresa</h4>
+                <p style="margin: 5px 0;">Corporación Andina Integral S.A.C.</p>
+                <p style="margin: 5px 0;">Lima, Perú</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+        </div>
+
+        <div class="total-section">
+            <div class="total-info-container">
+                <div id="totalInfo" style="font-size: 0.95em;">0 productos</div>
+                <div style="font-size: 0.8em; opacity: 0.8; margin-top: 5px;" id="itemsBreakdown"></div>
+                <div id="envioInfo" style="font-size: 0.85em; margin-top: 10px;"></div>
+                <div class="global-discount-row">
+                    <span style="margin-left:10px;">📄</span>
+                    <select id="tipoDocumento" onchange="alCambiarTipoDocumentoManualmente()" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:3px 7px;font-size:0.85em;font-weight:700;cursor:pointer;">
+                        <option value="cotizacion">Cotización</option>
+                        <option value="ORDEN DE COMPRA">ORDEN DE COMPRA</option>
+                        <option value="DESPACHO">DESPACHO (sin precios)</option>
+                    </select>
+                    <span style="margin-left:10px;">🏢</span>
+                    <select id="empresaActivaSelect" onchange="cambiarEmpresaActiva()" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:3px 7px;font-size:0.85em;font-weight:700;cursor:pointer;">
+                        <option value="fabexsa">Fabexsa</option>
+                        <option value="confortline">Confort Line</option>
+                    </select>
+                    <button type="button" onclick="abrirEditEmpresaModal()" title="Configurar datos de empresa (logo, banco, contacto)" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:3px 8px;font-size:0.85em;cursor:pointer;">⚙️</button>
+                </div>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <button type="button" id="btnCarpetaFija" onclick="elegirCarpetaFija()" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:4px 10px;font-size:0.82em;font-weight:700;cursor:pointer;">📁 Elegir carpeta fija</button>
+                    <button type="button" id="btnQuitarCarpetaFija" onclick="quitarCarpetaFija()" style="display:none;background:rgba(255,255,255,0.1);color:white;border:1.5px solid rgba(255,255,255,0.25);border-radius:6px;padding:4px 10px;font-size:0.82em;cursor:pointer;">✕ Quitar</button>
+                    <span id="carpetaFijaLabel" style="font-size:0.78em;opacity:0.85;">Se preguntará la carpeta en cada descarga</span>
+                </div>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.2);">
+                    <div style="font-size:0.82em;font-weight:700;margin-bottom:6px;opacity:0.85;">💰 Forma de Pago</div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:0.82em;">Adelanto S/:</span>
+                        <input type="number" id="montoAdelanto" min="0" step="0.50" placeholder="0.00"
+                            style="width:80px;padding:4px 8px;border-radius:6px;border:1.5px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.15);color:white;font-weight:700;font-size:0.9em;text-align:right;"
+                            oninput="actualizarPago()">
+                        <span id="saldoPendienteLabel" style="font-size:0.82em;opacity:0.9;"></span>
+                    </div>
+                    <div id="pagoResumen" style="font-size:0.78em;margin-top:4px;opacity:0.75;"></div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div id="subtotalRows"></div>
+                <div class="total-amount" id="totalAmount">S/ 0.00</div>
+                <div class="action-buttons">
+                    <button class="btn btn-danger-outline btn-small" onclick="clearAll()">Nueva Solicitud</button>
+                    <button class="btn btn-primary" id="btnGuardarHistorial" disabled onclick="guardarEnHistorial()">💾 Guardar</button>
+                    <button class="btn btn-success" id="btnGenerateImage" disabled onclick="generarImagen()">🖼️ Imagen</button>
+                    <button class="btn btn-success" id="btnCopyImage" disabled onclick="copiarImagen()">📋 Copiar imagen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- COTIZACIÓN PARA IMPRIMIR/PDF/IMAGEN -->
+    <div class="cotizacion-print" id="cotizacionPrint">
+
+        <!-- ENCABEZADO COMPACTO -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2d3748;padding-bottom:14px;margin-bottom:14px;">
+            <div>
+                <div class="print-logo" id="printLogoContainer"></div>
+                <div id="printEmpresaNombre" style="font-size:0.95em;font-weight:700;color:#2d3748;margin-top:4px;"></div>
+                <div id="printEmpresaDireccion" style="font-size:0.72em;color:#718096;margin-top:3px;"></div>
+                <div id="printEmpresaContacto" style="font-size:0.7em;color:#a0aec0;"></div>
+            </div>
+            <div style="text-align:right;">
+                <div id="printTipoDoc" style="font-size:2em;color:#2d3748;font-weight:800;letter-spacing:-0.5px;line-height:1;">COTIZACIÓN</div>
+                <div id="printNumeroCot" style="font-size:0.8em;color:#718096;margin-top:2px;"></div>
+                <div class="print-date" id="printDate" style="font-size:0.8em;color:#718096;margin-top:2px;"></div>
+                <div id="printValidezBadge" style="margin-top:6px;background:#fbbf24;color:#2d3748;padding:4px 10px;border-radius:4px;font-size:0.72em;font-weight:700;display:inline-block;">⏰ Válido 7 días</div>
+            </div>
+        </div>
+
+        <!-- CLIENTE + ENVÍO EN UN SOLO BLOQUE LADO A LADO -->
+        <div id="infoBloqueCompacto" style="display:none;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div id="clientePrintBox" style="background:#f8faff;border:1.5px solid #c7d2fe;border-radius:7px;padding:11px 14px;display:none;"></div>
+                <div id="envioInfoPrint" style="background:#e6fffa;border:1.5px solid #81e6d9;border-radius:7px;padding:11px 14px;display:none;"></div>
+            </div>
+        </div>
+
+        <!-- TABLA DE PRODUCTOS -->
+        <table class="print-table" id="printTable">
+            <thead>
+                <tr>
+                    <th style="width:80px;">Código</th>
+                    <th>Producto</th>
+                    <th style="width:60px;text-align:center;">Cant.</th>
+                    <th id="thPrecioUnitCol" style="width:130px;text-align:right;">Precio Unit.</th>
+                    <th id="thTotalCol" style="width:100px;text-align:right;">Total</th>
+                </tr>
+            </thead>
+            <tbody id="printTableBody"></tbody>
+        </table>
+
+        <!-- TOTALES + PAGO + BANCO EN FILA -->
+        <div id="printTotalesBancoGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+
+            <!-- BANCO -->
+            <div style="background:#2d3748;color:white;padding:14px 16px;border-radius:8px;">
+                <div style="font-weight:700;font-size:0.88em;margin-bottom:8px;color:#fbbf24;">💳 Datos para Transferencia</div>
+                <div style="font-size:0.78em;line-height:1.8;" id="printDatosBanco"></div>
+            </div>
+
+            <!-- TOTALES -->
+            <div style="background:#edf2f7;padding:14px 16px;border-radius:8px;">
+                <div id="printTotalesDetalle" style="font-size:0.82em;color:#718096;margin-bottom:8px;line-height:1.9;"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:1.4em;font-weight:800;color:#2d3748;border-top:2px solid #cbd5e0;padding-top:8px;">
+                    <span id="printTotalLabel">TOTAL:</span>
+                    <span id="printTotal">S/ 0.00</span>
+                </div>
+                <!-- PAGO -->
+                <div id="printPagoSection" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #cbd5e0;font-size:0.82em;">
+                    <div style="display:flex;justify-content:space-between;color:#2d3748;">
+                        <span>✅ Adelanto pagado:</span>
+                        <span id="printAdelanto" style="font-weight:700;color:#38a169;"></span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;color:#2d3748;margin-top:4px;">
+                        <span>⏳ Saldo pendiente:</span>
+                        <span id="printSaldo" style="font-weight:700;color:#e53e3e;"></span>
+                    </div>
+                </div>
+                <div style="margin-top:6px;font-size:0.7em;color:#a0aec0;" id="printTotalInfo"></div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div style="text-align:center;padding-top:12px;border-top:1.5px solid #e2e8f0;color:#a0aec0;font-size:0.78em;" id="printFooter">
+        </div>
+    </div>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/productos.js"></script>
+    <script src="js/kardex.js"></script>
+    <script src="js/clientes.js"></script>
+    <script src="js/cotizacion.js"></script>
+    <script src="js/sucursales.js"></script>
+    <script src="js/historial.js"></script>
+    <script src="js/exportar.js"></script>
+    <script src="js/init.js"></script>
+</body>
+</html>

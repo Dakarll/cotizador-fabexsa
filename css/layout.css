@@ -1,0 +1,293 @@
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--gray-800) 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .header-title-block {
+            min-width: 0;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 0.85em;
+        }
+
+        /* INFO BANNER */
+        .info-banner {
+            background: var(--accent);
+            color: var(--primary);
+            padding: 12px 20px;
+            font-weight: 600;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        /* CONTENT */
+        .content {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            padding: 10px 15px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--gray-500);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.85em;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .tab:hover {
+            color: var(--secondary);
+        }
+
+        .tab.active {
+            color: var(--secondary);
+            border-bottom-color: var(--secondary);
+        }
+
+        /* ============================================
+           MENÚ ESCRITORIO: 3 pestañas fijas (lo que se usa a diario) + "Más"
+           El desplegable se ancla con relative/absolute AL BOTÓN "Más", no a toda la
+           barra — así su posición no depende de cuántas pestañas fijas haya antes.
+           ============================================ */
+        .tabs-more {
+            position: relative;
+            margin-left: auto;
+        }
+
+        .tabs-more-trigger {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .tabs-more-caret {
+            font-size: 0.7em;
+            transition: transform 0.2s ease;
+            display: inline-block;
+        }
+
+        .tabs-more.open .tabs-more-caret { transform: rotate(180deg); }
+
+        /* Se enciende cuando la pestaña activa vive DENTRO del desplegable, para que el
+           usuario sepa en qué sección está aunque el panel esté cerrado. */
+        .tabs-more.trigger-active .tabs-more-trigger {
+            color: var(--secondary);
+            border-bottom-color: var(--secondary);
+        }
+
+        .tabs-more-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 210px;
+            background: white;
+            border: 0.5px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+            padding: 6px;
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+            z-index: 500;
+        }
+
+        .tabs-more.open .tabs-more-panel { display: flex; }
+
+        .tabs-more-panel .tab {
+            text-align: left;
+            border-radius: 6px;
+            border-bottom: none;
+            padding: 9px 12px;
+            width: 100%;
+        }
+
+        .tabs-more-panel .tab:hover { background: var(--gray-100); }
+        .tabs-more-panel .tab.active { background: var(--gray-100); color: var(--secondary); }
+
+        .tabs-more-divider {
+            height: 0.5px;
+            background: var(--border);
+            margin: 4px 6px;
+        }
+
+        /* Rol especial: usuarios de nivel "control_diario" solo deben ver Control Diario +
+           Kardex. En vez de forzarlos a abrir "Más", el panel deja de ser un desplegable
+           flotante y pasa a ser una fila normal en el flujo — mismo componente, otro layout. */
+        .tabs-more.forced-open .tabs-more-trigger { display: none; }
+        .tabs-more.forced-open .tabs-more-panel {
+            display: flex;
+            flex-direction: row;
+            position: static;
+            box-shadow: none;
+            border: none;
+            padding: 0;
+            background: transparent;
+        }
+        .tabs-more.forced-open .tabs-more-divider { display: none; }
+
+        /* ============================================
+           MENÚ MÓVIL: barra fija abajo (zona del pulgar) + hoja que sube desde abajo.
+           position: fixed usa el VIEWPORT como referencia — es lo correcto para una barra
+           que debe quedarse en pantalla sin importar cuánto scrollee el contenido de arriba.
+           Oculta en escritorio; se activa por completo dentro del media query de móvil.
+           ============================================ */
+        .tabs-mobile { display: none; }
+
+        .tabs-mobile-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 900;
+            display: flex;
+            background: white;
+            border-top: 0.5px solid var(--border);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+
+        .tabs-mobile-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 8px 0 9px;
+            background: none;
+            border: none;
+            color: var(--gray-500);
+            font-size: 0.68em;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .tabs-mobile-item-icon { font-size: 1.35em; line-height: 1; }
+
+        .tabs-mobile-item.active,
+        .tabs-mobile-more.trigger-active .tabs-mobile-item {
+            color: var(--secondary);
+        }
+
+        /* La hoja también se posiciona relativa al VIEWPORT (fixed), no a un contenedor
+           padre — un bottom sheet debe cubrir el ancho completo de la pantalla sin importar
+           dónde esté anidado en el documento. */
+        .tabs-mobile-sheet-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 950;
+            display: none;
+        }
+
+        .tabs-mobile-more.open .tabs-mobile-sheet-overlay { display: block; }
+
+        .tabs-mobile-sheet {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -8px 24px rgba(0,0,0,0.18);
+            padding: 10px 6px calc(10px + env(safe-area-inset-bottom, 0));
+            z-index: 960;
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .tabs-mobile-more.open .tabs-mobile-sheet { display: flex; }
+
+        .tabs-mobile-sheet-handle {
+            width: 34px;
+            height: 4px;
+            background: var(--gray-300);
+            border-radius: 2px;
+            margin: 2px auto 8px;
+        }
+
+        .tabs-mobile-sheet .tab {
+            text-align: left;
+            border-bottom: none;
+            border-radius: 8px;
+            padding: 11px 14px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 44px;
+        }
+
+        .tabs-mobile-sheet .tab:hover,
+        .tabs-mobile-sheet .tab.active { background: var(--gray-100); }
+
+        .tabs-mobile-sheet-divider {
+            height: 0.5px;
+            background: var(--border);
+            margin: 4px 10px;
+        }
+
+        /* Igual que en escritorio: para el rol restringido, la hoja deja de ser flotante y
+           pasa a mostrarse siempre, en el flujo normal, reemplazando la barra inferior. */
+        .tabs-mobile-more.forced-open .tabs-mobile-sheet-overlay,
+        .tabs-mobile-more.forced-open .tabs-mobile-bar-more-item { display: none; }
+        .tabs-mobile-more.forced-open .tabs-mobile-sheet {
+            display: flex;
+            position: fixed;
+            border-radius: 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+            border-top: 0.5px solid var(--border);
+            flex-direction: row;
+            padding: 4px calc(4px + env(safe-area-inset-bottom, 0)) calc(4px + env(safe-area-inset-bottom, 0));
+        }
+        .tabs-mobile-more.forced-open .tabs-mobile-sheet-handle,
+        .tabs-mobile-more.forced-open .tabs-mobile-sheet-divider { display: none; }
+        .tabs-mobile-more.forced-open .tabs-mobile-sheet .tab {
+            flex: 1;
+            flex-direction: column;
+            text-align: center;
+            gap: 2px;
+            font-size: 0.68em;
+            min-height: auto;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
