@@ -185,7 +185,8 @@
                 productos: productosEnTabla,
                 sucursal: sucursalSeleccionada,
                 productosDB: productosDB,
-                sucursalesDB: sucursalesDB,
+                // sucursalesDB ya NO se persiste acá: el catálogo Shalom viene solo de la nube
+                // (ver js/sucursales-nube.js) y las sucursales manuales tienen su propia clave.
                 registroEnCurso: registroEnCurso,
                 // Datos del cliente: antes no se guardaban aquí, solo los productos. Esto causaba
                 // que al reabrir el cotizador (celular/PC) los productos volvieran a aparecer pero
@@ -218,9 +219,8 @@
                         if (estado.productosDB) {
                             productosDB = estado.productosDB.map(migrarProductoLegacy);
                         }
-                        if (estado.sucursalesDB) {
-                            sucursalesDB = estado.sucursalesDB;
-                        }
+                        // estado.sucursalesDB (de versiones viejas) se ignora a propósito:
+                        // el catálogo Shalom lo repuebla cargarSucursalesDesdeNube().
                         // Restaurar los datos del cliente guardados junto con la cotización. Si el
                         // registro guardado es de antes de este cambio, estado.cliente no existirá
                         // y simplemente se deja el formulario como estaba (sin romper nada).
@@ -693,96 +693,10 @@
         // ============================================
         // SISTEMA DE SUCURSALES PARA COTIZACIÓN
         // ============================================
-
-        const searchSucursal = document.getElementById('searchSucursal');
-        
-        searchSucursal.addEventListener('input', function() {
-            renderSucursales();
-        });
-
-        function filterByTipo(tipo) {
-            tipoFiltro = tipo;
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            renderSucursales();
-        }
-
-        function renderSucursales() {
-            const query = searchSucursal.value.trim().toLowerCase();
-            
-            let sucursales = sucursalesDB;
-            
-            if (tipoFiltro !== 'all') {
-                sucursales = sucursales.filter(s => s.tipo === tipoFiltro);
-            }
-            
-            if (query.length >= 2) {
-                sucursales = sucursales.filter(sucursal => 
-                    sucursal.nombre.toLowerCase().includes(query) ||
-                    sucursal.ciudad.toLowerCase().includes(query) ||
-                    sucursal.provincia.toLowerCase().includes(query) ||
-                    sucursal.tipo.toLowerCase().includes(query) ||
-                    sucursal.direccion.toLowerCase().includes(query)
-                );
-            }
-
-            const grid = document.getElementById('sucursalGrid');
-            
-            if (sucursales.length === 0) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #718096;">No se encontraron sucursales</div>';
-                return;
-            }
-
-            grid.innerHTML = sucursales.map(sucursal => {
-                const selected = sucursalSeleccionada && sucursalSeleccionada.nombre === sucursal.nombre ? 'selected' : '';
-                return `
-                    <div class="sucursal-card ${selected}" onclick='seleccionarSucursal(${JSON.stringify(sucursal).replace(/'/g, "&apos;")})'>
-                        <div class="sucursal-nombre">${sucursal.nombre}</div>
-                        <div class="sucursal-direccion">📍 ${sucursal.direccion}</div>
-                        <div class="sucursal-direccion">🏙️ ${sucursal.ciudad}, ${sucursal.provincia}</div>
-                        <div class="sucursal-tipo">${sucursal.tipo}</div>
-                    </div>
-                `;
-            }).join('');
-
-            updateSucursalStats();
-        }
-
-        function seleccionarSucursal(sucursal) {
-            if (sucursalSeleccionada && sucursalSeleccionada.nombre === sucursal.nombre) {
-                sucursalSeleccionada = null;
-                document.getElementById('sucursalSeleccionada').style.display = 'none';
-                mostrarNotificacion('Sucursal deseleccionada', 'info');
-            } else {
-                sucursalSeleccionada = sucursal;
-                mostrarSucursalSeleccionada();
-                mostrarNotificacion(`Sucursal seleccionada: ${sucursal.nombre}`, 'success');
-            }
-            
-            renderSucursales();
-            updateTotal();
-            guardarEstado();
-        }
-
-        function mostrarSucursalSeleccionada() {
-            if (sucursalSeleccionada) {
-                document.getElementById('sucursalSeleccionada').style.display = 'block';
-                document.getElementById('sucursalInfo').innerHTML = `
-                    <strong>${sucursalSeleccionada.nombre}</strong> (${sucursalSeleccionada.tipo})<br>
-                    📍 ${sucursalSeleccionada.direccion}<br>
-                    🏙️ ${sucursalSeleccionada.ciudad}, ${sucursalSeleccionada.provincia}
-                `;
-            }
-        }
-
-        function updateSucursalStats() {
-            const stats = document.getElementById('sucursalStats');
-            if (stats) {
-                const total = sucursalesDB.length;
-                const filtradas = document.querySelectorAll('.sucursal-card').length;
-                stats.innerHTML = `Mostrando ${filtradas} de ${total} sucursales`;
-            }
-        }
+        // filterByTipo / renderSucursales / seleccionarSucursal /
+        // mostrarSucursalSeleccionada / updateSucursalStats se movieron a
+        // js/sucursales-nube.js (junto con la carga desde la nube, el estado de
+        // error/caché y el panel de "Sucursal de envío" de la pestaña Cotizar).
 
 
         // ============================================

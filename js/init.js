@@ -145,6 +145,12 @@
                 renderProductosVistaRapida();
             });
             renderSucursalList();
+            // Catálogo de sucursales Shalom: EXCLUSIVAMENTE desde la nube (clase
+            // SucursalShalom, sincronizada por el bot). Sin array hardcodeado de
+            // respaldo; si falla, cargarSucursalesDesdeNube() muestra la caché de la
+            // última sync o un estado de error. Refresca las vistas al terminar.
+            if (typeof initSucursalesNube === 'function') initSucursalesNube();
+            if (typeof cargarSucursalesDesdeNube === 'function') cargarSucursalesDesdeNube();
             const empresaSelect = document.getElementById('empresaActivaSelect');
             if (empresaSelect) empresaSelect.value = empresaActiva;
             cargarKardexDesdeCache();

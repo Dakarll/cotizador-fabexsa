@@ -1,0 +1,72 @@
+/* ============================================
+   SUCURSALES SHALOM — catálogo desde la nube
+   Complementa css/sucursales.css. Solo tema claro.
+   ============================================ */
+
+/* Banner de error cuando la última carga desde la nube falló */
+.sucursales-error-banner {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: #fffbea;
+    border: 1px solid #f6c343;
+    color: #92400e;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.88em;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+/* Distintivo de origen en las tarjetas y en la tabla de gestión */
+.sucursal-oficial-badge,
+.sucursal-manual-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.72em;
+    font-weight: 700;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.sucursal-oficial-badge { background: #e6fffa; color: #234e52; }
+.sucursal-manual-badge  { background: #edf2f7; color: #4a5568; }
+
+/* Pie de la tarjeta de sucursal: tipo + distintivo de origen en una fila */
+.sucursal-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+/* El dropdown de sugerencias del panel "Sucursal de envío" es absolute;
+   el body del panel colapsable puede recortar — se le da espacio cuando
+   está abierto. */
+#envioPanelBody { position: relative; }
+#envioSucursalDropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 60;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    max-height: 280px;
+    overflow-y: auto;
+    display: none;
+}
+#envioSucursalDropdown .autocomplete-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--gray-100);
+}
+#envioSucursalDropdown .autocomplete-item:last-child { border-bottom: none; }
+#envioSucursalDropdown .autocomplete-item:hover { background: var(--gray-50); }

@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/responsive.css">
     <link rel="stylesheet" href="css/envios.css">
+    <link rel="stylesheet" href="css/sucursales-nube.css">
 </head>
 <body>
     <!-- PANTALLA DE ACCESO -->
@@ -478,6 +479,30 @@
                     </div>
                 </div>
 
+                <!-- PANEL SUCURSAL DE ENVÍO (mismo estilo que "Datos del Cliente").
+                     Elige la sucursal Shalom de destino sin salir de "Cotizar";
+                     escribe en sucursalSeleccionada, el MISMO dato que usa la pestaña
+                     Sucursales y que ya leen el guardado y la imagen. -->
+                <div class="cliente-panel" id="envioPanel">
+                    <div class="cliente-panel-header" id="envioPanelHeader">
+                        <div class="cliente-panel-title">
+                            📦 Sucursal de envío
+                            <span class="cliente-panel-badge" id="envioPanelBadge" style="display:none">Seleccionada</span>
+                        </div>
+                        <div id="envioPanelResumen" class="cliente-summary"></div>
+                        <span class="cliente-panel-toggle" id="envioPanelToggleIcon">▼</span>
+                    </div>
+                    <div class="cliente-panel-body" id="envioPanelBody">
+                        <div class="search-container" style="margin-bottom:0;">
+                            <span class="search-icon">📍</span>
+                            <input type="text" class="search-input" id="envioSucursalSearch" autocomplete="off"
+                                   placeholder="Escribe para buscar una sucursal...">
+                            <div id="envioSucursalDropdown" class="autocomplete-dropdown"></div>
+                        </div>
+                        <div id="envioSucursalHint" style="font-size:0.8em; color:var(--gray-500); margin-top:8px; min-height:16px;"></div>
+                    </div>
+                </div>
+
                 <div class="cliente-panel">
                     <div class="cliente-panel-header" onclick="toggleAgregarProductoPanel()">
                         <div class="cliente-panel-title">
@@ -887,6 +912,20 @@
                             </div>
                             <button type="submit" class="btn btn-success" style="width: 100%;">💾 Agregar Sucursal</button>
                         </form>
+                    </div>
+
+                    <!-- GENERAR IMAGEN DE SUCURSALES POR PROVINCIA -->
+                    <div class="add-product-section">
+                        <div class="add-product-title">📸 Generar imagen de sucursales por provincia</div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                            <div style="flex:1; min-width:220px;">
+                                <label class="form-label">Provincia</label>
+                                <input type="text" class="form-input" id="provinciaImagenInput" list="listaProvincias" placeholder="Escribe o elige una provincia...">
+                                <datalist id="listaProvincias"></datalist>
+                            </div>
+                            <button type="button" class="btn btn-success" id="btnGenerarImagenSucursalesProvincia">📸 Generar imagen</button>
+                        </div>
+                        <div id="provinciaImagenStatus" style="margin-top:10px; font-size:0.85em;"></div>
                     </div>
 
                     <!-- LISTA DE SUCURSALES -->
@@ -1445,6 +1484,20 @@
         </div>
     </div>
 
+    <!-- SUCURSALES POR PROVINCIA — NODO OCULTO PARA RASTERIZAR A IMAGEN -->
+    <div id="sucursalesProvinciaPrint" style="position: fixed; left: -9999px; top: 0; background: white; padding: 40px; width: 1300px; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 3px solid var(--primary); padding-bottom: 20px; margin-bottom: 25px;">
+            <div>
+                <div style="font-size:1.6em; font-weight:800; color:var(--primary);">Sucursales Shalom — <span id="spImgProvinciaNombre"></span></div>
+                <div style="color:var(--gray-500); margin-top:4px;" id="spImgFecha"></div>
+            </div>
+            <div style="text-align:right; color:var(--gray-500); font-size:0.95em;">
+                <div><strong id="spImgCantidad"></strong> sucursales</div>
+            </div>
+        </div>
+        <div id="spImgLista" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; align-content:start;"></div>
+    </div>
+
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/productos.js"></script>
@@ -1454,6 +1507,11 @@
     <script src="js/sucursales.js"></script>
     <script src="js/historial.js"></script>
     <script src="js/exportar.js"></script>
+    <!-- Sucursales Shalom: catálogo desde la nube (clase SucursalShalom, sincronizada
+         por shalom-tracker/scripts/check_agencias.js). Sin array hardcodeado. Se carga
+         después de cotizacion.js/sucursales.js/exportar.js: usa sucursalSeleccionada,
+         renderSucursalList, guardarEstado, descargarArchivo, html2canvas. -->
+    <script src="js/sucursales-nube.js"></script>
     <!-- Seguimiento Shalom (cargados después de historial.js/cotizacion.js:
          usan formatearCorrelativo, historialCache y cargarHistorialDesdeNube) -->
     <script src="js/envios/shalom.js"></script>
