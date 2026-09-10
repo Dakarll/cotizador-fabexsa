@@ -5,7 +5,7 @@
         // Pestañas que viven dentro de "Más" (desktop) / la hoja inferior (móvil) — se usa para
         // encender el botón "Más" cuando la pestaña activa es una de estas, aunque el panel
         // esté cerrado, así el usuario sabe en qué sección está.
-        const TABS_DENTRO_DE_MAS = ['kardex', 'productos', 'controldiario', 'movstock', 'fichas', 'ajustes'];
+        const TABS_DENTRO_DE_MAS = ['kardex', 'productos', 'controldiario', 'movstock', 'fichas', 'shalom', 'envios', 'ajustes'];
 
         function switchTab(tab) {
             tabActual = tab;
@@ -52,6 +52,10 @@
                 }
             } else if (tab === 'cotizar') {
                 actualizarPanelCorrelativo();
+            } else if (tab === 'shalom') {
+                cargarEnviosShalom();
+            } else if (tab === 'envios') {
+                renderEnvios();
             }
         }
 
@@ -155,6 +159,13 @@
             aplicarVisibilidadRecuperarHistorial();
             intentarRecuperarCarpetaFija();
             iniciarRevisionDeVersion();
+            // Seguimiento Shalom / Envíos (registra listeners de sus pestañas;
+            // los datos se cargan al abrir cada pestaña, no al iniciar sesión).
+            if (typeof initShalom === 'function') initShalom();
+            if (typeof initPapeleta === 'function') initPapeleta();
+            if (typeof initWhatsappNotif === 'function') initWhatsappNotif();
+            if (typeof initLima === 'function') initLima();
+            if (typeof initListaCompra === 'function') initListaCompra();
             actualizarPanelCorrelativo(); // muestra el N° previsto apenas se abre la app (pestaña "Cotizar" por defecto)
             console.log('✅ Cotizador cargado correctamente');
             console.log(`📦 ${productosDB.length} productos disponibles`);

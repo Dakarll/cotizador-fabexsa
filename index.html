@@ -12,6 +12,8 @@
     <!-- ExcelJS: se usa SOLO para el descuento de stock por Dropbox, porque a diferencia de
          SheetJS SÍ conserva colores, bordes y formato del Excel al modificar y volver a guardar. -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <!-- jsQR: lectura de códigos QR de guías Shalom (cámara / foto subida) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,6 +26,7 @@
     <link rel="stylesheet" href="css/componentes.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/responsive.css">
+    <link rel="stylesheet" href="css/envios.css">
 </head>
 <body>
     <!-- PANTALLA DE ACCESO -->
@@ -377,6 +380,8 @@
                         <button class="tab" data-tab="controldiario" onclick="switchTab('controldiario')" hidden>🗑️ Control Diario</button>
                         <button class="tab" data-tab="movstock" onclick="switchTab('movstock')" hidden>📦 Ingreso/Egreso</button>
                         <button class="tab" data-tab="fichas" onclick="switchTab('fichas')">📄 Fichas Técnicas</button>
+                        <button class="tab" data-tab="shalom" onclick="switchTab('shalom')">🚚 Seguimiento Shalom</button>
+                        <button class="tab" data-tab="envios" onclick="switchTab('envios')">📦 Envíos <span class="js-envios-badge" hidden>0</span></button>
                         <div class="tabs-more-divider"></div>
                         <button class="tab" data-tab="ajustes" onclick="switchTab('ajustes')">⚙️ Ajustes</button>
                     </div>
@@ -409,6 +414,8 @@
                         <button class="tab" data-tab="controldiario" onclick="switchTab('controldiario')" hidden><span class="tabs-mobile-item-icon">🗑️</span>Control diario</button>
                         <button class="tab" data-tab="movstock" onclick="switchTab('movstock')" hidden><span class="tabs-mobile-item-icon">📦</span>Ingreso / egreso</button>
                         <button class="tab" data-tab="fichas" onclick="switchTab('fichas')"><span class="tabs-mobile-item-icon">📄</span>Fichas técnicas</button>
+                        <button class="tab" data-tab="shalom" onclick="switchTab('shalom')"><span class="tabs-mobile-item-icon">🚚</span>Seguimiento Shalom</button>
+                        <button class="tab" data-tab="envios" onclick="switchTab('envios')"><span class="tabs-mobile-item-icon">📦</span>Envíos <span class="js-envios-badge" hidden>0</span></button>
                         <div class="tabs-mobile-sheet-divider"></div>
                         <button class="tab" data-tab="ajustes" onclick="switchTab('ajustes')"><span class="tabs-mobile-item-icon">⚙️</span>Ajustes</button>
                     </div>
@@ -1118,6 +1125,166 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- TAB: SEGUIMIENTO SHALOM                        -->
+<!-- ============================================ -->
+<div class="tab-content" id="tab-shalom">
+
+    <!-- Banner de notificaciones (envíos recién entregados) -->
+    <div id="shalomNotifBanner" style="display:none; margin-bottom:20px;"></div>
+
+    <!-- REGISTRAR NUEVA GUÍA (entrada manual = la forma confiable) -->
+    <div class="add-product-section">
+        <div class="add-product-title">➕ Registrar nueva guía</div>
+        <p style="font-size:0.85em; opacity:0.9; margin-bottom:15px;">Copia el N° de Orden y el Código (4 dígitos) tal como aparecen impresos en tu comprobante Shalom.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <input type="text" class="form-input" id="shalomGuiaManual" maxlength="8" placeholder="N° de Orden" style="max-width:150px;">
+            <input type="text" class="form-input" id="shalomCodigoManual" maxlength="4" placeholder="Código (4 díg.)" style="max-width:150px;">
+            <input type="text" class="form-input" id="shalomClienteManual" placeholder="Cliente (opcional)" style="max-width:200px;">
+            <input type="text" class="form-input" id="shalomDestinoManual" placeholder="Destino (opcional)" style="max-width:200px;">
+        </div>
+        <div style="margin-top:10px;">
+            <label class="form-label" style="font-size:0.85em;">Vincular a una orden de compra (opcional)</label>
+            <input type="text" class="form-input" id="shalomOcManual" list="listaOrdenesCompra" placeholder="Busca por N° de OC o cliente..." style="max-width:320px;">
+            <datalist id="listaOrdenesCompra"></datalist>
+        </div>
+        <button type="button" class="btn btn-success" style="margin-top:12px;" id="btnRegistrarGuiaManual">➕ Registrar</button>
+
+        <!-- Escanear QR: opcional. El QR de Shalom NO trae el N° de Orden
+             público ni el código — trae un ID interno (oseId) que solo la
+             app oficial de Shalom puede usar. Por eso se muestra solo como
+             referencia; el registro confiable es el manual de arriba. -->
+        <details style="margin-top:18px;">
+            <summary style="cursor:pointer; color:var(--gray-500); font-size:0.9em;">📷 Escanear QR (referencia — no autocompleta los datos)</summary>
+            <div style="margin-top:10px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
+                    <button type="button" class="btn btn-primary" id="btnIniciarCamara">📷 Usar cámara</button>
+                    <button type="button" class="btn" style="background:var(--border); display:none;" id="btnDetenerCamara">✕ Detener cámara</button>
+                    <label class="btn btn-warning" style="cursor:pointer;">
+                        🖼️ Subir foto
+                        <input type="file" accept="image/*" capture="environment" style="display:none;" id="shalomInputArchivo">
+                    </label>
+                </div>
+                <div id="shalomCameraWrapper" style="display:none; position:relative; max-width:400px;">
+                    <video id="shalomVideo" style="width:100%; border-radius:8px; background:#000;" playsinline autoplay muted></video>
+                    <div id="shalomCameraHint" style="font-size:0.8em; color:var(--gray-500); margin-top:6px;">Apunta la cámara al código QR de tu guía…</div>
+                </div>
+                <canvas id="shalomCanvas" style="display:none;"></canvas>
+                <div id="shalomCameraError" style="display:none; margin-top:10px; padding:12px; background:#fff5f5; border-radius:8px; border:1px solid var(--danger); font-size:0.85em; color:var(--danger);"></div>
+
+                <div id="shalomQrResultado" style="display:none; margin-top:15px; padding:15px; background:#fffbea; border-radius:8px; border:2px solid var(--accent); color:#2d3748;">
+                    <strong>📎 Contenido leído del QR:</strong> <span id="shalomQrTexto"></span>
+                    <p style="font-size:0.85em; color:#718096; margin:8px 0 0;">Esto no es el N° de Orden — es un código interno de Shalom que esta app no traduce automáticamente (su sistema de seguridad bloquea intentos automatizados, y lo respetamos). Escribe el N° de Orden y el Código arriba, tal como aparecen impresos en tu comprobante.</p>
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <!-- REGISTRAR ENVÍO LIMA (entrega local, sin guía Shalom) -->
+    <div class="add-product-section" style="margin-top:18px; border-color:#3182ce;">
+        <div class="add-product-title">🏙️ Registrar envío Lima</div>
+        <p style="font-size:0.85em; opacity:0.9; margin-bottom:15px;">Para entregas dentro de Lima (moto propia, delivery local, recojo en tienda) que no pasan por Shalom — no necesitan N° de guía ni código. Como no hay rastreo automático, el estado se actualiza a mano desde la tarjeta del envío.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <input type="text" class="form-input" id="limaClienteManual" placeholder="Cliente (opcional)" style="flex:1 1 180px; min-width:150px;">
+            <input type="text" class="form-input" id="limaDireccionManual" placeholder="Dirección / referencia (opcional)" style="flex:1 1 200px; min-width:150px;">
+            <input type="text" class="form-input" id="limaRepartidorManual" placeholder="Repartidor / moto (opcional)" style="flex:1 1 180px; min-width:150px;">
+            <select class="form-input" id="limaEstadoManual" style="flex:1 1 160px; min-width:150px;">
+                <option value="pendiente">⏳ Pendiente de entrega</option>
+                <option value="entregado">✅ Ya entregado</option>
+            </select>
+        </div>
+        <div style="margin-top:10px;">
+            <label class="form-label" style="font-size:0.85em;">Vincular a una orden de compra (opcional)</label>
+            <input type="text" class="form-input" id="limaOcManual" list="listaOrdenesCompra" placeholder="Busca por N° de OC o cliente..." style="max-width:320px; width:100%;">
+        </div>
+        <button type="button" class="btn btn-success" style="margin-top:12px; background:#3182ce;" id="btnRegistrarEnvioLima">🏙️ Registrar envío Lima</button>
+    </div>
+
+    <!-- LISTA DE ENVÍOS RASTREADOS -->
+    <div class="ios-section-header">
+        <div>
+            <div class="ios-section-title">Envíos <span id="shalomCount" style="color:var(--gray-500); font-weight:600;">0</span></div>
+            <div class="ios-section-subtitle">Shalom se actualiza cada 30 min por el robot · Lima se actualiza a mano</div>
+        </div>
+        <button class="ios-link-btn" id="btnActualizarShalom">Actualizar</button>
+    </div>
+    <div class="ios-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" class="ios-search" id="shalomBuscador" placeholder="Buscar por cliente, destino, guía o estado">
+    </div>
+
+    <!-- Canal para "Enviar WhatsApp" en PC. Solo visible en escritorio
+         (se oculta por JS en móvil). -->
+    <div id="wspCanalPcWrap" class="wsp-canal-pc" style="display:none;">
+        <label for="wspCanalPcSelect">💻 Enviar WhatsApp en PC por:</label>
+        <select id="wspCanalPcSelect" class="form-input">
+            <option value="web">WhatsApp Web (pestaña del navegador)</option>
+            <option value="app">WhatsApp Escritorio (app instalada)</option>
+            <option value="auto">Automático (intenta la app; si no, Web)</option>
+        </select>
+    </div>
+
+    <div id="shalomList" class="shalom-cards-grid">
+        <div class="historial-empty">No hay envíos en seguimiento. Registra una guía (N° de Orden + Código) para empezar.</div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- TAB: ENVÍOS (órdenes de compra + estado)       -->
+<!-- ============================================ -->
+<div class="tab-content" id="tab-envios">
+    <div class="historial-header-row">
+        <div>
+            <strong style="font-size:1.1em; color:var(--primary);">🚚 Envíos de Órdenes de Compra</strong>
+            <span class="historial-count-badge" id="enviosCount">0</span>
+        </div>
+        <button class="ios-link-btn" id="btnActualizarEnvios">Actualizar</button>
+    </div>
+    <p style="color:var(--gray-500); font-size:0.85em; margin-bottom:15px;">Vista de tus Órdenes de Compra confirmadas y el estado de su envío. Para registrar una guía nueva, ve a <strong>🚚 Seguimiento Shalom</strong>.</p>
+
+    <!-- LISTA DE COMPRA: agrupa producto+color+cantidad de todas las OC
+         que todavía no se despacharon (sin guía, o con guía aún
+         "pendiente"/"error"), para saber qué y cuánto comprar antes del
+         próximo envío. -->
+    <div class="add-product-section" style="margin-bottom:15px; border-color:var(--accent); background:#fffbea;" id="listaCompraResumenWrap">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+                <div style="font-weight:700; color:#2d3748; font-size:1.02em;">🛒 Lista de compra — productos pendientes de despacho</div>
+                <div style="font-size:0.85em; color:#718096; margin-top:2px;" id="listaCompraResumenTexto">Calculando...</div>
+            </div>
+            <button class="btn btn-warning" style="white-space:nowrap;" id="btnAbrirListaCompra">📋 Ver lista de compra</button>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="add-product-section" style="margin-bottom:15px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <div style="flex:2; min-width:180px;">
+                <label class="form-label" style="font-size:0.85em;">Buscar cliente / empresa / guía / N° OC</label>
+                <input type="text" id="enviosFiltroTexto" class="form-input" placeholder="Nombre, empresa, N° de guía o N° de OC...">
+            </div>
+            <div style="flex:1; min-width:160px;">
+                <label class="form-label" style="font-size:0.85em;">Estado de envío</label>
+                <select id="enviosFiltroEstado" class="form-input">
+                    <option value="">Todos</option>
+                    <option value="sin_envio">🚫 Sin envío registrado</option>
+                    <option value="pendiente">⏳ Pendiente</option>
+                    <option value="en_transito">🚚 En tránsito</option>
+                    <option value="entregado">✅ Entregado</option>
+                    <option value="error">⚠️ Error</option>
+                </select>
+            </div>
+            <div>
+                <button class="btn btn-small" style="background:var(--border);" id="btnLimpiarFiltrosEnvios">✕ Limpiar filtros</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="enviosList">
+        <div class="historial-empty">Cargando...</div>
+    </div>
+</div>
+
 
 
         </div>
@@ -1247,6 +1414,37 @@
         <div style="text-align:center;padding-top:12px;border-top:1.5px solid #e2e8f0;color:#a0aec0;font-size:0.78em;" id="printFooter">
         </div>
     </div>
+    <!-- ============================================ -->
+    <!-- MODALES DE SEGUIMIENTO SHALOM                  -->
+    <!-- ============================================ -->
+    <!-- PAPELETA DE ENVÍO (comprobante rasterizado con html2canvas) -->
+    <div class="modal" id="papeletaModal" role="dialog" aria-modal="true" aria-labelledby="papeletaModalTitulo">
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="papeletaModalTitulo">🎫 Papeleta de envío</h2>
+                <button class="modal-close" id="btnCerrarPapeletaModal" aria-label="Cerrar">×</button>
+            </div>
+            <div style="display:flex; justify-content:center; padding:4px 4px 18px;">
+                <div class="papeleta-card" id="papeletaPreviewCard"></div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-success" id="btnDescargarPapeleta">🖼️ Descargar / Compartir</button>
+                <button type="button" class="btn btn-success" id="btnCopiarPapeleta">📋 Copiar imagen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LISTA DE COMPRA (productos pendientes de despachar) -->
+    <div class="modal" id="listaCompraModal" role="dialog" aria-modal="true" aria-labelledby="listaCompraModalTitulo">
+        <div class="modal-content" style="max-width:700px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="listaCompraModalTitulo">🛒 Lista de compra — pendientes de despacho</h2>
+                <button class="modal-close" id="btnCerrarListaCompraModal" aria-label="Cerrar">×</button>
+            </div>
+            <div id="listaCompraContenido"></div>
+        </div>
+    </div>
+
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/productos.js"></script>
@@ -1256,6 +1454,13 @@
     <script src="js/sucursales.js"></script>
     <script src="js/historial.js"></script>
     <script src="js/exportar.js"></script>
+    <!-- Seguimiento Shalom (cargados después de historial.js/cotizacion.js:
+         usan formatearCorrelativo, historialCache y cargarHistorialDesdeNube) -->
+    <script src="js/envios/shalom.js"></script>
+    <script src="js/envios/papeleta.js"></script>
+    <script src="js/envios/whatsapp-notif.js"></script>
+    <script src="js/envios/lima.js"></script>
+    <script src="js/envios/lista-compra.js"></script>
     <script src="js/init.js"></script>
 </body>
 </html>
