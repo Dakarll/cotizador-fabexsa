@@ -1,0 +1,10 @@
+{
+  "name": "shalom-tracker-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Robot que consulta el estado de envíos Shalom Pro cada 30 min vía GitHub Actions.",
+  "main": "check_shalom.js",
+  "dependencies": {
+    "playwright": "^1.47.0"
+  }
+}

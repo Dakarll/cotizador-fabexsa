@@ -1,0 +1,53 @@
+name: Verificar envíos Shalom
+
+# Robot de rastreo del módulo "Seguimiento Shalom" (portado del repo
+# Dakarll/shalom-tracker). Cada 30 min lee de Back4App las guías con
+# estado != "entregado", las consulta en la web pública de Shalom
+# (https://shalom.com.pe/rastrea) con un Chromium headless y escribe el
+# resultado de vuelta con la Master Key (solo en Secrets, nunca en el
+# frontend).
+#
+# ⚠️ REQUISITOS PARA QUE ESTO RESUELVA ALGO (si no, todos los envíos se
+# quedan en "pendiente" para siempre):
+#   1. Crear la clase "EnvioShalom" en el Back4App de este proyecto
+#      (appId FUvQmIkpBQRslJOaONps84g4RfBOVrwotiZTJx1r). Ver README.
+#   2. En este repo de GitHub: Settings → Secrets and variables → Actions
+#      → Repository secrets, agregar:
+#        - BACK4APP_APP_ID   = FUvQmIkpBQRslJOaONps84g4RfBOVrwotiZTJx1r
+#        - BACK4APP_MASTER_KEY = (Master Key de ese mismo app de Back4App)
+#   3. Activar Actions en el repo (pestaña "Actions" → habilitar).
+
+on:
+  schedule:
+    # Cada 30 minutos. GitHub Actions no garantiza precisión exacta en
+    # horarios de alta demanda; puede haber unos minutos de retraso.
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {} # permite ejecutarlo a mano desde la pestaña "Actions"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        working-directory: shalom-tracker/scripts
+        run: npm install
+
+      - name: Instalar navegador de Playwright
+        working-directory: shalom-tracker/scripts
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar verificación
+        working-directory: shalom-tracker/scripts
+        env:
+          BACK4APP_APP_ID: ${{ secrets.BACK4APP_APP_ID }}
+          BACK4APP_MASTER_KEY: ${{ secrets.BACK4APP_MASTER_KEY }}
+        run: node check_shalom.js
