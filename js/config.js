@@ -3,7 +3,7 @@
 // ============================================
 // Sube este número cada vez que publiques un cambio en GitHub Pages.
 // Puede ser lo que quieras mientras cambie (fecha, contador, etc.) — solo se compara como texto.
-const VERSION_APP = '2026-07-18.16';
+const VERSION_APP = '2026-07-18.20';
 
 // Opción B (recarga forzada): apagada por defecto. Solo cámbiala a "true" el día que subas
 // una corrección urgente y necesites que TODOS actualicen sí o sí — y vuelve a apagarla después.
