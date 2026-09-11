@@ -3,7 +3,7 @@
 // ============================================
 // Sube este número cada vez que publiques un cambio en GitHub Pages.
 // Puede ser lo que quieras mientras cambie (fecha, contador, etc.) — solo se compara como texto.
-const VERSION_APP = '2026-07-18.15';
+const VERSION_APP = '2026-07-18.16';
 
 // Opción B (recarga forzada): apagada por defecto. Solo cámbiala a "true" el día que subas
 // una corrección urgente y necesites que TODOS actualicen sí o sí — y vuelve a apagarla después.
@@ -129,7 +129,7 @@ function iniciarRevisionDeVersion() {
         const EMPRESAS_CONFIG_DEFAULT = {
             fabexsa: {
                 nombreComercial: 'Negociaciones FABEXSA E.I.R.L.',
-                razonSocial: 'Saul Cano Altez',
+                razonSocial: 'Saul C.',
                 direccion: 'Jr. Giribaldi 650, Tienda 106 – La Victoria, Lima',
                 telefono: '998 357 705',
                 redSocial: '@negociacionesfabexsa · toallasysabanas.pe',
@@ -141,7 +141,7 @@ function iniciarRevisionDeVersion() {
             },
             confortline: {
                 nombreComercial: 'Confort Line',
-                razonSocial: 'Mercedes Preciado Tataje',
+                razonSocial: 'Mercedes P.',
                 ruc: '10108182224',
                 direccion: 'Jr. Giribaldi 650, Tienda 106 – La Victoria, Lima',
                 telefono: '998 357 705',
