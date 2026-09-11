@@ -1,0 +1,57 @@
+name: Sincronizar agencias Shalom
+
+# Bot de sincronización del catálogo de sucursales (portado del repo
+# Dakarll/shalom-tracker, scripts/check_agencias.js). 1 vez al día abre la
+# página pública de agencias de Shalom con Chromium headless (es una SPA en
+# Vue), lee el listado que la propia página cargó en su store, y sincroniza
+# contra la clase Back4App "SucursalShalom" con la Master Key (solo en
+# Secrets, nunca en el frontend):
+#   - crea las agencias nuevas,
+#   - actualiza las que cambiaron (dirección, teléfono, horario, …),
+#   - marca activa:false (BAJA SUAVE, nunca DELETE) las que ya no aparecen,
+#   - si el scrape devuelve 0 agencias, ABORTA sin tocar Back4App.
+#
+# ⚠️ REQUISITOS PARA QUE ESTO SINCRONICE ALGO (si no, el catálogo de
+# sucursales del cotizador queda vacío / en estado de error):
+#   1. Crear la clase "SucursalShalom" en el Back4App de este proyecto
+#      (appId FUvQmIkpBQRslJOaONps84g4RfBOVrwotiZTJx1r). Ver README.
+#   2. En este repo: Settings → Secrets and variables → Actions → Repository
+#      secrets, agregar (los mismos que usa check.yml):
+#        - BACK4APP_APP_ID   = FUvQmIkpBQRslJOaONps84g4RfBOVrwotiZTJx1r
+#        - BACK4APP_MASTER_KEY = (Master Key de ese mismo app de Back4App)
+#   3. Activar Actions en el repo.
+
+on:
+  schedule:
+    # 1 vez al día (06:20 UTC ≈ 01:20 hora Perú). Las agencias cambian mucho
+    # menos que el estado de un envío, no hace falta más seguido.
+    - cron: '20 6 * * *'
+  workflow_dispatch: {} # ejecución manual desde la pestaña "Actions"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        working-directory: shalom-tracker/scripts
+        run: npm install
+
+      - name: Instalar navegador de Playwright
+        working-directory: shalom-tracker/scripts
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar sincronización de agencias
+        working-directory: shalom-tracker/scripts
+        env:
+          BACK4APP_APP_ID: ${{ secrets.BACK4APP_APP_ID }}
+          BACK4APP_MASTER_KEY: ${{ secrets.BACK4APP_MASTER_KEY }}
+        run: node check_agencias.js
