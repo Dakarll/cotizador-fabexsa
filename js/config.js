@@ -136,7 +136,7 @@ function iniciarRevisionDeVersion() {
                 banco: 'BCP',
                 cuentaSoles: '191-2286951-0-13',
                 cci: '0021-9100228695101355',
-                yape: '997 566 640',
+                yape: '',
                 logoSVG: LOGO_FABEXSA_DEFAULT_SVG
             },
             confortline: {
