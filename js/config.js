@@ -3,7 +3,14 @@
 // ============================================
 // Sube este número cada vez que publiques un cambio en GitHub Pages.
 // Puede ser lo que quieras mientras cambie (fecha, contador, etc.) — solo se compara como texto.
-const VERSION_APP = '2026-07-18.16';
+const VERSION_APP = '2026-09-15.1';
+
+// Texto (basado en los commits/PR que subes a GitHub) que se muestra junto al aviso de
+// actualización, para que quien lo vea sepa qué trae la versión nueva sin tener que ir a mirar
+// el repositorio. Actualízalo junto con VERSION_APP en cada publicación; una línea por cambio.
+const NOTAS_VERSION = `- "Nueva Solicitud" ahora regresa el tipo de documento a Cotización
+- "Nueva Solicitud" limpia también la sucursal de envío seleccionada
+- Corregido el aviso de actualización disponible (no se estaba mostrando)`;
 
 // Opción B (recarga forzada): apagada por defecto. Solo cámbiala a "true" el día que subas
 // una corrección urgente y necesites que TODOS actualicen sí o sí — y vuelve a apagarla después.
@@ -54,22 +61,26 @@ async function marcarAvisoVersionEnEstaSesion(version) {
     }
 }
 
-// Revisa si la versión publicada en el servidor es distinta a la que tiene cargada este navegador
+// Revisa si la versión publicada en el servidor es distinta a la que tiene cargada este navegador.
+// Se consulta js/config.js (no el HTML) porque ahí es donde vive VERSION_APP/NOTAS_VERSION.
 async function revisarNuevaVersion() {
     try {
-        const resp = await fetch(window.location.pathname + '?_v=' + Date.now(), { cache: 'no-store' });
+        const resp = await fetch('js/config.js?_v=' + Date.now(), { cache: 'no-store' });
         if (!resp.ok) return;
-        const html = await resp.text();
-        const match = html.match(/const VERSION_APP = '([^']+)'/);
+        const js = await resp.text();
+        const match = js.match(/const VERSION_APP = '([^']+)'/);
         if (!match) return;
         const versionServidor = match[1];
         if (versionServidor === VERSION_APP) return; // seguimos en la versión vigente, nada que avisar
+
+        const matchNotas = js.match(/const NOTAS_VERSION = `([\s\S]*?)`;/);
+        const notasServidor = matchNotas ? matchNotas[1].trim() : '';
 
         // Antes de mostrar el aviso, se confirma que esta sesión no lo haya visto ya en otro lugar
         // (otra pestaña, otro dispositivo con el mismo login). Si ya se avisó, no se repite.
         if (await yaSeAvisoVersionEnEstaSesion(versionServidor)) return;
 
-        mostrarAvisoActualizacion();
+        mostrarAvisoActualizacion(notasServidor);
         marcarAvisoVersionEnEstaSesion(versionServidor); // no se espera; no debe demorar el aviso en pantalla
     } catch (e) {
         console.warn('No se pudo revisar si hay una versión nueva:', e);
@@ -77,15 +88,19 @@ async function revisarNuevaVersion() {
 }
 
 // Opción A: aviso pequeño y no intrusivo, la persona decide cuándo recargar
-function mostrarAvisoActualizacion() {
+function mostrarAvisoActualizacion(notas) {
     if (document.getElementById('avisoActualizacion')) return; // ya se está mostrando
     const div = document.createElement('div');
     div.id = 'avisoActualizacion';
-    div.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;background:#2d3748;color:white;padding:14px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);font-family:Inter,sans-serif;font-size:0.9em;max-width:300px;';
+    div.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;background:#2d3748;color:white;padding:14px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);font-family:Inter,sans-serif;font-size:0.9em;max-width:320px;';
+    const notasHTML = notas
+        ? `<div style="margin:6px 0 10px;padding:8px 10px;background:rgba(255,255,255,0.1);border-radius:6px;font-size:0.92em;line-height:1.4;white-space:pre-line;">${notas.replace(/</g, '&lt;')}</div>`
+        : '';
     div.innerHTML = `
-        <div style="margin-bottom:10px;">🔄 Hay una actualización disponible</div>
-        <button onclick="location.reload()" style="background:#48bb78;color:white;border:none;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;margin-right:6px;">Actualizar ahora</button>
-        <button onclick="document.getElementById('avisoActualizacion').remove()" style="background:rgba(255,255,255,0.15);color:white;border:none;border-radius:6px;padding:7px 14px;cursor:pointer;">Después</button>
+        <div style="margin-bottom:2px;">🔄 Hay una actualización disponible</div>
+        ${notasHTML}
+        <button onclick="location.reload()" style="background:#48bb78;color:white;border:none;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;margin-right:6px;margin-top:6px;">Actualizar ahora</button>
+        <button onclick="document.getElementById('avisoActualizacion').remove()" style="background:rgba(255,255,255,0.15);color:white;border:none;border-radius:6px;padding:7px 14px;cursor:pointer;margin-top:6px;">Después</button>
     `;
     document.body.appendChild(div);
 
