@@ -679,6 +679,8 @@
                 // número correlativo nuevo, sin importar cuál esté seleccionado en el momento.
                 registroEnCurso = { cotizacion: null, orden_compra: null, despacho: null };
                 tipoContadorCargadoExplicitamente = null;
+                const selectorTipoDoc = document.getElementById('tipoDocumento');
+                if (selectorTipoDoc) selectorTipoDoc.value = 'cotizacion'; // "Nueva Solicitud" siempre vuelve a Cotización
                 actualizarBloqueoSelectorTipoDocumento(); // desbloquea el selector si estaba fijado en DESPACHO
                 actualizarPanelCorrelativo(); // vuelve a mostrar la vista previa del próximo N°
                 renderTable();
