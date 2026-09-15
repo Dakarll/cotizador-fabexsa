@@ -686,6 +686,7 @@
                 renderTable();
                 const sucSel = document.getElementById('sucursalSeleccionada');
                 if (sucSel) sucSel.style.display = 'none';
+                if (typeof actualizarPanelEnvioCotizar === 'function') actualizarPanelEnvioCotizar(); // limpia el resumen/badge del panel colapsable de envío
                 guardarEstado();
                 renderSucursales();
             }
