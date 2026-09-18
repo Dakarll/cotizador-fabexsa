@@ -7,18 +7,21 @@
         }
 
         .filter-btn {
-            padding: 8px 12px;
-            background: white;
-            border: 2px solid var(--border);
-            border-radius: 6px;
+            padding: 8px 14px;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-full);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s var(--ease-out);
             font-size: 0.85em;
+            font-weight: 600;
         }
 
-        .filter-btn:hover {
+        @media (hover: hover) and (pointer: fine) {
+.filter-btn:hover {
             border-color: var(--secondary);
         }
+}
 
         .filter-btn.active {
             background: var(--secondary);
@@ -37,25 +40,28 @@
         }
 
         .sucursal-card {
-            border: 2px solid var(--border);
-            border-radius: 8px;
-            padding: 15px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px;
             cursor: pointer;
-            transition: all 0.3s;
-            background: white;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s var(--ease-out);
+            background: var(--surface);
+            box-shadow: var(--shadow-sm);
             position: relative;
         }
 
-        .sucursal-card:hover {
+        @media (hover: hover) and (pointer: fine) {
+.sucursal-card:hover {
             border-color: var(--secondary);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+            box-shadow: var(--shadow-md);
             transform: translateY(-2px);
         }
+}
 
         .sucursal-card.selected {
             border-color: var(--success);
-            background: #f0fff4;
-            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.2);
+            background: var(--chip-success-bg);
+            box-shadow: var(--shadow-md);
         }
 
         .sucursal-card.selected::after {
@@ -92,11 +98,11 @@
         .sucursal-tipo {
             display: inline-block;
             padding: 4px 10px;
-            background: var(--accent);
-            color: var(--primary);
-            border-radius: 4px;
+            background: var(--secondary);
+            color: white;
+            border-radius: var(--radius-sm);
             font-size: 0.8em;
-            font-weight: 600;
+            font-weight: 700;
             margin-top: 8px;
         }
 
@@ -112,10 +118,10 @@
             display: none;
             margin-top: 10px;
             padding: 10px;
-            background: #bee3f8;
-            border-radius: 6px;
+            background: var(--secondary-light);
+            border-radius: var(--radius-sm);
             font-size: 0.85em;
-            color: #2c5282;
+            color: var(--chip-info-text);
         }
 
         .deselect-hint.show {

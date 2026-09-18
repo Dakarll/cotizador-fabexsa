@@ -1,5 +1,5 @@
         .galeria-cat-btn {
-            border-radius: 8px !important;
+            border-radius: var(--radius-sm) !important;
             border: 1.5px solid var(--border) !important;
             padding: 8px 16px !important;
         }
@@ -18,37 +18,40 @@
         }
 
         .galeria-item {
-            background: white;
-            border: 1.5px solid var(--border);
-            border-radius: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
             overflow: hidden;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .galeria-item:hover {
+        @media (hover: hover) and (pointer: fine) {
+.galeria-item:hover {
             transform: translateY(-3px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+            box-shadow: var(--shadow-md);
         }
+}
 
         .galeria-item img {
             width: 100%;
             height: 180px;
             object-fit: cover;
             display: block;
-            background: #f1f5f9;
+            background: var(--gray-100);
         }
 
         .galeria-item-nombre {
             padding: 8px 10px;
             font-size: 0.85em;
             font-weight: 600;
-            color: var(--text);
+            color: var(--primary);
             text-align: center;
         }
 
         .ficha-cat-btn {
-            border-radius: 8px !important;
+            border-radius: var(--radius-sm) !important;
             border: 1.5px solid var(--border) !important;
             padding: 8px 16px !important;
         }
@@ -60,7 +63,7 @@
         }
 
         .ajustes-subtab-btn {
-            border-radius: 8px !important;
+            border-radius: var(--radius-sm) !important;
             border: 1.5px solid var(--border) !important;
             padding: 8px 16px !important;
         }
@@ -71,17 +74,167 @@
             border-color: var(--secondary) !important;
         }
 
+        /* Fila de ajustes generales (carpeta de descargas) — visible sin importar
+           la subpestaña activa (Productos/Sucursales), por eso vive fuera de ambas. */
+        .ajustes-general-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ajustes-icon-btn {
+            flex-shrink: 0;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface);
+            color: var(--secondary);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+.ajustes-icon-btn:hover {
+            background: var(--secondary-light);
+            border-color: var(--secondary);
+        }
+}
+
+        /* #btnCarpetaFija: js/exportar.js le cambia el textContent (con un emoji
+           adelante) según el estado ("Elegir"/"Cambiar"/"Reactivar" carpeta) — en
+           vez de pelear con eso, se oculta ese texto (font-size:0) y se dibuja un
+           ícono de carpeta fijo encima con un mask, así siempre se ve como un
+           ícono sin importar qué texto le ponga el .js. El estado real ya se lee
+           en #carpetaFijaLabel, al lado. */
+        #btnCarpetaFija {
+            font-size: 0;
+            color: transparent;
+            position: relative;
+        }
+
+        #btnCarpetaFija::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            margin: auto;
+            width: 18px;
+            height: 18px;
+            background-color: var(--secondary);
+            -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v.64c.57.265.94.876.856 1.546l-.64 5.124A2.5 2.5 0 0 1 12.733 15H3.266a2.5 2.5 0 0 1-2.481-2.19l-.64-5.124A1.5 1.5 0 0 1 1 6.14zM2 6h12v-.5a.5.5 0 0 0-.5-.5H9c-.964 0-1.71-.629-2.174-1.154C6.374 3.334 5.82 3 5.264 3H2.5a.5.5 0 0 0-.5.5zm-.367 1a.5.5 0 0 0-.496.562l.64 5.124A1.5 1.5 0 0 0 3.266 14h9.468a1.5 1.5 0 0 0 1.489-1.314l.64-5.124A.5.5 0 0 0 14.367 7z"/></svg>') no-repeat center / contain;
+            mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v.64c.57.265.94.876.856 1.546l-.64 5.124A2.5 2.5 0 0 1 12.733 15H3.266a2.5 2.5 0 0 1-2.481-2.19l-.64-5.124A1.5 1.5 0 0 1 1 6.14zM2 6h12v-.5a.5.5 0 0 0-.5-.5H9c-.964 0-1.71-.629-2.174-1.154C6.374 3.334 5.82 3 5.264 3H2.5a.5.5 0 0 0-.5.5zm-.367 1a.5.5 0 0 0-.496.562l.64 5.124A1.5 1.5 0 0 0 3.266 14h9.468a1.5 1.5 0 0 0 1.489-1.314l.64-5.124A.5.5 0 0 0 14.367 7z"/></svg>') no-repeat center / contain;
+        }
+
+        .ajustes-general-text {
+            min-width: 0;
+        }
+
+        .ajustes-general-title {
+            font-weight: 600;
+            color: var(--primary);
+            font-size: 0.92em;
+        }
+
+        .ajustes-general-text span {
+            font-size: 0.8em;
+            color: var(--gray-500);
+        }
+
+        /* ---- Kardex: botón "Detalle diario" por fila (ver renderKardexTabCompleta en
+           js/kardex.js) — las 31 columnas de día del Excel no se listan todas, se resumen
+           acá y solo se muestran los días con movimiento real al desplegar. ---- */
+        .kardex-detalle-toggle {
+            background: var(--secondary-light);
+            color: var(--secondary-hover);
+            border: none;
+            border-radius: var(--radius-full);
+            padding: 4px 12px;
+            font-size: 0.78em;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+.kardex-detalle-toggle:hover {
+            background: var(--secondary);
+            color: white;
+        }
+}
+
+        .kardex-detalle-vacio {
+            font-size: 0.78em;
+            color: var(--gray-400);
+        }
+
+        .kardex-detalle-row td {
+            background: var(--bg-light);
+            padding: 10px 14px !important;
+        }
+
+        .kardex-dias-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .kardex-dia-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 4px 10px;
+            font-size: 0.78em;
+            color: var(--gray-600);
+        }
+
+        .kardex-dia-chip strong {
+            color: var(--primary);
+        }
+
+        /* ---- Productos (vista rápida): botón "Ver colores" que lleva al Kardex ya filtrado
+           por este producto (ver verColoresProductoEnKardex en js/productos.js) — reemplaza los
+           círculos de color que antes se listaban acá, que eran redundantes con el Kardex. ---- */
+        .btn-ver-colores {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--surface);
+            color: var(--secondary);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 6px 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+.btn-ver-colores:hover {
+            background: var(--secondary-light);
+            border-color: var(--secondary);
+        }
+}
+
         .ficha-producto-icono {
             font-size: 2.5em;
             text-align: center;
             padding: 20px 0 8px 0;
-            background: #f8fafc;
+            background: var(--gray-100);
         }
 
         .ficha-producto-card.seleccionado {
             border-color: var(--secondary);
             border-width: 2px;
-            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+            box-shadow: 0 0 0 3px rgba(64, 91, 100, 0.2);
         }
 
         .ficha-layout {
@@ -94,15 +247,15 @@
         .ficha-preview-panel {
             position: sticky;
             top: 16px;
-            background: white;
+            background: var(--surface);
             border: 1.5px solid var(--border);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             padding: 16px;
         }
 
         .ficha-preview-panel img {
             width: 100%;
-            border-radius: 10px;
+            border-radius: var(--radius-sm);
             border: 1.5px solid var(--border);
             margin-bottom: 12px;
             display: block;
@@ -117,10 +270,6 @@
             }
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
 
 
 .form-row {
@@ -130,9 +279,9 @@
 }
 
 .ficha-section {
-    background: #f8f9fa;
+    background: var(--gray-100);
     padding: 20px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     margin-bottom: 20px;
 }
 
@@ -140,7 +289,7 @@
     color: var(--primary);
     margin-bottom: 15px;
     font-size: 1.3em;
-    border-bottom: 2px solid var(--accent);
+    border-bottom: 2px solid var(--secondary);
     padding-bottom: 10px;
 }
 
@@ -152,8 +301,8 @@
 
 .ficha-item {
     padding: 10px;
-    background: white;
-    border-radius: 6px;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
 }
 
 .ficha-item-label {

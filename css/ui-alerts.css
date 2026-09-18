@@ -1,0 +1,299 @@
+/* ============================================
+   UI ALERTS — toasts y diálogos (js/ui-alerts.js)
+   Solo usa tokens de variables.css. Movimiento: transform + opacity, curvas --ease-*,
+   entradas ~240-280ms y salidas más rápidas (~170-200ms) porque el sistema responde,
+   mientras que la entrada es lo que el usuario está mirando.
+   ============================================ */
+
+/* ---------- TOASTS ---------- */
+.toast-region {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px));
+    z-index: 10001; /* por encima de .modal (10000) */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    width: min(380px, calc(100vw - 32px));
+    pointer-events: none; /* la región no bloquea clics; cada toast los reactiva */
+}
+
+.toast {
+    pointer-events: auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+    padding: 12px 16px 12px 12px;
+    border-radius: var(--radius-lg);
+    /* Material translúcido oscuro: siempre oscuro en ambos temas (igual que el sidebar) */
+    background: var(--sidebar-bg);
+    background: color-mix(in srgb, var(--sidebar-bg) 88%, transparent);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1); /* borde superior claro = luz sobre el material */
+    box-shadow: var(--shadow-lg);
+    color: var(--sidebar-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.35;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transform-origin: top right;
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+    /* Transiciones (no keyframes): se pueden interrumpir y re-dirigir desde el valor actual */
+    transition: opacity 280ms var(--ease-out), transform 280ms var(--ease-out);
+}
+
+.toast[data-mounted] {
+    opacity: 1;
+    transform: none;
+}
+
+/* Sale por donde entró (hacia arriba) y más rápido: la respuesta del sistema es ágil */
+.toast[data-leaving] {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+    transition-duration: 200ms;
+    pointer-events: none;
+}
+
+/* Feedback al presionar: instantáneo, no espera a soltar */
+.toast[data-mounted]:not([data-leaving]):active {
+    transform: scale(0.98);
+    transition-duration: 100ms;
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+}
+
+.toast-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.toast--success .toast-icon { color: var(--success); }
+.toast--warning .toast-icon { color: var(--warning); }
+.toast--error   .toast-icon { color: var(--danger); }
+.toast--info    .toast-icon { color: var(--gray-300); }
+
+.toast-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+    .toast-region {
+        left: max(12px, env(safe-area-inset-left, 0px));
+        right: max(12px, env(safe-area-inset-right, 0px));
+        top: max(12px, env(safe-area-inset-top, 0px));
+        width: auto;
+        align-items: stretch;
+    }
+    .toast { transform-origin: top center; }
+}
+
+/* ---------- DIÁLOGOS (alerta / confirmación) ---------- */
+.ui-dialog {
+    /* El reset global (* { margin: 0 }) anula el margin:auto con el que el navegador centra un
+       <dialog> modal: hay que devolverlo explícitamente o queda pegado arriba a la izquierda */
+    margin: auto;
+    padding: 0;
+    border: 0;
+    width: min(340px, calc(100vw - 32px));
+    max-height: 80vh;
+    max-height: min(80dvh, 620px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius-xl);
+    background: var(--surface);
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    color: var(--primary);
+    box-shadow: var(--shadow-lg);
+    /* Los modales no están anclados a un disparador: se quedan centrados (origin: center) */
+    transform-origin: center;
+    opacity: 0;
+    transform: scale(0.96);
+    transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+}
+
+.ui-dialog[data-open] {
+    opacity: 1;
+    transform: none;
+}
+
+.ui-dialog[data-closing] {
+    opacity: 0;
+    transform: scale(0.98);
+    transition-duration: 170ms;
+}
+
+.ui-dialog::backdrop {
+    /* Valor literal de respaldo = --sidebar-bg con transparencia: ::backdrop no hereda
+       variables en navegadores antiguos, así que sin esta línea no habría fondo atenuado */
+    background: rgba(43, 46, 51, 0.4);
+    background: color-mix(in srgb, var(--sidebar-bg) 42%, transparent);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    transition: opacity 240ms var(--ease-out);
+}
+
+.ui-dialog[data-open]::backdrop { opacity: 1; }
+.ui-dialog[data-closing]::backdrop { opacity: 0; transition-duration: 170ms; }
+
+.ui-dialog-body {
+    padding: 24px 20px 18px;
+    text-align: center;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.ui-dialog-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-bottom: 12px;
+    border-radius: 50%;
+    background: var(--chip-info-bg);
+    color: var(--chip-info-text);
+}
+
+.ui-dialog-icon svg { width: 22px; height: 22px; }
+
+.ui-dialog--success .ui-dialog-icon { background: var(--chip-success-bg); color: var(--chip-success-text); }
+.ui-dialog--warning .ui-dialog-icon { background: var(--chip-warning-bg); color: var(--chip-warning-text); }
+.ui-dialog--error   .ui-dialog-icon { background: var(--chip-danger-bg);  color: var(--chip-danger-text); }
+
+/* Título grande = tracking ligeramente negativo; cuerpo pequeño = tracking neutro */
+.ui-dialog-title {
+    margin: 0 0 6px;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+}
+
+.ui-dialog-message {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--gray-500);
+    white-space: pre-line; /* respeta los saltos de línea de los mensajes */
+    overflow-wrap: anywhere;
+}
+
+.ui-dialog-detalle {
+    margin-top: 12px;
+    text-align: left;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.ui-dialog-detalle summary {
+    cursor: pointer;
+    font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ui-dialog-detalle pre {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--gray-100);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+    -webkit-user-select: text;
+    user-select: text; /* el detalle técnico sí es contenido: se puede copiar */
+}
+
+.ui-dialog-actions {
+    display: flex;
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+}
+
+.ui-dialog[data-stack] .ui-dialog-actions { flex-direction: column; }
+
+.ui-dialog-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 48px; /* objetivo táctil cómodo (≥44px) */
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    color: var(--gray-500);
+    font: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background-color 100ms var(--ease-out);
+}
+
+.ui-dialog-btn + .ui-dialog-btn { border-left: 1px solid var(--border); }
+.ui-dialog[data-stack] .ui-dialog-btn + .ui-dialog-btn { border-left: 0; border-top: 1px solid var(--border); }
+
+.ui-dialog-btn--primary { color: var(--secondary); font-weight: 700; }
+.ui-dialog-btn--destructive { color: var(--danger); font-weight: 700; }
+.ui-dialog-btn--cancel { color: var(--primary); font-weight: 500; }
+
+/* Feedback en el instante de presionar (no al soltar) */
+.ui-dialog-btn:active { background: var(--gray-100); }
+
+.ui-dialog-btn:focus-visible {
+    outline: 2px solid var(--gray-500);
+    outline-offset: -3px;
+}
+
+/* Hover solo con puntero preciso: en táctil el :hover se queda "pegado" tras el toque */
+@media (hover: hover) and (pointer: fine) {
+    .ui-dialog-btn:hover { background: var(--gray-50); }
+    .ui-dialog-btn:active { background: var(--gray-100); }
+}
+
+/* --secondary (#405B64) sobre la superficie oscura no alcanza contraste: en modo oscuro la
+   acción principal usa el texto claro del tema */
+:root[data-theme="dark"] .ui-dialog-btn--primary { color: var(--gray-800); }
+
+/* ---------- Accesibilidad ---------- */
+/* Movimiento reducido = más suave, no cero: se conservan los fundidos, se quita el desplazamiento */
+@media (prefers-reduced-motion: reduce) {
+    .toast,
+    .toast[data-leaving],
+    .ui-dialog,
+    .ui-dialog[data-closing] {
+        transform: none;
+        transition: opacity 150ms ease;
+    }
+    .toast[data-mounted]:not([data-leaving]):active { transform: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .toast { background: var(--sidebar-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .ui-dialog { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+@media (prefers-contrast: more) {
+    .toast { background: var(--sidebar-bg); border-color: var(--sidebar-text-soft); }
+    .ui-dialog { background: var(--surface); border: 1px solid var(--gray-500); }
+}

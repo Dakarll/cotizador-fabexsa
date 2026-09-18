@@ -296,8 +296,13 @@ async function crearRegistroShalom(guia, codigo, cliente, destino, numeroOrdenCo
     }
 }
 
-function eliminarEnvioShalom(objectId) {
-    if (!confirm('¿Eliminar este envío del seguimiento?')) return;
+async function eliminarEnvioShalom(objectId) {
+    if (!await confirmarAccion({
+        titulo: 'Eliminar envío',
+        mensaje: '¿Eliminar este envío del seguimiento?',
+        confirmarTexto: 'Eliminar',
+        destructivo: true
+    })) return;
     parseShalom('DELETE', objectId)
         .then(() => cargarEnviosShalom())
         .catch(err => mostrarNotificacion('❌ Error al eliminar: ' + err.message, 'warning'));

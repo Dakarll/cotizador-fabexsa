@@ -1,4 +1,10 @@
-        /* MODAL */
+        /* MODAL
+           Entrada y salida 100% en CSS (sin tocar los .js que hacen classList.add/remove('active')):
+           `display` se anima con transition-behavior: allow-discrete, así al quitar .active el modal
+           se desvanece y solo entonces pasa a display:none. En navegadores sin soporte simplemente
+           aparece/desaparece al instante — sigue funcionando igual que antes.
+           Movimiento: solo opacity + transform. El modal está centrado (no anclado a un botón),
+           por eso escala desde el centro. */
         .modal {
             display: none;
             position: fixed;
@@ -7,63 +13,105 @@
             top: 0;
             width: 100%;
             height: 100%;
+            height: 100dvh;
             overflow: auto;
-            background-color: rgba(0,0,0,0.5);
-            animation: fadeIn 0.3s;
+            overscroll-behavior: contain;
+            /* Fondo atenuado con desenfoque suave: separa el modal del contenido sin taparlo del todo */
+            background-color: rgba(43, 46, 51, 0.4);
+            background-color: color-mix(in srgb, var(--sidebar-bg) 42%, transparent);
+            -webkit-backdrop-filter: blur(3px);
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            transition: opacity 170ms var(--ease-out), display 170ms allow-discrete;
         }
 
         .modal.active {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+            opacity: 1;
+            transition-duration: 240ms;
+        }
+
+        @starting-style {
+            .modal.active { opacity: 0; }
         }
 
         .modal-content {
-            background-color: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            background-color: var(--surface);
+            padding: 28px;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
             max-width: 500px;
             width: 100%;
             max-height: 90vh;
+            max-height: 90dvh;
             overflow-y: auto;
+            overscroll-behavior: contain;
+            transform: scale(0.97);
+            transition: transform 170ms var(--ease-out);
         }
 
+        .modal.active .modal-content {
+            transform: none;
+            transition-duration: 240ms;
+        }
+
+        @starting-style {
+            .modal.active .modal-content { transform: scale(0.96); }
+        }
+
+        /* Jerarquía: el título manda; el separador es una línea fina, no un bloque pesado */
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
             margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid var(--border);
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border);
         }
 
         .modal-title {
-            font-size: 1.3em;
+            font-size: 1.2em;
             font-weight: 700;
+            line-height: 1.25;
+            letter-spacing: -0.015em;
             color: var(--primary);
         }
 
+        /* Botón cerrar: círculo de 32px (antes 30) con feedback inmediato al presionar */
         .modal-close {
-            background: none;
+            flex-shrink: 0;
+            background: var(--gray-100);
             border: none;
-            font-size: 1.5em;
+            font-size: 1.25em;
+            line-height: 1;
             cursor: pointer;
             color: var(--gray-500);
             padding: 0;
-            width: 30px;
-            height: 30px;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            transition: background-color 150ms ease, color 150ms ease, transform 120ms var(--ease-out);
         }
 
-        .modal-close:hover {
-            background: var(--gray-100);
-            color: var(--danger);
+        .modal-close:active {
+            transform: scale(0.94);
+            background: var(--gray-200);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .modal-close:hover {
+                background: var(--gray-200);
+                color: var(--danger);
+            }
         }
 
         .form-group {
@@ -80,17 +128,18 @@
 
         .form-input {
             width: 100%;
-            padding: 10px 15px;
-            border: 2px solid var(--border);
-            border-radius: 8px;
+            padding: 11px 15px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
             font-size: 1em;
-            transition: all 0.3s;
+            font-family: var(--font-sans);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         }
 
         .form-input:focus {
             outline: none;
             border-color: var(--secondary);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 3px rgba(64, 91, 100, 0.1);
         }
 
         .price-grid {
@@ -111,11 +160,12 @@
 
         /* FORMULARIO NUEVO */
         .new-form-section {
-            background: linear-gradient(135deg, var(--secondary) 0%, #764ba2 100%);
-            border-radius: 8px;
-            padding: 20px;
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-hover) 100%);
+            border-radius: var(--radius-md);
+            padding: 22px;
             margin-bottom: 30px;
             color: white;
+            box-shadow: var(--shadow-md);
         }
 
         .new-form-section h3 {
@@ -124,7 +174,7 @@
         }
 
         .new-form-section .form-input {
-            background: white;
+            background: var(--surface);
         }
 
 
@@ -147,9 +197,10 @@
         }
 
         .loading-content {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
+            background: var(--surface);
+            padding: 32px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
             text-align: center;
         }
 
@@ -168,67 +219,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* NOTIFICATION */
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            z-index: 10000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            animation: slideIn 0.3s ease;
-            max-width: 90%;
-            font-size: 0.9em;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .notification-icon {
-            flex-shrink: 0;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.25);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8em;
-            font-weight: 800;
-        }
-
-        .notification.success {
-            background: var(--success);
-            color: white;
-        }
-
-        .notification.warning {
-            background: var(--warning);
-            color: white;
-        }
-
-        .notification.error {
-            background: var(--danger);
-            color: white;
-        }
-
-        .notification.info {
-            background: var(--secondary);
-            color: white;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(400px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(400px); opacity: 0; }
-        }
-
         /* ================================================
 
            BASE CLIENTES
@@ -238,15 +228,15 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
-            border: 2px solid var(--secondary);
+            background: var(--surface);
+            border: 1.5px solid var(--secondary);
             border-top: none;
-            border-radius: 0 0 8px 8px;
+            border-radius: 0 0 var(--radius-sm) var(--radius-sm);
             max-height: 220px;
             overflow-y: auto;
             display: none;
             z-index: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-md);
         }
         .cliente-db-dropdown.visible { display: block; }
         .cliente-db-item {
@@ -256,7 +246,9 @@
             transition: background 0.15s;
             font-size: 0.88em;
         }
-        .cliente-db-item:hover { background: #eef2ff; }
+        @media (hover: hover) and (pointer: fine) {
+.cliente-db-item:hover { background: var(--secondary-light); }
+}
         .cliente-db-item-name { font-weight: 700; color: var(--primary); }
         .cliente-db-item-sub { font-size: 0.8em; color: var(--gray-500); margin-top: 1px; }
         .cliente-save-btn {
@@ -264,14 +256,16 @@
             background: var(--secondary);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 0.82em;
             font-weight: 700;
             cursor: pointer;
             transition: background 0.2s;
             margin-top: 10px;
         }
-        .cliente-save-btn:hover { background: #5568d3; }
+        @media (hover: hover) and (pointer: fine) {
+.cliente-save-btn:hover { background: var(--secondary-hover); }
+}
         .cliente-field-wrap { position: relative; }
 
         .ruc-buscar-row { display: flex; gap: 6px; }
@@ -281,13 +275,15 @@
             background: var(--secondary);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 0.95em;
             cursor: pointer;
             transition: background 0.2s, opacity 0.2s;
             white-space: nowrap;
         }
-        .ruc-buscar-btn:hover { background: #5568d3; }
+        @media (hover: hover) and (pointer: fine) {
+.ruc-buscar-btn:hover { background: var(--secondary-hover); }
+}
         .ruc-buscar-btn:disabled { opacity: 0.6; cursor: default; }
         .ruc-buscar-status {
             font-size: 0.78em;
@@ -299,7 +295,7 @@
         .badge {
             display: inline-block;
             padding: 4px 12px;
-            border-radius: 12px;
+            border-radius: var(--radius-full);
             font-size: 0.8em;
             font-weight: 600;
             margin-left: 10px;
@@ -310,3 +306,83 @@
             color: var(--chip-success-text);
         }
 
+        /* ============================================
+           PLATAFORMA MÓVIL + MOVIMIENTO (global)
+           ============================================ */
+
+        /* Móvil: quita el destello gris al tocar (choca con el feedback propio de :active) y
+           evita que iOS infle el texto al girar el teléfono. */
+        html {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+
+        /* Elimina el retraso de toque (doble-tap para zoom) en todo lo pulsable */
+        button, a, select, label, [role="button"] {
+            touch-action: manipulation;
+        }
+
+        /* Los controles no se seleccionan con pulsación larga (el CONTENIDO sí: nunca en body) */
+        button, [role="button"], .btn, .tab, .sidebar-item, .filter-btn, .chip-filtro-historial {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* iOS hace zoom al enfocar un input con letra < 16px y no lo deshace. Se corrige el
+           tamaño (nunca se desactiva el zoom: user-scalable=no sería un fallo de accesibilidad).
+           !important porque varios inputs traen font-size inline. Solo en táctil. */
+        @media (hover: none) and (pointer: coarse) {
+            input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+        }
+
+        /* Feedback en el instante de presionar (no al soltar): escala sutil, 100ms */
+        .btn:active:not(:disabled),
+        .btn-edit:active,
+        .btn-remove:active,
+        .btn-historial-load:active,
+        .btn-historial-del:active,
+        .btn-historial-ver:active,
+        .auth-submit:active:not(:disabled),
+        .ajustes-icon-btn:active,
+        .btn-ver-colores:active,
+        .filter-btn:active,
+        .chip-filtro-historial:active {
+            transform: scale(0.97);
+            transition-duration: 100ms;
+        }
+
+        /* Movimiento reducido = más suave, no cero: se conservan colores y fundidos; se
+           quitan los desplazamientos, elevaciones al pasar el mouse y animaciones decorativas.
+           (El .spinner de carga se mantiene: es información de estado, no decoración.) */
+        @media (prefers-reduced-motion: reduce) {
+            .btn:hover, .btn:active,
+            .btn-edit:hover, .btn-edit:active,
+            .btn-remove:active,
+            .btn-historial-load:active, .btn-historial-del:active, .btn-historial-ver:active,
+            .auth-submit:hover, .auth-submit:active,
+            .ajustes-icon-btn:active, .btn-ver-colores:active,
+            .filter-btn:active, .chip-filtro-historial:active,
+            .historial-card:hover, .sucursal-card:hover, .galeria-item:hover, .shalom-card:hover,
+            .color-circulo:hover, .color-circulo:active {
+                transform: none !important;
+            }
+
+            .auth-card,
+            .skeleton-block {
+                animation: none;
+            }
+
+            .sidebar,
+            .sidebar-active-pill,
+            .sidebar-collapse-btn,
+            .sidebar-collapse-btn svg,
+            .cliente-panel-toggle {
+                transition-duration: 0.01ms;
+            }
+        }

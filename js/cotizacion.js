@@ -287,6 +287,7 @@
             document.getElementById('addExtrasRow').classList.add('visible');
             document.getElementById('nuevoProductoPrecioField').style.display = 'flex';
             document.getElementById('nuevoProductoAviso').style.display = 'block';
+            colorFijadoAgregar = null;
             document.getElementById('inputColor').value = '';
             document.getElementById('colorChips').innerHTML = '';
             document.getElementById('inputNuevoProductoPrecio').value = '';
@@ -346,6 +347,7 @@
                         salirModoNuevoProducto();
                         // Mostrar fila de extras
                         document.getElementById('addExtrasRow').classList.add('visible');
+                        colorFijadoAgregar = null;
                         document.getElementById('inputColor').value = '';
                         renderChipsColorAgregar(codigo);
                         document.getElementById('inputColor').focus();
@@ -431,6 +433,7 @@
             renderProductList();
             renderProductosVistaRapida();
             searchInput.value = '';
+            colorFijadoAgregar = null;
             document.getElementById('inputColor').value = '';
             document.getElementById('inputCantidadInicial').value = '1';
             document.getElementById('addExtrasRow').classList.remove('visible');
@@ -529,9 +532,18 @@
             guardarEstado();
         }
 
-        function removeProduct(index) {
-            if (confirm('¿Eliminar este producto de la cotización?')) {
-                productosEnTabla.splice(index, 1);
+        async function removeProduct(index) {
+            const producto = productosEnTabla[index];
+            if (await confirmarAccion({
+                titulo: 'Quitar producto',
+                mensaje: producto ? `¿Quitar "${producto.nombre}" de la cotización?` : '¿Quitar este producto de la cotización?',
+                confirmarTexto: 'Quitar',
+                destructivo: true
+            })) {
+                // Se ubica por referencia (no por el index de antes del diálogo, que pudo cambiar)
+                const posicion = productosEnTabla.indexOf(producto);
+                if (posicion === -1) return;
+                productosEnTabla.splice(posicion, 1);
                 renderTable();
                 guardarEstado();
             }
@@ -655,11 +667,16 @@
                 : '';
         }
 
-        function clearAll() {
+        async function clearAll() {
             const cliente = getClienteData();
             const hayCliente = Object.values(cliente).some(v => v);
             if (productosEnTabla.length === 0 && !sucursalSeleccionada && !hayCliente) return;
-            if (confirm('¿Limpiar la cotización? Esto también borrará los datos del cliente.')) {
+            if (await confirmarAccion({
+                titulo: 'Nueva solicitud',
+                mensaje: 'Se limpiará la cotización actual, incluidos los datos del cliente.',
+                confirmarTexto: 'Limpiar',
+                destructivo: true
+            })) {
                 productosEnTabla = [];
                 sucursalSeleccionada = null;
                 if (document.getElementById('globalDiscount')) document.getElementById('globalDiscount').value = '';
@@ -949,10 +966,9 @@
         // ============================================
 
         function setColor(color) {
+            colorFijadoAgregar = color;
             document.getElementById('inputColor').value = color;
-            document.querySelectorAll('.color-circulo-chip').forEach(chip => {
-                chip.classList.toggle('seleccionado', chip.dataset.color === color);
-            });
+            if (productoSeleccionado) renderChipsColorAgregar(productoSeleccionado.codigo);
             actualizarDisponibleColorSeleccionado(color);
         }
 
@@ -1234,7 +1250,12 @@
             // Aviso preventivo (🟢 baja prioridad): solo se pregunta si de verdad no hay ninguna OC de
             // por medio (ni por el botón, ni por haberla guardado antes en esta misma sesión).
             if (tipoContador === 'despacho' && !registroEnCurso.despacho?.objectId && !ordenCompraVinculada) {
-                if (!confirm('⚠️ Este despacho no está vinculado a ninguna Orden de Compra.\n\n¿Seguro que deseas guardarlo así?')) {
+                if (!await confirmarAccion({
+                    titulo: 'Despacho sin Orden de Compra',
+                    mensaje: 'Este despacho no está vinculado a ninguna Orden de Compra.\n\n¿Seguro que deseas guardarlo así?',
+                    tipo: 'warning',
+                    confirmarTexto: 'Guardar así'
+                })) {
                     return;
                 }
             }
@@ -1267,7 +1288,12 @@
                 correlativo = await asegurarCorrelativoParaDocumento(tipodoc);
             } catch (e) {
                 console.error('No se pudo obtener el correlativo:', e);
-                mostrarNotificacion('No se pudo generar el número correlativo: ' + e.message, 'warning');
+                mostrarAlerta({
+                    titulo: 'No se pudo generar el número correlativo',
+                    mensaje: 'El documento NO se guardó, para evitar que quede sin número. Revisa tu conexión e inténtalo de nuevo.',
+                    tipo: 'error',
+                    detalle: e.message
+                });
                 return;
             }
 
@@ -1358,7 +1384,13 @@
                     if (respCheck.ok) {
                         const dataCheck = await respCheck.json();
                         if (dataCheck.updatedAt && dataCheck.updatedAt !== registroExistente.updatedAt) {
-                            const seguir = confirm('⚠️ Este documento fue modificado por otra persona (u otro dispositivo) después de que lo cargaste aquí.\n\nSi guardas ahora, tus cambios reemplazarán esa otra edición.\n\n¿Deseas guardar de todas formas?');
+                            const seguir = await confirmarAccion({
+                                titulo: 'Documento modificado por otra persona',
+                                mensaje: 'Este documento fue modificado por otra persona (u otro dispositivo) después de que lo cargaste aquí.\n\nSi guardas ahora, tus cambios reemplazarán esa otra edición.',
+                                tipo: 'warning',
+                                confirmarTexto: 'Guardar de todas formas',
+                                destructivo: true
+                            });
                             if (!seguir) {
                                 mostrarNotificacion('Guardado cancelado. Vuelve a cargar el documento desde el historial para ver los cambios más recientes.', 'info');
                                 return;
@@ -1441,12 +1473,17 @@
                         registroEnCurso[tipoContador].productosDescontados = productosActuales;
                     } catch (eKardex) {
                         console.error('Error al ajustar stock del Kardex:', eKardex);
-                        mostrarNotificacion('La orden se guardó, pero no se pudo ajustar el Kardex: ' + eKardex.message, 'warning');
+                        mostrarAlerta({
+                            titulo: 'Orden guardada, pero el Kardex no se actualizó',
+                            mensaje: 'La Orden de Compra sí quedó guardada en la nube, pero no se pudo descontar su stock del Kardex de Dropbox. Revisa el Kardex y ajusta el stock manualmente si hace falta.',
+                            tipo: 'error',
+                            detalle: eKardex.message
+                        });
                     }
                 }
             } catch (e) {
                 console.error('Error al guardar en historial:', e);
-                mostrarNotificacion('No se pudo guardar en la nube: ' + e.message, 'warning');
+                mostrarNotificacion('No se pudo guardar en la nube: ' + e.message, 'error');
             }
         }
 
@@ -1914,10 +1951,14 @@
             renderHistorial();
         }
 
-        function cargarDesdeHistorial(objectId) {
+        async function cargarDesdeHistorial(objectId) {
             const entry = historialCache.find(e => e.objectId === objectId);
             if (!entry) return;
-            if (!confirm(`¿Cargar cotización de "${entry.cliente}"? Se reemplazará la cotización actual.`)) return;
+            if (!await confirmarAccion({
+                titulo: 'Cargar cotización',
+                mensaje: `¿Cargar la cotización de "${entry.cliente}"? Se reemplazará la cotización actual.`,
+                confirmarTexto: 'Cargar'
+            })) return;
             productosEnTabla = JSON.parse(JSON.stringify(entry.productos)).map(migrarProductoLegacy);
             sucursalSeleccionada = entry.sucursal || null;
             if (document.getElementById('globalDiscount')) document.getElementById('globalDiscount').value = entry.globalDescPct || '';
@@ -2001,7 +2042,11 @@
             const mensajeConfirm = despachoExistente
                 ? `Esta Orden de Compra ya tiene un Despacho generado (${formatearCorrelativo(despachoExistente.correlativo, despachoExistente.sufijoDespacho)}).\n\n¿Actualizarlo con los datos actuales de la OC ${correlativoTexto} de "${oc.cliente}"?\n\nSe reemplazará la cotización actual.`
                 : `¿Crear un Despacho a partir de la Orden de Compra ${correlativoTexto} de "${oc.cliente}"?\n\nSe reemplazará la cotización actual.`;
-            if (!confirm(mensajeConfirm)) return;
+            if (!await confirmarAccion({
+                titulo: despachoExistente ? 'Actualizar despacho' : 'Crear despacho',
+                mensaje: mensajeConfirm,
+                confirmarTexto: despachoExistente ? 'Actualizar' : 'Crear despacho'
+            })) return;
 
             productosEnTabla = JSON.parse(JSON.stringify(oc.productos)).map(migrarProductoLegacy);
             sucursalSeleccionada = oc.sucursal || null;
@@ -2314,7 +2359,12 @@
             const mensaje = productosADevolver.length > 0
                 ? '¿Ocultar esta Orden de Compra del historial? Esto también devolverá al Kardex el stock que había descontado.'
                 : '¿Ocultar esta cotización del historial?';
-            if (!confirm(mensaje)) return;
+            if (!await confirmarAccion({
+                titulo: entry && entry.tipoDocumento === 'orden_compra' ? 'Ocultar Orden de Compra' : 'Ocultar cotización',
+                mensaje: mensaje,
+                confirmarTexto: 'Ocultar',
+                destructivo: true
+            })) return;
 
             try {
                 if (productosADevolver.length > 0) {
@@ -2328,7 +2378,12 @@
                         cargarKardex(false);
                     } catch (eKardex) {
                         console.error('Error al devolver stock del Kardex:', eKardex);
-                        mostrarNotificacion('La Orden se ocultó, pero no se pudo devolver el stock al Kardex: ' + eKardex.message + '. Revísalo manualmente.', 'warning');
+                        mostrarAlerta({
+                            titulo: 'Orden ocultada, pero el stock no volvió al Kardex',
+                            mensaje: 'La Orden de Compra se ocultó del historial, pero no se pudo devolver su stock al Kardex de Dropbox. Revísalo manualmente.',
+                            tipo: 'error',
+                            detalle: eKardex.message
+                        });
                     }
                 }
 
@@ -2349,7 +2404,12 @@
         // Oculta (no borra) todas las cotizaciones visibles en la vista actual
         async function limpiarHistorial() {
             if (historialCache.length === 0) { mostrarNotificacion('No hay cotizaciones para ocultar', 'info'); return; }
-            if (!confirm(`¿Ocultar las ${historialCache.length} cotizaciones de esta lista? No se borran, solo dejan de mostrarse.`)) return;
+            if (!await confirmarAccion({
+                titulo: 'Ocultar cotizaciones',
+                mensaje: `¿Ocultar las ${historialCache.length} cotizaciones de esta lista? No se borran, solo dejan de mostrarse.`,
+                confirmarTexto: 'Ocultar todas',
+                destructivo: true
+            })) return;
             try {
                 await Promise.all(historialCache.map(entry =>
                     fetch(`${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_COTIZACIONES}/${entry.objectId}`, {

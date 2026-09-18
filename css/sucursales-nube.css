@@ -1,6 +1,7 @@
 /* ============================================
    SUCURSALES SHALOM — catálogo desde la nube
-   Complementa css/sucursales.css. Solo tema claro.
+   Complementa css/sucursales.css. Usa las variables de tema, así que
+   sigue el modo oscuro/claro del panel de contenido.
    ============================================ */
 
 /* Banner de error cuando la última carga desde la nube falló */
@@ -11,10 +12,10 @@
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
-    background: #fffbea;
-    border: 1px solid #f6c343;
-    color: #92400e;
-    border-radius: 10px;
+    background: var(--chip-warning-bg);
+    border: 1px solid #fcd34d;
+    color: var(--chip-warning-text);
+    border-radius: var(--radius-md);
     padding: 10px 14px;
     font-size: 0.88em;
     font-weight: 600;
@@ -26,14 +27,14 @@
 .sucursal-manual-badge {
     display: inline-block;
     padding: 1px 8px;
-    border-radius: 10px;
+    border-radius: var(--radius-full);
     font-size: 0.72em;
     font-weight: 700;
     vertical-align: middle;
     white-space: nowrap;
 }
-.sucursal-oficial-badge { background: #e6fffa; color: #234e52; }
-.sucursal-manual-badge  { background: #edf2f7; color: #4a5568; }
+.sucursal-oficial-badge { background: var(--chip-info-bg); color: var(--chip-info-text); }
+.sucursal-manual-badge  { background: var(--gray-100); color: var(--gray-600); }
 
 /* Pie de la tarjeta de sucursal: tipo + distintivo de origen en una fila */
 .sucursal-card-footer {
@@ -55,10 +56,10 @@
     right: 0;
     top: calc(100% + 4px);
     z-index: 60;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
     max-height: 280px;
     overflow-y: auto;
     display: none;
@@ -69,4 +70,6 @@
     border-bottom: 1px solid var(--gray-100);
 }
 #envioSucursalDropdown .autocomplete-item:last-child { border-bottom: none; }
+@media (hover: hover) and (pointer: fine) {
 #envioSucursalDropdown .autocomplete-item:hover { background: var(--gray-50); }
+}

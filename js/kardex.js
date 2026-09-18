@@ -382,6 +382,17 @@
             }).join('')}</div>`;
         }
 
+        // Color ya elegido (clic en un chip): mientras esté fijado, la fila de chips se colapsa
+        // a solo ese chip (con una "×" para quitarlo) en vez de seguir mostrando todas las
+        // opciones. Se limpia al escribir de nuevo, al quitar la selección, o al cambiar de
+        // producto/buscar otro (ver setColor en js/cotizacion.js y los resets de este archivo).
+        let colorFijadoAgregar = null;
+
+        // Paleta genérica (mismo estilo de chip) para productos que NO tienen colores registrados
+        // en el Kardex — antes solo se dejaba el campo de texto libre; ahora también se ofrecen
+        // estas opciones comunes para elegir rápido, sin quitar la posibilidad de escribir otro.
+        const PALETA_COLORES_GENERICA = ['Blanco', 'Negro', 'Azul', 'Celeste', 'Rosado', 'Morado', 'Amarillo'];
+
         // Chips de color CLICKEABLES para el flujo de "Agregar Producto": al tocar uno, fija el
         // color elegido en el campo de texto y muestra cuánto stock real hay de ese color.
         function renderChipsColorAgregar(codigo, filtro = '') {
@@ -389,9 +400,33 @@
             if (!cont) return;
             const colores = coloresPorProducto[codigo];
 
+            // Ya hay un color fijado: se colapsa la fila a solo ese chip, con su "×" para quitarlo.
+            if (colorFijadoAgregar) {
+                const info = colores?.find(c => c.color.toLowerCase() === colorFijadoAgregar.toLowerCase());
+                const hex = obtenerColorHex(colorFijadoAgregar);
+                cont.innerHTML = `<span class="color-circulo-chip seleccionado" data-color="${colorFijadoAgregar.replace(/"/g, '&quot;')}">
+                    <span class="dot" style="background:${hex};"></span>${colorFijadoAgregar}${info ? ` (${info.saldo})` : ''}
+                    <button type="button" class="color-chip-quitar" onclick="deseleccionarColorAgregar()" title="Quitar color seleccionado" aria-label="Quitar color seleccionado">×</button>
+                </span>`;
+                return;
+            }
+
             if (!colores || colores.length === 0) {
-                // Sin colores registrados en el Kardex para este producto: se deja el campo libre
-                cont.innerHTML = '<span style="font-size:0.78em;color:#a0aec0;">Sin colores registrados en el Kardex — escribe uno manualmente</span>';
+                // Sin colores registrados en el Kardex para este producto: se ofrece la paleta
+                // genérica de arriba (filtrable igual que los colores reales), sin dejar de poder
+                // escribir cualquier otro color a mano en el campo de texto.
+                const filtroNorm = normalizarTexto(filtro.trim());
+                const paletaFiltrada = filtroNorm
+                    ? PALETA_COLORES_GENERICA.filter(nombre => normalizarTexto(nombre).includes(filtroNorm))
+                    : PALETA_COLORES_GENERICA;
+
+                const chips = paletaFiltrada.map(nombre => {
+                    const hex = obtenerColorHex(nombre);
+                    return `<span class="color-circulo-chip" onclick="setColor('${nombre}')" data-color="${nombre}">
+                        <span class="dot" style="background:${hex};"></span>${nombre}
+                    </span>`;
+                }).join('');
+                cont.innerHTML = `${chips}<span class="color-chips-aviso">Sin colores registrados en el Kardex — elige uno o escribe el tuyo</span>`;
                 actualizarDisponibleColorSeleccionado(null);
                 return;
             }
@@ -415,10 +450,22 @@
             }).join('');
         }
 
-        // Filtra los chips de color mientras escribes, y de paso actualiza el aviso de disponibilidad
+        // Filtra los chips de color mientras escribes, y de paso actualiza el aviso de disponibilidad.
+        // Escribir de nuevo cancela un color previamente fijado (vuelve a mostrar todas las opciones).
         function filtrarChipsColorAgregar(texto) {
+            colorFijadoAgregar = null;
             if (productoSeleccionado) renderChipsColorAgregar(productoSeleccionado.codigo, texto);
             actualizarDisponibleColorSeleccionado(texto);
+        }
+
+        // Quita el color fijado: vuelve a mostrar todas las opciones (o la paleta genérica) y
+        // limpia el campo de texto, que había quedado con el nombre del color elegido.
+        function deseleccionarColorAgregar() {
+            colorFijadoAgregar = null;
+            const input = document.getElementById('inputColor');
+            if (input) input.value = '';
+            if (productoSeleccionado) renderChipsColorAgregar(productoSeleccionado.codigo);
+            actualizarDisponibleColorSeleccionado(null);
         }
 
         // Muestra "Disponible: X unidades" bajo el campo de cantidad, según el color elegido,
@@ -1073,6 +1120,78 @@
             return String(texto || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
         }
 
+        // Identifica si un nombre de columna corresponde a un día del mes (1 al 31), tolerando
+        // que el Excel lo escriba como número suelto ("1".."31"), como "Día N", o como una fecha
+        // completa/corta ("01/07/2026", "01/07") — cubre los formatos vistos en el Kardex real.
+        function detectarDiaColumna(nombreColumna) {
+            const texto = String(nombreColumna || '').trim();
+            if (/^\d{1,2}$/.test(texto)) {
+                const n = parseInt(texto, 10);
+                if (n >= 1 && n <= 31) return n;
+            }
+            const etiquetaDia = texto.match(/(?:d[ií]a)\s*0*(\d{1,2})\b/i);
+            if (etiquetaDia) {
+                const n = parseInt(etiquetaDia[1], 10);
+                if (n >= 1 && n <= 31) return n;
+            }
+            const fecha = texto.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-]\d{2,4})?$/);
+            if (fecha) {
+                const n = parseInt(fecha[1], 10);
+                if (n >= 1 && n <= 31) return n;
+            }
+            return null;
+        }
+
+        // Ubica, dentro de las columnas de la hoja activa, cuáles son las columnas "importantes"
+        // del Kardex (siempre visibles, en un orden fijo y legible) y cuáles son las columnas de
+        // día (1 al 31): estas últimas se ocultan detrás de un botón "Detalle diario" por fila en
+        // vez de saturar la tabla con hasta 31 columnas casi siempre vacías. Cualquier columna que
+        // no calce en ninguno de los dos grupos igual se muestra (al final), para no perder datos
+        // si el Excel cambia o agrega algo que el sistema no reconoce.
+        function resolverColumnasVistaKardex(columnas) {
+            const { colArticulo, colDescripcion } = encontrarColumnasIdentificacion(columnas);
+            const colStock = KARDEX_CONFIG.columnaStock || columnas.find(h => /stock|saldo|cantidad|existenc/i.test(h));
+            const colTotalEgreso = KARDEX_MOVIMIENTO_CONFIG.columnaTotalEgreso
+                || columnas.find(h => /total/i.test(h) && /egreso/i.test(h));
+            const colIngresoSanJacinto = KARDEX_MOVIMIENTO_CONFIG.columnaIngresoSanJacinto
+                || columnas.find(h => /ingreso/i.test(h) && /san\s*jacinto|s\.?\s*jacinto|sjacinto/i.test(h));
+            const colIngresoBellota = KARDEX_MOVIMIENTO_CONFIG.columnaIngresoBellota
+                || columnas.find(h => /ingreso/i.test(h) && /bellota/i.test(h));
+            const colFechaIngreso = KARDEX_MOVIMIENTO_CONFIG.columnaFechaIngreso
+                || columnas.find(h => /fecha/i.test(h) && /ingreso/i.test(h));
+
+            const fijasEnOrden = [
+                { clave: colArticulo, etiqueta: 'Código' },
+                { clave: colDescripcion, etiqueta: 'Descripción / Color' },
+                { clave: colStock, etiqueta: 'Saldo' },
+                { clave: colTotalEgreso, etiqueta: 'Total Egreso' },
+                { clave: colIngresoSanJacinto, etiqueta: 'Ingreso San Jacinto' },
+                { clave: colIngresoBellota, etiqueta: 'Ingreso Bellota' },
+                { clave: colFechaIngreso, etiqueta: 'Fecha Ingreso' }
+            ].filter(c => c.clave);
+
+            const clavesFijas = new Set(fijasEnOrden.map(c => c.clave));
+            const dias = [];
+            const otras = [];
+            columnas.forEach(c => {
+                if (clavesFijas.has(c)) return;
+                const dia = detectarDiaColumna(c);
+                if (dia !== null) dias.push({ columna: c, dia });
+                else otras.push(c);
+            });
+            dias.sort((a, b) => a.dia - b.dia);
+
+            return { fijasEnOrden, otras, dias, colStock };
+        }
+
+        // Muestra u oculta la fila de detalle diario (los días con movimiento) de una fila del
+        // Kardex — ver botón "Detalle diario" armado en renderKardexTabCompleta().
+        function toggleDetalleDiarioKardexFila(indice) {
+            const fila = document.getElementById('kardexDetalleRow' + indice);
+            if (!fila) return;
+            fila.style.display = fila.style.display === 'none' ? '' : 'none';
+        }
+
         function renderKardexTabCompleta() {
             const thead = document.getElementById('kardexTableHead');
             const tbody = document.getElementById('kardexListBody');
@@ -1091,7 +1210,12 @@
             }
 
             const columnas = Object.keys(filas[0]);
-            thead.innerHTML = columnas.map(c => `<th>${c}</th>`).join('');
+            const vista = resolverColumnasVistaKardex(columnas);
+            const totalColumnasVisibles = vista.fijasEnOrden.length + vista.otras.length + 1; // +1 = "Detalle diario"
+
+            thead.innerHTML = vista.fijasEnOrden.map(c => `<th>${c.etiqueta}</th>`).join('')
+                + vista.otras.map(c => `<th>${c}</th>`).join('')
+                + `<th>Detalle diario</th>`;
 
 const filtro = (document.getElementById('kardexSearchInput')?.value || '').toLowerCase().trim();
 const palabras = filtro.split(/\s+/).filter(Boolean);
@@ -1102,7 +1226,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             document.getElementById('kardexCount').textContent = filtradas.length;
 
             if (filtradas.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${columnas.length}" style="text-align:center;color:#a0aec0;padding:20px;">Sin resultados para tu búsqueda.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${totalColumnasVisibles}" style="text-align:center;color:#a0aec0;padding:20px;">Sin resultados para tu búsqueda.</td></tr>`;
                 renderIdentificacionSinCodigo();
                 return;
             }
@@ -1110,19 +1234,40 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             // Modo edición (desbloqueado con contraseña, ver abrirModalEditarKardex): la columna
             // de stock se pinta como un input editable en vez de texto plano.
             const { colArticulo, colDescripcion } = encontrarColumnasIdentificacion(columnas);
-            const colStockNombre = KARDEX_CONFIG.columnaStock || columnas.find(h => /stock|saldo|cantidad|existenc/i.test(h));
 
-            tbody.innerHTML = filtradas.map(fila => {
+            tbody.innerHTML = filtradas.map((fila, i) => {
                 const id = identificarFilaKardex(fila, colArticulo, colDescripcion);
-                return `<tr>${columnas.map(c => {
-                    if (kardexEdicionActiva && c === colStockNombre) {
+
+                const celdasFijas = vista.fijasEnOrden.map(c => {
+                    if (kardexEdicionActiva && c.clave === vista.colStock) {
                         const valorActual = Object.prototype.hasOwnProperty.call(kardexCambiosPendientes, id.clave)
                             ? kardexCambiosPendientes[id.clave]
-                            : (fila[c] === '' ? 0 : fila[c]);
+                            : (fila[c.clave] === '' ? 0 : fila[c.clave]);
                         return `<td><input type="number" step="0.01" class="kardex-edit-input" data-clave="${escaparAtributo(id.clave)}" value="${valorActual}" style="width:90px;padding:4px 6px;border:1.5px solid #805ad5;border-radius:6px;" onchange="marcarCambioKardex(this)"></td>`;
                     }
-                    return `<td>${fila[c] === '' ? '' : fila[c]}</td>`;
-                }).join('')}</tr>`;
+                    return `<td>${fila[c.clave] === '' ? '' : fila[c.clave]}</td>`;
+                }).join('');
+
+                const celdasOtras = vista.otras.map(c => `<td>${fila[c] === '' ? '' : fila[c]}</td>`).join('');
+
+                const diasConMovimiento = vista.dias.filter(d => {
+                    const valor = parseFloat(fila[d.columna]);
+                    return !isNaN(valor) && valor !== 0;
+                });
+                const celdaDetalle = diasConMovimiento.length > 0
+                    ? `<button type="button" class="kardex-detalle-toggle" onclick="toggleDetalleDiarioKardexFila(${i})">▼ ${diasConMovimiento.length} día${diasConMovimiento.length === 1 ? '' : 's'}</button>`
+                    : `<span class="kardex-detalle-vacio">Sin movimientos</span>`;
+
+                const filaDetalle = diasConMovimiento.length > 0 ? `
+                    <tr class="kardex-detalle-row" id="kardexDetalleRow${i}" style="display:none;">
+                        <td colspan="${totalColumnasVisibles}">
+                            <div class="kardex-dias-grid">
+                                ${diasConMovimiento.map(d => `<span class="kardex-dia-chip">Día ${d.dia}: <strong>${fila[d.columna]}</strong></span>`).join('')}
+                            </div>
+                        </td>
+                    </tr>` : '';
+
+                return `<tr>${celdasFijas}${celdasOtras}<td>${celdaDetalle}</td></tr>${filaDetalle}`;
             }).join('');
 
             renderIdentificacionSinCodigo();
@@ -1197,7 +1342,11 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
         async function guardarEdicionKardex() {
             const claves = Object.keys(kardexCambiosPendientes);
             if (claves.length === 0) { mostrarNotificacion('No hay cambios para guardar', 'warning'); return; }
-            if (!confirm(`¿Confirmas guardar ${claves.length} cambio(s) de stock directamente en el Kardex de Dropbox?`)) return;
+            if (!await confirmarAccion({
+                titulo: 'Guardar cambios en el Kardex',
+                mensaje: `¿Guardar ${claves.length} cambio(s) de stock directamente en el Kardex de Dropbox?`,
+                confirmarTexto: 'Guardar cambios'
+            })) return;
 
             const btn = document.getElementById('btnGuardarEdicionKardex');
             try {
@@ -1213,7 +1362,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
                 mostrarNotificacion('Kardex actualizado en Dropbox', 'success');
             } catch (e) {
                 console.error('Error al guardar edición de Kardex:', e);
-                mostrarNotificacion('No se pudo guardar: ' + e.message, 'warning');
+                mostrarAlerta({ titulo: 'No se pudieron guardar los cambios', mensaje: 'Los cambios NO se subieron al Kardex de Dropbox. Puedes reintentar.', tipo: 'error', detalle: e.message });
             } finally {
                 btn.disabled = false; btn.textContent = '💾 Guardar cambios';
             }
@@ -1338,7 +1487,12 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             const motivo = document.getElementById('cdMotivo').value.trim();
 
             const etiquetaProducto = cdProductoSeleccionado.descripcion || cdProductoSeleccionado.codigo;
-            if (!confirm(`¿Confirmas descartar ${cantidad} und. de "${etiquetaProducto}"?\n\nEsto descuenta el stock directamente en el Kardex, igual que una Orden de Compra.`)) return;
+            if (!await confirmarAccion({
+                titulo: 'Descartar stock',
+                mensaje: `¿Descartar ${cantidad} und. de "${etiquetaProducto}"?\n\nEsto descuenta el stock directamente en el Kardex, igual que una Orden de Compra.`,
+                confirmarTexto: 'Descartar',
+                destructivo: true
+            })) return;
 
             const btn = document.getElementById('btnRegistrarControlDiario');
             try {
@@ -1377,7 +1531,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
                 cargarMovimientosControlDiario();
             } catch (e) {
                 console.error('Error al registrar Control Diario:', e);
-                mostrarNotificacion('No se pudo registrar el descarte: ' + e.message, 'warning');
+                mostrarAlerta({ titulo: 'No se pudo registrar el descarte', mensaje: 'Revisa el Kardex antes de reintentar, para no descontar dos veces.', tipo: 'error', detalle: e.message });
             } finally {
                 btn.disabled = false; btn.textContent = '📉 Registrar Descarte';
             }
@@ -1497,7 +1651,11 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             const etiquetaMarca = marca === 'san_jacinto' ? 'San Jacinto' : 'La Bellota';
             const etiquetaProducto = ingProductoSeleccionado.descripcion || ingProductoSeleccionado.codigo;
 
-            if (!confirm(`¿Confirmas el ingreso de ${cantidad} und. de "${etiquetaProducto}" (${etiquetaMarca})?\\n\\nSe sumará en INGRESO CANT ${etiquetaMarca.toUpperCase()}, en SALDO, y se registrará la fecha en FECHA INGRESO — directamente en el Kardex.`)) return;
+            if (!await confirmarAccion({
+                titulo: 'Registrar ingreso',
+                mensaje: `¿Registrar el ingreso de ${cantidad} und. de "${etiquetaProducto}" (${etiquetaMarca})?\n\nSe sumará en INGRESO CANT ${etiquetaMarca.toUpperCase()}, en SALDO, y se registrará la fecha en FECHA INGRESO — directamente en el Kardex.`,
+                confirmarTexto: 'Registrar'
+            })) return;
 
             const btn = document.getElementById('btnRegistrarIngreso');
             try {
@@ -1511,7 +1669,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
                 ingProductoSeleccionado = null;
             } catch (e) {
                 console.error('Error al registrar ingreso de stock:', e);
-                mostrarNotificacion('No se pudo registrar el ingreso: ' + e.message, 'warning');
+                mostrarAlerta({ titulo: 'No se pudo registrar el ingreso', mensaje: 'El Kardex de Dropbox no se actualizó. Puedes reintentar.', tipo: 'error', detalle: e.message });
             } finally {
                 btn.disabled = false; btn.textContent = '📥 Registrar Ingreso';
             }
@@ -1563,7 +1721,11 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             const dia = parseInt(fechaISO.split('-')[2], 10);
             const etiquetaProducto = egrProductoSeleccionado.descripcion || egrProductoSeleccionado.codigo;
 
-            if (!confirm(`¿Confirmas el egreso de ${cantidad} und. de "${etiquetaProducto}" el día ${dia}?\\n\\nSe sumará en la columna del día ${dia}, en TOTAL EGRESO, y se descontará del SALDO — directamente en el Kardex.`)) return;
+            if (!await confirmarAccion({
+                titulo: 'Registrar egreso',
+                mensaje: `¿Registrar el egreso de ${cantidad} und. de "${etiquetaProducto}" el día ${dia}?\n\nSe sumará en la columna del día ${dia}, en TOTAL EGRESO, y se descontará del SALDO — directamente en el Kardex.`,
+                confirmarTexto: 'Registrar'
+            })) return;
 
             const btn = document.getElementById('btnRegistrarEgreso');
             try {
@@ -1577,7 +1739,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
                 egrProductoSeleccionado = null;
             } catch (e) {
                 console.error('Error al registrar egreso de stock:', e);
-                mostrarNotificacion('No se pudo registrar el egreso: ' + e.message, 'warning');
+                mostrarAlerta({ titulo: 'No se pudo registrar el egreso', mensaje: 'El Kardex de Dropbox no se actualizó. Puedes reintentar.', tipo: 'error', detalle: e.message });
             } finally {
                 btn.disabled = false; btn.textContent = '📤 Registrar Egreso';
             }
