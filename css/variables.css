@@ -6,49 +6,143 @@
 
         :root {
             /* ============================================
-               PALETA REDUCIDA — 2 colores con propósito + neutros
-               --primary  = tinta/texto principal (todo lo "serio": títulos, texto, botones secundarios)
-               --secondary = acción/marca (el ÚNICO color que se usa para llamar la atención: botón
-                              principal, links activos, foco). Todo lo demás son variaciones de gris.
+               PALETA CORPORATIVA — gris/blanco/azul, un solo color de acción
+               --primary   = tinta/texto principal (títulos, texto, bordes fuertes)
+               --secondary = ÚNICO color de acción: botones, activo, foco
                ============================================ */
-            --primary: #2d3748;
-            --secondary: #667eea;
-            --accent: #b08d57;      /* dorado — uso puntual: login y detalles "premium", nunca como color de acción */
+            --primary: #2B2E33;
+            --secondary: #405B64;
+            --secondary-hover: #33484F;
+            --secondary-light: #E4EEF0;
+            --secondary-light-border: #C3D6DA;
 
             /* Estados semánticos (solo 3: éxito / alerta / error). No agregar más tonos nuevos. */
-            --success: #48bb78;
-            --warning: #ed8936;
-            --danger: #f56565;
+            --success: #16A34A;
+            --success-hover: #15803D;
+            --warning: #D97706;
+            --warning-hover: #B45309;
+            --danger: #DC2626;
+            --danger-hover: #B91C1C;
 
-            /* Escala de neutros — reemplaza los ~9 grises casi-idénticos que había sueltos por el CSS */
-            --gray-50:  #f7fafc;
-            --gray-100: #edf2f7;
-            --gray-200: #e2e8f0;
-            --gray-300: #cbd5e0;
-            --gray-400: #a0aec0;
-            --gray-500: #718096;
-            --gray-600: #4a5568;
-            --gray-700: #2d3748;
-            --gray-800: #1a202c;
+            /* Escala de neutros grises — bajo contraste, pensada para fatiga visual */
+            --gray-50:  #F7F8F9;
+            --gray-100: #EEF0F2;
+            --gray-200: #DCDFE3;
+            --gray-300: #C7CCD1;
+            --gray-400: #9AA1A9;
+            --gray-500: #5D6470;
+            --gray-600: #454B54;
+            --gray-700: #33383F;
+            --gray-800: #2B2E33;
 
             --border: var(--gray-200);
             --bg-light: var(--gray-50);
+            --bg-app: var(--gray-100);
 
-            /* Pares fondo-claro/texto-oscuro para chips y badges de estado — antes cada badge
-               inventaba su propio tono; ahora todos los "success" comparten el mismo par, etc. */
-            --chip-success-bg: #c6f6d5;  --chip-success-text: #22543d;
-            --chip-warning-bg: #fed7aa;  --chip-warning-text: #9a3412;
-            --chip-danger-bg:  #fed7d7;  --chip-danger-text:  #c53030;
-            --chip-info-bg:    #e0e7ff;  --chip-info-text:    #3730a3;
+            /* Superficies (tarjetas, tablas, modales) — el único punto que cambia entre modo
+               claro y oscuro además de los grises de abajo; todo lo demás sigue referenciando
+               --gray-*, --border y --bg-* como ya hacía el resto del CSS. */
+            --surface: #ffffff;
 
-            /* Pantalla de acceso: reutiliza --primary y --accent en vez de tener su propia paleta */
+            /* Pares fondo-claro/texto-oscuro para chips y badges de estado — un solo par por
+               estado, reutilizado en todo el sistema. */
+            --chip-success-bg: #DCFCE7;  --chip-success-text: #166534;
+            --chip-warning-bg: #FEF3C7;  --chip-warning-text: #92400E;
+            --chip-danger-bg:  #FEE2E2;  --chip-danger-text:  #991B1B;
+            --chip-info-bg:    #E4EEF0;  --chip-info-text:    #2C4A52;
+
+            /* Tipografía — una sola familia en todo el sistema */
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+            /* Escala de radios */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 22px;
+            --radius-full: 999px;
+
+            /* Curvas de movimiento — las built-in de CSS (ease, ease-out) son demasiado débiles
+               para UI. Todas las transiciones nuevas usan estas tres, no valores sueltos.
+               --ease-out: entradas/salidas y feedback | --ease-in-out: movimiento en pantalla
+               --ease-drawer: hojas/paneles que suben desde abajo (curva tipo iOS) */
+            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+            --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+            --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+            /* Escala de sombras */
+            --shadow-sm: 0 1px 2px rgba(43,46,51,0.05), 0 1px 3px rgba(43,46,51,0.06);
+            --shadow-md: 0 2px 6px rgba(43,46,51,0.06), 0 8px 20px rgba(43,46,51,0.08);
+            --shadow-lg: 0 8px 16px rgba(43,46,51,0.08), 0 20px 40px rgba(43,46,51,0.12);
+
+            /* Pantalla de acceso: reutiliza --primary/--secondary/--gray-* en vez de tener su
+               propia paleta dorada/cálida — ya no existe un concepto de "--accent" separado. */
             --auth-ink: var(--primary);
             --auth-ink-soft: var(--gray-500);
-            --auth-gold: var(--accent);
-            --auth-gold-light: #d9c19b;
-            --auth-cream: #ffffff;
-            --auth-bg-1: #faf7f2;
-            --auth-bg-2: #f1e9db;
             --auth-line: var(--gray-200);
+            --auth-cream: #ffffff;
+            --auth-bg-1: #F7F8F9;
+            --auth-bg-2: #EEF0F2;
+
+            /* Sidebar — SIEMPRE oscuro, en ambos modos claro/oscuro del panel de contenido */
+            --sidebar-bg: #2B2E33;
+            --sidebar-bg-soft: #33363C;
+            --sidebar-text: #EEF0F2;
+            --sidebar-text-soft: #9AA1A9;
+            --sidebar-border: #3D4046;
+            --sidebar-hover: rgba(255,255,255,0.06);
+            --sidebar-active: var(--secondary);
         }
 
+        /* ============================================
+           MODO OSCURO — solo afecta el panel de contenido (a la derecha del sidebar, que
+           siempre se queda oscuro). Se activa agregando data-theme="dark" al <html>.
+           Bajo brillo: nunca negro/blanco puros.
+           ============================================ */
+        :root[data-theme="dark"] body {
+            background: #1E2023;
+        }
+
+        :root[data-theme="dark"] #appShell {
+            --primary: #E7E9EA;
+            --surface: #26282C;
+
+            --gray-50:  #26282C;
+            --gray-100: #2C2F33;
+            --gray-200: #3A3D42;
+            --gray-300: #46494F;
+            --gray-400: #5B5F66;
+            --gray-500: #8B9096;
+            --gray-600: #A7ACB2;
+            --gray-700: #C7CBD0;
+            --gray-800: #E7E9EA;
+
+            --border: var(--gray-200);
+            --bg-light: var(--gray-50);
+            --bg-app: #1E2023;
+
+            --secondary-light: #26343A;
+            --secondary-light-border: #3A4C52;
+        }
+
+        /* Los nodos usados para generar PDFs/imágenes (cotización, sucursales, papeleta) deben
+           verse siempre IGUAL sin importar el modo oscuro/claro activo en pantalla — se
+           fijan sus variables a los valores de modo claro. */
+        .cotizacion-print,
+        #sucursalesProvinciaPrint,
+        .ficha-print,
+        .papeleta-card {
+            --primary: #2B2E33;
+            --surface: #ffffff;
+            --gray-50:  #F7F8F9;
+            --gray-100: #EEF0F2;
+            --gray-200: #DCDFE3;
+            --gray-300: #C7CCD1;
+            --gray-400: #9AA1A9;
+            --gray-500: #5D6470;
+            --gray-600: #454B54;
+            --gray-700: #33383F;
+            --gray-800: #2B2E33;
+            --border: #DCDFE3;
+            --bg-light: #F7F8F9;
+            --bg-app: #EEF0F2;
+        }

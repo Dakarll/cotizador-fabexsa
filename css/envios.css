@@ -1,7 +1,9 @@
 /* ============================================
    SEGUIMIENTO SHALOM / ENVÍOS / PAPELETA
-   Portado de SIA (css/layout.css + css/print.css). Solo tema claro
-   (este proyecto no tiene modo oscuro).
+   Portado de SIA (css/layout.css + css/print.css). Usa las variables de
+   tema (--surface, --gray-*, --primary...) así que sigue el modo oscuro/claro
+   del panel de contenido, salvo .papeleta-card (se fija a modo claro en
+   variables.css porque se rasteriza a imagen con html2canvas).
    ============================================ */
 
 /* ---- Skeleton loader mientras carga desde la nube ---- */
@@ -10,16 +12,16 @@
     100% { background-position: calc(200px + 100%) 0; }
 }
 .skeleton-block {
-    background: linear-gradient(90deg, #edf1f5 25%, #f7fafc 37%, #edf1f5 63%);
+    background: linear-gradient(90deg, var(--gray-200) 25%, var(--gray-50) 37%, var(--gray-200) 63%);
     background-size: 400px 100%;
     animation: skeleton-pulse 1.4s ease-in-out infinite;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
 }
 .skeleton-card {
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     padding: 16px;
-    background: white;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 10px rgba(0,0,0,0.06);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -48,7 +50,9 @@
     cursor: pointer;
     padding: 6px 4px;
 }
+@media (hover: hover) and (pointer: fine) {
 .ios-link-btn:hover { opacity: 0.7; }
+}
 
 .ios-section-header {
     display: flex;
@@ -77,7 +81,7 @@
     width: 100%;
     padding: 9px 14px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--gray-100);
     font-size: 0.95em;
     color: var(--primary);
@@ -85,8 +89,8 @@
 }
 .ios-search:focus {
     outline: none;
-    background: #e9e9ee;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    background: var(--gray-200);
+    box-shadow: 0 0 0 3px rgba(64, 91, 100, 0.1);
 }
 
 /* ---- Banner "ya llegó a destino" ---- */
@@ -95,11 +99,11 @@
     align-items: flex-start;
     gap: 12px;
     padding: 14px 16px;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     margin-bottom: 14px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    box-shadow: var(--shadow-sm);
 }
-.ios-banner--success { background: #e8f9ee; }
+.ios-banner--success { background: var(--chip-success-bg); }
 .ios-banner-icon { font-size: 1.4em; line-height: 1; flex-shrink: 0; }
 .ios-banner-body { flex: 1; min-width: 0; }
 .ios-banner-title { font-weight: 600; font-size: 0.95em; color: var(--primary); }
@@ -116,7 +120,9 @@
     flex-shrink: 0;
     white-space: nowrap;
 }
+@media (hover: hover) and (pointer: fine) {
 .ios-banner-dismiss:hover { background: rgba(0,0,0,0.12); }
+}
 
 /* ---- Tarjetas de envío ---- */
 .shalom-cards-grid {
@@ -126,19 +132,21 @@
 }
 .shalom-card {
     position: relative;
-    border: none;
-    border-radius: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     padding: 16px 16px 14px;
-    background: white;
+    background: var(--surface);
     display: flex;
     flex-direction: column;
     gap: 6px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 10px rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-sm);
     transition: transform 0.15s, box-shadow 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .shalom-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06), 0 8px 20px rgba(0,0,0,0.09);
+    box-shadow: var(--shadow-md);
+}
 }
 .shalom-card-top {
     display: flex;
@@ -194,26 +202,20 @@
     justify-content: center;
     transition: background 0.15s;
 }
-.shalom-card-del-btn:hover { background: #ffe5e5; color: #ff3b30; }
+@media (hover: hover) and (pointer: fine) {
+.shalom-card-del-btn:hover { background: var(--chip-danger-bg); color: var(--danger); }
+}
 
 /* ---- Bloque de notificación por WhatsApp en la tarjeta ---- */
-.btn-whatsapp { background: #25D366; color: white; }
-.btn-whatsapp:hover:not(:disabled) {
-    background: #1ebe5d;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37,211,102,0.3);
-}
-.btn-whatsapp:disabled { background: var(--gray-300); cursor: not-allowed; }
-
 .wsp-notif { margin-top: 8px; }
 .wsp-notif--done {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    background: #f0fff4;
-    border: 1px solid #9ae6b4;
-    border-radius: 10px;
+    background: var(--chip-success-bg);
+    border: 1px solid #86efac;
+    border-radius: var(--radius-md);
     padding: 8px 10px;
 }
 .wsp-notif--done .wsp-notif-info {
@@ -221,17 +223,17 @@
     min-width: 150px;
     font-size: 0.78em;
     font-weight: 600;
-    color: #276749;
+    color: var(--chip-success-text);
 }
 .wsp-notif--done .btn { flex: 0 0 auto; }
 .wsp-notif-aviso {
     margin-top: 6px;
     font-size: 0.75em;
     font-weight: 600;
-    color: #c05621;
-    background: #fffaf0;
-    border: 1px solid #fbd38d;
-    border-radius: 8px;
+    color: var(--chip-warning-text);
+    background: var(--chip-warning-bg);
+    border: 1px solid #fcd34d;
+    border-radius: var(--radius-sm);
     padding: 6px 9px;
 }
 
@@ -245,7 +247,7 @@
     padding: 10px 12px;
     background: var(--bg-light);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     font-size: 0.85em;
 }
 .wsp-canal-pc label { font-weight: 600; color: var(--gray-500); }
@@ -264,9 +266,9 @@
     width: 100%;
     max-width: 300px;
     margin: 0 auto;
-    background: #ffffff;
-    border-radius: 20px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
     padding: 22px 20px;
     font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
 }
@@ -279,14 +281,14 @@
 .papeleta-brand {
     font-size: 0.85em;
     font-weight: 800;
-    color: #2d3748;
+    color: #1c1917;
     letter-spacing: 0.02em;
 }
 .papeleta-badge {
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    background: #f0f0f0;
+    background: var(--gray-100);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -296,19 +298,19 @@
 .papeleta-estado-titulo {
     font-size: 1.4em;
     font-weight: 800;
-    color: #2d3748;
+    color: #1c1917;
     line-height: 1.2;
     margin-bottom: 6px;
 }
 .papeleta-guia {
     font-size: 0.85em;
     font-weight: 700;
-    color: #e53e3e;
+    color: #dc2626;
     margin-bottom: 4px;
 }
 .papeleta-fecha {
     font-size: 0.75em;
-    color: #718096;
+    color: #78716c;
     margin-bottom: 18px;
 }
 .papeleta-steps {
@@ -320,8 +322,8 @@
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    border: 2px solid #cbd5e0;
-    color: #a0aec0;
+    border: 2px solid #d6d3d1;
+    color: #a8a29e;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -330,17 +332,17 @@
     flex: 0 0 auto;
 }
 .papeleta-step-circle.current {
-    background: #2d3748;
-    border-color: #2d3748;
+    background: #1c1917;
+    border-color: #1c1917;
     color: #ffffff;
 }
 .papeleta-step-connector {
     flex: 1 1 auto;
     height: 2px;
-    background: #cbd5e0;
+    background: #d6d3d1;
     margin: 0 2px;
 }
-.papeleta-step-connector.current { background: #2d3748; }
+.papeleta-step-connector.current { background: #1c1917; }
 .papeleta-steps-labels {
     display: flex;
     justify-content: space-between;
@@ -348,35 +350,35 @@
 }
 .papeleta-step-label {
     font-size: 0.62em;
-    color: #a0aec0;
+    color: #a8a29e;
     width: 26px;
     text-align: center;
     white-space: nowrap;
     transform: translateX(-33%);
 }
 .papeleta-step-label.current {
-    color: #2d3748;
+    color: #1c1917;
     font-weight: 700;
 }
 .papeleta-mensaje {
-    background: #f7fafc;
-    border-radius: 10px;
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
     padding: 10px 12px;
     margin-bottom: 14px;
 }
 .papeleta-mensaje-texto {
     font-size: 0.8em;
-    color: #4a5568;
+    color: #57534e;
     line-height: 1.4;
 }
 .papeleta-divider {
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid #e7e5e4;
     margin-bottom: 14px;
 }
 .papeleta-row-label {
     font-size: 0.7em;
     font-weight: 700;
-    color: #718096;
+    color: #78716c;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     margin-bottom: 2px;
@@ -384,23 +386,23 @@
 .papeleta-row-value {
     font-size: 0.85em;
     font-weight: 600;
-    color: #2d3748;
+    color: #1c1917;
     margin-bottom: 12px;
 }
 .papeleta-oc-chip {
     display: inline-block;
-    background: #ebf8ff;
-    color: #3182ce;
+    background: var(--secondary-light);
+    color: var(--secondary-hover);
     font-size: 0.72em;
     font-weight: 700;
     padding: 3px 10px;
-    border-radius: 12px;
+    border-radius: var(--radius-full);
     margin-bottom: 12px;
 }
 .papeleta-footer {
     text-align: center;
     font-size: 0.62em;
-    color: #a0aec0;
+    color: #a8a29e;
     margin-top: 6px;
     line-height: 1.4;
 }
@@ -418,4 +420,13 @@
     font-weight: 700;
     text-align: center;
     vertical-align: middle;
+}
+
+/* El atributo [hidden] normalmente basta para ocultar un elemento, pero
+   nuestro propio display:inline-block de arriba tiene la misma especificidad
+   y, al venir de una hoja de autor, le gana a la regla [hidden]{display:none}
+   del navegador — sin esto, el badge en "0" se quedaba visible en el sidebar
+   en vez de ocultarse cuando no hay pendientes. */
+.js-envios-badge[hidden] {
+    display: none;
 }

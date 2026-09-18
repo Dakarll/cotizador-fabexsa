@@ -7,9 +7,9 @@
                 padding-bottom: calc(64px + env(safe-area-inset-bottom, 0));
             }
 
-            /* En móvil el menú de pestañas de arriba se reemplaza por la barra inferior fija
-               (ver .tabs-mobile-bar) — el pulgar llega mejor abajo que arriba. */
-            .tabs { display: none; }
+            /* En móvil el sidebar de escritorio no se muestra (ver css/sidebar.css) y el
+               menú se reemplaza por la barra inferior fija (ver .tabs-mobile-bar) — el
+               pulgar llega mejor abajo que arriba. */
             .tabs-mobile { display: block; }
 
             .header h1 {
@@ -48,6 +48,21 @@
                 padding: 15px;
             }
 
+            .total-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+            }
+
+            .total-pago-block,
+            .total-amount-block {
+                text-align: left;
+            }
+
+            .total-pago-row {
+                justify-content: flex-start;
+            }
+
             .total-amount {
                 font-size: 1.5em;
             }
@@ -77,7 +92,7 @@
             }
 
             .btn {
-                padding: 8px 15px;
+                padding: 10px 16px;
                 font-size: 0.85em;
             }
 
@@ -88,13 +103,6 @@
 
             .price-grid {
                 grid-template-columns: 1fr;
-            }
-
-            .notification {
-                top: 10px;
-                right: 10px;
-                left: 10px;
-                max-width: none;
             }
 
             /* La tarjeta ya es una columna por defecto (ver .historial-card arriba); en móvil

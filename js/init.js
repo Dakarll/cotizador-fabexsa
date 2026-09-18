@@ -90,30 +90,10 @@
             document.getElementById('loadingOverlay').classList.toggle('active', show);
         }
 
-        // Un solo icono por tipo, puesto automáticamente por la función — antes cada llamada a
-        // mostrarNotificacion() escribía su propio emoji a mano (✅/⚠️/🎉/👍...), lo que generaba
-        // inconsistencia. El color de fondo ya indica el estado; el icono solo lo refuerza.
-        const ICONOS_NOTIFICACION = { success: '✓', warning: '!', error: '✕', info: 'i' };
-
+        // Firma histórica que usa toda la app (~135 llamadas). La presentación (icono por tipo,
+        // apilado, duración según gravedad, animación) vive en js/ui-alerts.js → mostrarToast().
         function mostrarNotificacion(mensaje, tipo) {
-            const div = document.createElement('div');
-            div.className = `notification ${tipo}`;
-
-            const icono = document.createElement('span');
-            icono.className = 'notification-icon';
-            icono.textContent = ICONOS_NOTIFICACION[tipo] || '';
-
-            const texto = document.createElement('span');
-            texto.textContent = mensaje;
-
-            div.appendChild(icono);
-            div.appendChild(texto);
-            document.body.appendChild(div);
-
-            setTimeout(() => {
-                div.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => div.remove(), 300);
-            }, 3000);
+            return mostrarToast(mensaje, tipo);
         }
 
 

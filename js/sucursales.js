@@ -138,10 +138,20 @@
             mostrarNotificacion('Sucursal actualizada', 'success');
         });
 
-        function eliminarSucursal(index) {
-            if (!confirm('¿Eliminar esta sucursal permanentemente?')) return;
-            const eliminada = sucursalesDB[index];
-            sucursalesDB.splice(index, 1);
+        async function eliminarSucursal(index) {
+            const sucursal = sucursalesDB[index];
+            if (!await confirmarAccion({
+                titulo: 'Eliminar sucursal',
+                mensaje: sucursal ? `¿Eliminar "${sucursal.nombre}" permanentemente?` : '¿Eliminar esta sucursal permanentemente?',
+                confirmarTexto: 'Eliminar',
+                destructivo: true
+            })) return;
+            // Por referencia: la sincronización de sucursales de la nube puede reordenar sucursalesDB
+            // mientras el diálogo está abierto, así que el index original ya no es fiable.
+            const posicion = sucursalesDB.indexOf(sucursal);
+            if (posicion === -1) return;
+            const eliminada = sucursalesDB[posicion];
+            sucursalesDB.splice(posicion, 1);
 
             if (eliminada && sucursalSeleccionada && sucursalSeleccionada.nombre === eliminada.nombre) {
                 sucursalSeleccionada = null;

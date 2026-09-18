@@ -197,7 +197,11 @@
                     return;
                 }
 
-                if (!confirm(`¿Importar ${entradas.length} cotización(es) a la cuenta de ${usuarioActual.nombre}?`)) return;
+                if (!await confirmarAccion({
+                    titulo: 'Importar cotizaciones',
+                    mensaje: `¿Importar ${entradas.length} cotización(es) a la cuenta de ${usuarioActual.nombre}?`,
+                    confirmarTexto: 'Importar'
+                })) return;
 
                 mostrarNotificacion(`Importando ${entradas.length} cotización(es)...`, 'info');
                 let importadas = 0;

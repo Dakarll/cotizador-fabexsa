@@ -1,0 +1,367 @@
+/* ============================================
+   SIDEBAR DE ESCRITORIO (≥768px)
+   El menú móvil (.tabs-mobile, barra inferior + hoja) no se toca — este
+   archivo solo aplica al layout de escritorio.
+   ============================================ */
+
+/* El sidebar y la columna de contenido (header+content+total-section) son
+   hijos directos de este mismo contenedor, sin gap/borde entre ellos — el
+   radio y la sombra de TODA la pieza viven acá (overflow:hidden recorta las
+   esquinas de sus hijos), nunca en el sidebar ni en header/content/total-section
+   por separado. align-items normal (stretch, por defecto) para que ambos
+   hijos midan siempre lo mismo de alto, sin importar cuál tenga más contenido.
+   Alto FIJO (no min-height): todo el conjunto (sidebar, header, pie) queda
+   estático en pantalla; el único que se desplaza es el interior de .content
+   (ver más abajo), nunca la página completa — así el sidebar nunca "desaparece"
+   al hacer scroll en una pantalla con mucha información.
+   calc(100vh - 20px) descuenta el padding:10px arriba/abajo que ya tiene
+   <body>, para que el conjunto quepa exacto y la página no scrollee de más. */
+.app-shell {
+    display: flex;
+    height: calc(100vh - 20px);
+    gap: 0;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+
+/* ---- Contenedor del sidebar ---- */
+.sidebar {
+    box-sizing: border-box;
+    width: 264px;
+    flex: 0 0 264px;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    padding: 14px 10px;
+    /* width es propiedad de layout (reflujo del contenido en cada frame), pero aquí no existe un
+       equivalente con transform: el panel vecino tiene que ceder el espacio. Excepción consciente. */
+    transition: width 250ms var(--ease-in-out);
+}
+
+.sidebar.collapsed {
+    width: 72px;
+    flex: 0 0 72px;
+}
+
+/* ---- Marca + botón colapsar ---- */
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 36px;
+    box-sizing: border-box;
+    padding: 0 4px;
+    margin-bottom: 14px;
+    flex-shrink: 0;
+}
+
+.sidebar-collapse-btn {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--sidebar-border);
+    background: var(--sidebar-bg-soft);
+    color: var(--sidebar-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 250ms var(--ease-in-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+.sidebar-collapse-btn:hover {
+    background: var(--sidebar-hover);
+}
+}
+
+.sidebar-collapse-btn svg {
+    transition: transform 250ms var(--ease-in-out);
+}
+
+.sidebar.collapsed .sidebar-collapse-btn svg {
+    transform: rotate(180deg);
+}
+
+.sidebar-brand-text {
+    font-weight: 700;
+    font-size: 0.95em;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity 0.18s ease;
+}
+
+/* ---- Navegación ---- */
+.sidebar-nav {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.sidebar-active-pill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--sidebar-active);
+    z-index: 0;
+    /* Se mueve con transform (GPU); antes animaba `top`, que fuerza layout en cada frame */
+    transition: transform 250ms var(--ease-in-out), opacity 0.2s ease;
+    will-change: transform;
+    pointer-events: none;
+}
+
+.sidebar-item {
+    position: relative;
+    z-index: 1;
+    box-sizing: border-box;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    border: none;
+    background: none;
+    border-radius: var(--radius-sm);
+    color: var(--sidebar-text-soft);
+    font-family: var(--font-sans);
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+.sidebar-item:hover {
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text);
+}
+}
+
+.sidebar-item.active {
+    color: #fff;
+}
+
+.sidebar-item.active:hover {
+    background: none;
+}
+
+.sidebar-item[hidden] { display: none; }
+
+.sidebar-item-icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-item-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 1;
+    transition: opacity 0.18s ease;
+}
+
+.sidebar-item-badge {
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: opacity 0.18s ease;
+}
+
+/* ---- Encabezados de grupo ---- */
+.sidebar-group-label {
+    position: relative;
+    z-index: 1;
+    box-sizing: border-box;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    margin-top: 10px;
+}
+
+.sidebar-group-label-text {
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sidebar-text-soft);
+    white-space: nowrap;
+    opacity: 1;
+    position: absolute;
+    left: 10px;
+    transition: opacity 0.18s ease;
+}
+
+.sidebar-group-line {
+    width: 20px;
+    height: 1px;
+    background: var(--sidebar-border);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+/* ---- Toggle de tema ---- */
+.sidebar-theme-toggle {
+    box-sizing: border-box;
+    height: 36px;
+    margin-top: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    border: none;
+    border-top: 1px solid var(--sidebar-border);
+    border-radius: 0;
+    background: none;
+    color: var(--sidebar-text-soft);
+    font-family: var(--font-sans);
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+.sidebar-theme-toggle:hover {
+    color: var(--sidebar-text);
+}
+}
+
+/* ---- Usuario logueado (al pie del todo) ---- */
+.sidebar-user {
+    box-sizing: border-box;
+    margin-top: 10px;
+    padding: 10px;
+    border-top: 1px solid var(--sidebar-border);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-user-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.sidebar-user-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--sidebar-text);
+    font-size: 0.85em;
+    font-weight: 600;
+    transition: opacity 0.18s ease;
+}
+
+.sidebar-user-logout {
+    flex-shrink: 0;
+    transition: opacity 0.18s ease, background 0.2s;
+}
+
+.sidebar-user-test-btn {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.75em;
+    background: #fefcbf;
+    color: #744210;
+    border: 1px solid #d69e2e;
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: opacity 0.18s ease;
+}
+
+/* ---- Estado colapsado: solo el avatar, centrado ---- */
+.sidebar.collapsed .sidebar-user {
+    align-items: center;
+    padding: 10px 0;
+}
+
+.sidebar.collapsed .sidebar-user-row {
+    justify-content: center;
+}
+
+.sidebar.collapsed .sidebar-user-name,
+.sidebar.collapsed .sidebar-user-logout,
+.sidebar.collapsed .sidebar-user-test-btn {
+    display: none;
+}
+
+/* ---- Estado colapsado: solo iconos, centrados ---- */
+.sidebar.collapsed .sidebar-brand-text,
+.sidebar.collapsed .sidebar-item-label,
+.sidebar.collapsed .sidebar-group-label-text {
+    opacity: 0;
+    width: 0;
+    pointer-events: none;
+}
+
+/* El badge de Envíos (.js-envios-badge) necesita display:none, no solo opacity/width:0: su
+   padding (definido en css/envios.css) sigue ocupando espacio en el layout aunque su ancho de
+   contenido sea 0, así que el ícono de "Envíos" quedaba descentrado respecto a los demás
+   íconos del menú colapsado (el único botón que trae un elemento extra además del ícono y la
+   etiqueta). display:none saca la caja del flujo por completo, sin ese espacio fantasma. */
+.sidebar.collapsed .sidebar-item-badge {
+    display: none;
+}
+
+.sidebar.collapsed .sidebar-item,
+.sidebar.collapsed .sidebar-theme-toggle {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+}
+
+.sidebar.collapsed .sidebar-group-label {
+    justify-content: center;
+    padding: 0;
+}
+
+.sidebar.collapsed .sidebar-group-line {
+    opacity: 1;
+}
+
+/* ============================================
+   MÓVIL: el sidebar de escritorio no existe — sigue la barra inferior
+   fija (.tabs-mobile) exactamente igual que antes de este cambio.
+   ============================================ */
+@media (max-width: 768px) {
+    .app-shell {
+        display: block;
+        height: auto;
+        min-height: 0;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+    .container {
+        flex: none;
+    }
+}

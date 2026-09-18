@@ -20,12 +20,12 @@
             width: 100%;
             max-width: 420px;
             background: var(--auth-cream);
-            border-radius: 18px;
-            box-shadow: 0 20px 55px rgba(44, 53, 64, 0.12), 0 2px 8px rgba(44, 53, 64, 0.06);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 20px 55px rgba(43, 46, 51, 0.12), 0 2px 8px rgba(43, 46, 51, 0.06);
             padding: 46px 40px 38px;
             position: relative;
             overflow: hidden;
-            animation: authFadeIn 0.5s ease;
+            animation: authFadeIn 400ms var(--ease-out);
         }
 
         @keyframes authFadeIn {
@@ -38,7 +38,7 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 4px;
-            background: linear-gradient(90deg, var(--auth-gold-light), var(--auth-gold), var(--auth-gold-light));
+            background: linear-gradient(90deg, var(--secondary-light-border), var(--secondary), var(--secondary-light-border));
         }
 
         .auth-brand {
@@ -51,20 +51,20 @@
             height: 54px;
             margin: 0 auto 14px;
             border-radius: 50%;
-            background: linear-gradient(145deg, var(--auth-gold-light), var(--auth-gold));
+            background: linear-gradient(145deg, var(--secondary-hover), var(--secondary));
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.5em;
-            box-shadow: 0 8px 18px rgba(176, 141, 87, 0.35);
+            box-shadow: 0 8px 18px rgba(64, 91, 100, 0.35);
         }
 
         .auth-brand h1 {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 2em;
-            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            font-size: 1.7em;
+            font-weight: 800;
             color: var(--auth-ink);
-            letter-spacing: 0.5px;
+            letter-spacing: -0.02em;
         }
 
         .auth-brand p {
@@ -72,7 +72,7 @@
             font-size: 0.78em;
             letter-spacing: 2.5px;
             text-transform: uppercase;
-            color: var(--auth-gold);
+            color: var(--secondary);
             margin-top: 4px;
             font-weight: 600;
         }
@@ -80,8 +80,8 @@
         .auth-tabs {
             display: flex;
             gap: 4px;
-            background: #efe9df;
-            border-radius: 10px;
+            background: var(--gray-100);
+            border-radius: var(--radius-md);
             padding: 4px;
             margin-bottom: 26px;
         }
@@ -96,15 +96,15 @@
             font-weight: 600;
             letter-spacing: 0.3px;
             color: var(--auth-ink-soft);
-            border-radius: 7px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
-            transition: all 0.25s ease;
+            transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .auth-tab-btn.active {
             background: var(--auth-ink);
-            color: var(--auth-gold-light);
-            box-shadow: 0 4px 10px rgba(26,35,50,0.25);
+            color: var(--secondary-light-border);
+            box-shadow: 0 4px 10px rgba(43,46,51,0.25);
         }
 
         .auth-field {
@@ -129,7 +129,7 @@
             font-family: 'Inter', sans-serif;
             font-size: 0.95em;
             border: 1.5px solid var(--auth-line);
-            border-radius: 9px;
+            border-radius: var(--radius-sm);
             background: white;
             color: var(--auth-ink);
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -138,31 +138,33 @@
         .auth-field input:focus,
         .auth-field select:focus {
             outline: none;
-            border-color: var(--auth-gold);
-            box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.15);
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(64, 91, 100, 0.15);
         }
 
         .auth-submit {
             width: 100%;
-            padding: 13px 0;
+            padding: 14px 0;
             margin-top: 8px;
             font-family: 'Inter', sans-serif;
             font-size: 0.92em;
             font-weight: 700;
             letter-spacing: 0.4px;
             color: var(--auth-cream);
-            background: linear-gradient(135deg, var(--auth-ink) 0%, #2a3850 100%);
+            background: linear-gradient(135deg, var(--auth-ink) 0%, var(--gray-800) 100%);
             border: none;
-            border-radius: 9px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
-            box-shadow: 0 10px 20px rgba(26,35,50,0.25);
+            box-shadow: 0 10px 20px rgba(43,46,51,0.25);
         }
 
-        .auth-submit:hover {
+        @media (hover: hover) and (pointer: fine) {
+.auth-submit:hover {
             transform: translateY(-1px);
-            box-shadow: 0 14px 26px rgba(26,35,50,0.3);
+            box-shadow: 0 14px 26px rgba(43,46,51,0.3);
         }
+}
 
         .auth-submit:disabled {
             opacity: 0.6;
@@ -172,13 +174,13 @@
 
         .auth-error {
             display: none;
-            background: #fdf2f2;
-            border: 1px solid #f5c6c6;
-            color: #a83232;
+            background: var(--chip-danger-bg);
+            border: 1px solid #fca5a5;
+            color: var(--chip-danger-text);
             font-family: 'Inter', sans-serif;
             font-size: 0.82em;
             padding: 10px 13px;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             margin-bottom: 16px;
         }
 
@@ -189,7 +191,7 @@
             text-align: center;
             font-family: 'Inter', sans-serif;
             font-size: 0.72em;
-            color: #9aa5b1;
+            color: var(--gray-400);
             margin-top: 22px;
             letter-spacing: 0.3px;
         }
@@ -224,13 +226,13 @@
             width: 26px;
             height: 26px;
             border-radius: 50%;
-            background: linear-gradient(145deg, var(--auth-gold-light), var(--auth-gold));
+            background: linear-gradient(145deg, var(--secondary-hover), var(--secondary));
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
             font-size: 0.85em;
-            color: var(--auth-ink);
+            color: white;
         }
 
         .user-badge button {
@@ -244,20 +246,47 @@
             transition: background 0.2s;
         }
 
-        .user-badge button:hover {
+        @media (hover: hover) and (pointer: fine) {
+.user-badge button:hover {
             background: rgba(255,255,255,0.28);
         }
+}
 
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f7fa;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-app);
             padding: 10px;
             min-height: 100vh;
+            color: var(--primary);
         }
 
+        /* Escritorio: la página en sí no scrollea — .app-shell mide exactamente
+           el alto disponible (ver css/sidebar.css) y solo el interior de
+           .content se desplaza. En móvil (ver media query de sidebar.css) esto
+           se desactiva y la página vuelve a scrollear entera, como antes. */
+        @media (min-width: 769px) {
+            body {
+                height: 100vh;
+                overflow: hidden;
+            }
+        }
+
+        /* Sin max-width/margin:auto: al lado del sidebar, centrar con auto-margins
+           dejaba una franja vacía pegada al sidebar (el auto-margin reparte el
+           espacio sobrante a AMBOS lados). La columna debe ocupar todo el ancho
+           disponible, tocando el sidebar directamente. */
         .container {
-            max-width: 1400px;
-            margin: 0 auto;
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Envoltorio interno de #appContainer (ver index.html): apila
+           header/banner/content/total-section en columna y estira .content
+           para que el pie siempre quede pegado al fondo real de la tarjeta. */
+        .app-column {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 

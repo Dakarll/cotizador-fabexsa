@@ -1,8 +1,8 @@
         /* SECCIÓN AGREGAR */
         .add-product-section {
-            background: var(--bg-light);
-            border: 2px dashed var(--border);
-            border-radius: 8px;
+            background: var(--gray-100);
+            border: 1.5px dashed var(--border);
+            border-radius: var(--radius-md);
             padding: 15px;
             margin-bottom: 20px;
         }
@@ -23,16 +23,16 @@
         .search-input {
             width: 100%;
             padding: 12px 15px 12px 40px;
-            border: 2px solid var(--border);
-            border-radius: 8px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
             font-size: 1em;
-            transition: all 0.3s;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         }
 
         .search-input:focus {
             outline: none;
             border-color: var(--secondary);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 3px rgba(64, 91, 100, 0.1);
         }
 
         .search-icon {
@@ -49,10 +49,10 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
-            border: 2px solid var(--border);
+            background: var(--surface);
+            border: 1.5px solid var(--border);
             border-top: none;
-            border-radius: 0 0 8px 8px;
+            border-radius: 0 0 var(--radius-sm) var(--radius-sm);
             max-height: 300px;
             overflow-y: auto;
             display: none;
@@ -67,9 +67,11 @@
             transition: background 0.2s;
         }
 
-        .autocomplete-item:hover {
+        @media (hover: hover) and (pointer: fine) {
+.autocomplete-item:hover {
             background: var(--gray-100);
         }
+}
 
         .product-name {
             font-weight: 600;
@@ -102,19 +104,19 @@
         }
 
         .price-cuarto {
-            background: #fef3c7;
-            color: #92400e;
+            background: var(--chip-warning-bg);
+            color: var(--chip-warning-text);
         }
 
         /* BOTONES */
         .btn {
-            padding: 10px 20px;
+            padding: 12px 22px;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             font-size: 0.9em;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
         }
 
         .btn-primary {
@@ -122,11 +124,13 @@
             color: white;
         }
 
-        .btn-primary:hover:not(:disabled) {
-            background: #5568d3;
+        @media (hover: hover) and (pointer: fine) {
+.btn-primary:hover:not(:disabled) {
+            background: var(--secondary-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            box-shadow: var(--shadow-md);
         }
+}
 
         .btn-primary:disabled {
             background: var(--gray-300);
@@ -143,40 +147,52 @@
             border: 1.5px solid var(--gray-300);
         }
 
-        .btn-secondary:hover:not(:disabled) {
+        @media (hover: hover) and (pointer: fine) {
+.btn-secondary:hover:not(:disabled) {
             background: var(--gray-100);
             border-color: var(--gray-400);
             color: var(--primary);
         }
+}
 
         .btn-success {
             background: var(--success);
             color: white;
         }
 
-        .btn-success:hover:not(:disabled) {
-            background: #38a169;
+        @media (hover: hover) and (pointer: fine) {
+.btn-success:hover:not(:disabled) {
+            background: var(--success-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+            box-shadow: var(--shadow-md);
         }
+}
 
         .btn-danger {
             background: var(--danger);
             color: white;
         }
 
-        .btn-danger:hover {
-            background: var(--chip-danger-text);
+        @media (hover: hover) and (pointer: fine) {
+.btn-danger:hover:not(:disabled) {
+            background: var(--danger-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
+}
 
         .btn-warning {
             background: var(--warning);
             color: white;
         }
 
-        .btn-warning:hover {
-            background: #dd6b20;
+        @media (hover: hover) and (pointer: fine) {
+.btn-warning:hover:not(:disabled) {
+            background: var(--warning-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
+}
 
         /* Destructivo de bajo perfil: para acciones que ya tienen su propio confirm() y no
            necesitan gritar tan fuerte como un borrado directo. Se aleja físicamente del resto
@@ -191,10 +207,12 @@
             margin-left: 12px;
         }
 
-        .btn-danger-outline:hover:not(:disabled) {
+        @media (hover: hover) and (pointer: fine) {
+.btn-danger-outline:hover:not(:disabled) {
             background: var(--chip-danger-bg);
             border-color: var(--danger);
         }
+}
 
         .btn-small {
             padding: 6px 12px;
@@ -205,13 +223,39 @@
         .products-table-container {
             margin-top: 20px;
             overflow-x: auto;
+            overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+        }
+
+        /* COTIZAR: los 3 paneles de arriba (Cliente, Sucursal, Agregar
+           producto) se quedan siempre visibles y estáticos — el que crece y
+           scrollea internamente es la tabla de productos agregados, que es
+           la única parte que puede volverse larga (muchos productos). Así
+           nunca hay que perder de vista los controles de arriba para seguir
+           viendo la lista completa. Solo aplica a este tab — el resto de las
+           10 pantallas sigue con el scroll normal de .content (ver layout.css). */
+        #tab-cotizar.active {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        #tab-cotizar.active > .cliente-panel {
+            flex-shrink: 0;
+        }
+
+        #tab-cotizar.active > .products-table-container {
+            flex: 1;
+            min-height: 120px;
+            overflow-y: auto;
         }
 
         .products-table {
             width: 100%;
             border-collapse: collapse;
-            background: white;
+            background: var(--surface);
             min-width: 600px;
         }
 
@@ -220,28 +264,36 @@
         }
 
         .products-table th {
-            padding: 12px 8px;
+            padding: 13px 10px;
             text-align: left;
-            font-weight: 600;
-            color: var(--primary);
-            border-bottom: 2px solid var(--border);
+            font-weight: 700;
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            border-bottom: 1.5px solid var(--border);
             white-space: nowrap;
-            font-size: 0.9em;
+            font-size: 0.75em;
         }
 
         .products-table td {
-            padding: 12px 8px;
+            padding: 12px 10px;
             border-bottom: 1px solid var(--border);
             font-size: 0.85em;
+        }
+
+        .products-table tbody tr:last-child td {
+            border-bottom: none;
         }
 
         .products-table tbody tr {
             transition: background 0.2s;
         }
 
-        .products-table tbody tr:hover {
+        @media (hover: hover) and (pointer: fine) {
+.products-table tbody tr:hover {
             background: var(--bg-light);
         }
+}
 
         .codigo-cell {
             color: var(--gray-500);
@@ -257,8 +309,8 @@
         .cantidad-input {
             width: 60px;
             padding: 6px;
-            border: 2px solid var(--border);
-            border-radius: 6px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
             text-align: center;
             font-size: 0.9em;
         }
@@ -288,36 +340,40 @@
             color: var(--danger);
             border: 1.5px solid var(--chip-danger-bg);
             padding: 6px 12px;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
             font-size: 0.8em;
         }
 
-        .btn-remove:hover {
+        @media (hover: hover) and (pointer: fine) {
+.btn-remove:hover {
             background: var(--danger);
             color: white;
             border-color: var(--danger);
         }
+}
 
         .btn-edit {
             background: var(--warning);
             color: white;
             border: none;
             padding: 6px 12px;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
             font-size: 0.8em;
             margin-right: 12px;
         }
 
-        .btn-edit:hover {
-            background: #dd6b20;
+        @media (hover: hover) and (pointer: fine) {
+.btn-edit:hover {
+            background: var(--warning-hover);
             transform: scale(1.05);
         }
+}
 
         /* EMPTY STATE */
         .empty-state {
@@ -328,28 +384,62 @@
 
         /* TOTAL SECTION */
         .total-section {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--gray-800) 100%);
+            background: #2B2E33;
             color: white;
-            padding: 20px;
-            border-radius: 0 0 12px 12px;
-            margin-top: 20px;
+            padding: 16px 18px;
         }
 
-        .total-info-container {
-            margin-bottom: 15px;
+        /* Barra inferior de Cotizar (.total-section): dos filas en pareja — arriba totalInfo
+           (productos/envío) a la par de total-pago-row (adelanto), abajo global-discount-row
+           a la par de total-amount — para que ambos lados queden alineados en la misma línea
+           en vez de en columnas independientes con distinta altura. */
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 10px;
+        }
+
+        .total-info-block,
+        .global-discount-row {
+            min-width: 0;
+        }
+
+        .total-pago-block,
+        .total-amount-block {
+            flex-shrink: 0;
+            text-align: right;
+        }
+
+        /* Forma de pago — reubicada arriba del monto total (ver index.html). Alineada a la
+           derecha (justify-content, no text-align: es un flex) para que quede agrupada en el
+           mismo eje que el monto total de abajo, en vez de quedar pegada al lado izquierdo. */
+        .total-pago-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+
+        .total-pago-label {
+            font-size: 0.82em;
+            opacity: 0.9;
         }
 
         .total-amount {
             font-size: 1.8em;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .action-buttons {
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
-            margin-top: 15px;
+            margin-top: 10px;
         }
 
         .action-buttons .btn {
@@ -404,7 +494,7 @@
         }
 
         .vigencia-banner {
-            background: var(--accent);
+            background: var(--secondary);
             color: var(--primary);
             padding: 15px;
             border-radius: 8px;
@@ -472,7 +562,7 @@
         }
 
         .bank-detail strong {
-            color: var(--accent);
+            color: var(--secondary);
         }
 
         .envio-info {
@@ -506,10 +596,11 @@
            PANEL CLIENTE
         ================================================ */
         .cliente-panel {
-            background: white;
-            border: 2px solid var(--border);
-            border-left: 5px solid var(--secondary);
-            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--secondary);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
             margin-bottom: 18px;
             overflow: hidden;
         }
@@ -518,14 +609,16 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 18px;
+            padding: 13px 18px;
             cursor: pointer;
             user-select: none;
-            background: #f8faff;
+            background: var(--secondary-light);
             transition: background 0.2s;
         }
 
-        .cliente-panel-header:hover { background: #eef2ff; }
+        @media (hover: hover) and (pointer: fine) {
+.cliente-panel-header:hover { background: var(--secondary-light-border); }
+}
 
         .cliente-panel-title {
             font-weight: 700;
@@ -548,7 +641,7 @@
         .cliente-panel-toggle {
             font-size: 1.2em;
             color: var(--secondary);
-            transition: transform 0.3s;
+            transition: transform 200ms var(--ease-in-out);
         }
 
         .cliente-panel-toggle.open { transform: rotate(180deg); }
@@ -584,7 +677,7 @@
             width: 100%;
             padding: 8px 12px;
             border: 1.5px solid var(--border);
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 0.9em;
             transition: border-color 0.2s;
             font-family: inherit;
@@ -599,7 +692,7 @@
 
         .cliente-summary {
             font-size: 0.85em;
-            color: #555;
+            color: var(--gray-500);
             display: flex;
             gap: 16px;
             flex-wrap: wrap;
@@ -617,9 +710,9 @@
             align-items: flex-end;
             margin-top: 10px;
             padding: 10px 14px;
-            background: #f0f4ff;
-            border-radius: 8px;
-            border: 1.5px solid #c7d2fe;
+            background: var(--secondary-light);
+            border-radius: var(--radius-md);
+            border: 1.5px solid var(--secondary-light-border);
             flex-wrap: wrap;
         }
 
@@ -639,10 +732,10 @@
         .extra-field input {
             width: 100%;
             padding: 8px 10px;
-            border: 1.5px solid #c7d2fe;
-            border-radius: 6px;
+            border: 1.5px solid var(--secondary-light-border);
+            border-radius: var(--radius-sm);
             font-size: 0.9em;
-            background: white;
+            background: var(--surface);
         }
 
         .extra-field input:focus {
@@ -667,13 +760,15 @@
             border: 1.5px solid transparent;
             background: var(--gray-200);
             color: var(--primary);
-            transition: all 0.15s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
         }
 
-        .color-chip:hover {
+        @media (hover: hover) and (pointer: fine) {
+.color-chip:hover {
             border-color: var(--secondary);
-            background: #eef2ff;
+            background: var(--secondary-light);
         }
+}
 
         /* Círculos de color (a partir del Kardex) */
         .color-circulos {
@@ -712,13 +807,15 @@
             border: 1.5px solid transparent;
             background: var(--gray-200);
             color: var(--primary);
-            transition: all 0.15s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
         }
 
-        .color-circulo-chip:hover {
+        @media (hover: hover) and (pointer: fine) {
+.color-circulo-chip:hover {
             border-color: var(--secondary);
-            background: #eef2ff;
+            background: var(--secondary-light);
         }
+}
 
         .color-circulo-chip .dot {
             width: 14px;
@@ -731,6 +828,45 @@
         .color-circulo-chip.seleccionado {
             border-color: var(--secondary);
             background: #dbeafe;
+            cursor: default;
+        }
+
+        /* "×" para quitar el color fijado (ver deseleccionarColorAgregar en js/kardex.js) —
+           vive dentro del propio chip seleccionado, que es el único que queda visible mientras
+           haya un color elegido. */
+        .color-chip-quitar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            margin-left: 2px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.12);
+            color: inherit;
+            font-size: 0.95em;
+            line-height: 1;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+.color-chip-quitar:hover {
+            background: var(--danger);
+            color: white;
+        }
+}
+
+        /* Aviso bajo la paleta genérica de colores (productos sin colores en el Kardex) */
+        .color-chips-aviso {
+            display: block;
+            width: 100%;
+            font-size: 0.78em;
+            color: var(--gray-400);
+            margin-top: 4px;
         }
 
         /* Color tag in table */
@@ -767,14 +903,16 @@
             font-size: 0.9em;
             padding: 2px 5px;
             border-radius: 4px;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
             vertical-align: middle;
         }
 
-        .precio-edit-btn:hover {
+        @media (hover: hover) and (pointer: fine) {
+.precio-edit-btn:hover {
             color: var(--secondary);
-            background: #eef2ff;
+            background: var(--secondary-light);
         }
+}
 
         .precio-inline-edit {
             display: none;
@@ -845,7 +983,7 @@
             right: 0;
             bottom: 0;
             background-color: #ccc;
-            transition: .4s;
+            transition: background-color 200ms ease;
             border-radius: 20px;
         }
 
@@ -856,8 +994,8 @@
             width: 14px;
             left: 3px;
             bottom: 3px;
-            background-color: white;
-            transition: .4s;
+            background-color: var(--surface);
+            transition: transform 200ms var(--ease-out);
             border-radius: 50%;
         }
 
@@ -898,8 +1036,8 @@
 
         /* Print client info */
         .print-client-box {
-            background: #f8faff;
-            border: 2px solid #c7d2fe;
+            background: var(--secondary-light);
+            border: 2px solid var(--secondary-light-border);
             border-radius: 8px;
             padding: 15px 20px;
             margin-bottom: 20px;
@@ -950,9 +1088,11 @@
             font-size: 0.85em;
             padding: 2px 5px;
             border-radius: 4px;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
         }
-        .descuento-btn:hover { color: var(--warning); background: #fff7ed; }
+        @media (hover: hover) and (pointer: fine) {
+.descuento-btn:hover { color: var(--warning); background: #fff7ed; }
+}
         .descuento-badge {
             display: inline-block;
             padding: 1px 6px;
@@ -1022,11 +1162,13 @@
             background: #25D366;
             color: white;
         }
-        .btn-whatsapp:hover:not(:disabled) {
+        @media (hover: hover) and (pointer: fine) {
+.btn-whatsapp:hover:not(:disabled) {
             background: #1ebe5d;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(37,211,102,0.3);
         }
+}
         .btn-whatsapp:disabled { background: var(--gray-300); cursor: not-allowed; }
 
         /* ================================================
@@ -1048,10 +1190,12 @@
             font-size: 0.8em;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
             white-space: nowrap;
         }
-        .chip-filtro-historial:hover { background: var(--gray-200); }
+        @media (hover: hover) and (pointer: fine) {
+.chip-filtro-historial:hover { background: var(--gray-200); }
+}
         .chip-filtro-historial.active {
             background: var(--secondary);
             color: white;
@@ -1059,16 +1203,19 @@
         }
 
         .historial-card {
-            border: 0.5px solid var(--border);
-            border-radius: 12px;
-            padding: 14px 16px;
-            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 15px 17px;
+            background: var(--surface);
+            box-shadow: var(--shadow-sm);
             display: flex;
             flex-direction: column;
             gap: 4px;
-            transition: box-shadow 0.2s, border-color 0.2s;
+            transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
         }
-        .historial-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-color: var(--gray-300); }
+        @media (hover: hover) and (pointer: fine) {
+.historial-card:hover { box-shadow: var(--shadow-md); border-color: var(--gray-300); transform: translateY(-2px); }
+}
         .historial-card-clickable { cursor: pointer; }
 
         .historial-card-top {
@@ -1169,36 +1316,42 @@
             color: var(--secondary);
             border: 1.5px solid var(--secondary);
             padding: 5px 12px;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 0.82em;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
         }
-        .btn-historial-load:hover { background: var(--secondary); color: white; }
+        @media (hover: hover) and (pointer: fine) {
+.btn-historial-load:hover { background: var(--secondary); color: white; }
+}
         .btn-historial-del {
             background: transparent;
             color: var(--gray-400);
             border: 1.5px solid transparent;
             padding: 5px 8px;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 0.85em;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
         }
-        .btn-historial-del:hover { color: var(--danger); background: var(--chip-danger-bg); }
+        @media (hover: hover) and (pointer: fine) {
+.btn-historial-del:hover { color: var(--danger); background: var(--chip-danger-bg); }
+}
         .btn-historial-ver {
             background: transparent;
             color: var(--gray-600);
             border: 1.5px solid var(--gray-300);
             padding: 4px 11px;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 0.82em;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
         }
-        .btn-historial-ver:hover { background: var(--gray-100); border-color: var(--gray-400); color: var(--primary); }
+        @media (hover: hover) and (pointer: fine) {
+.btn-historial-ver:hover { background: var(--gray-100); border-color: var(--gray-400); color: var(--primary); }
+}
 
         /* MODAL "VER COTIZACIÓN" — vista de solo lectura del documento guardado en el historial */
         .ver-cotizacion-modal-content {
@@ -1213,7 +1366,7 @@
         .ver-doc-table-wrap {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
-            border-radius: 8px;
+            border-radius: var(--radius-md);
         }
         @media (max-width: 600px) {
             .ver-cotizacion-modal-content {
@@ -1242,6 +1395,43 @@
             border-radius: 10px;
             font-size: 0.8em;
             font-weight: 700;
+        }
+
+        /* Selector de páginas del historial (10 tarjetas por página) */
+        .historial-paginador {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+        .historial-pagina-btn {
+            background: var(--surface);
+            color: var(--secondary);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 6px 14px;
+            font-size: 0.85em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+.historial-pagina-btn:hover:not(:disabled) {
+            background: var(--secondary-light);
+            border-color: var(--secondary);
+        }
+}
+        .historial-pagina-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .historial-pagina-info {
+            font-size: 0.85em;
+            color: var(--gray-500);
+            font-weight: 600;
         }
 
         /* ================================================

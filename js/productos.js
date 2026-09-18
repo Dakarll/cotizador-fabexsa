@@ -734,10 +734,27 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                         <td class="precio-cell">${mostrarConIGV ? `S/ ${calcularPrecioConIGV(producto.precioUnd).toFixed(2)}` : `S/ ${producto.precioUnd.toFixed(2)}`}</td>
                         <td class="precio-cell">${mostrarConIGV ? `S/ ${calcularPrecioConIGV(producto.precioMayor).toFixed(2)}` : `S/ ${producto.precioMayor.toFixed(2)}`}</td>
                         <td style="text-align:center;font-weight:700;color:${stockTotal === null ? '#a0aec0' : (stockTotal > 0 ? '#22543d' : '#c53030')};">${stockTotal === null ? '—' : stockTotal}</td>
-                        <td>${generarCirculosColor(producto.codigo, 20)}</td>
+                        <td><button type="button" class="btn-ver-colores" onclick="verColoresProductoEnKardex('${producto.codigo.replace(/'/g, "\\'")}', '${producto.nombre.replace(/'/g, "\\'")}')"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8 5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3m4 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M5.5 7a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"/><path d="M16 8c0 3.15-1.866 2.585-3.567 2.07C11.42 9.763 10.465 9.473 10 10c-.603.683-.475 1.819-.351 2.92C9.826 14.495 9.996 16 8 16a8 8 0 1 1 8-8m-8 7c.611 0 .654-.171.655-.176.078-.146.124-.464.07-1.119-.014-.168-.037-.37-.061-.591-.052-.464-.112-1.005-.118-1.462-.01-.707.083-1.61.704-2.314.369-.417.845-.578 1.272-.618.404-.038.812.026 1.16.104.343.077.702.186 1.025.284l.028.008c.346.105.658.199.953.266.653.148.904.083.991.024C14.717 9.38 15 9.161 15 8a7 7 0 1 0-7 7"/></svg> Ver colores</button></td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        // Lleva a la pestaña Kardex ya filtrada por este producto (para ver sus colores y
+        // saldos reales, que ahí sí se muestran con detalle). Filtra primero por código; si no
+        // encuentra nada en la hoja actual del Kardex (por ejemplo, producto sin código propio),
+        // reintenta buscando por el nombre del producto.
+        function verColoresProductoEnKardex(codigo, nombre) {
+            const input = document.getElementById('kardexSearchInput');
+            if (input) input.value = codigo || '';
+            switchTab('kardex'); // ya renderiza renderKardexTabCompleta() con el filtro puesto
+            if (input && codigo && nombre) {
+                const count = parseInt(document.getElementById('kardexCount')?.textContent || '0', 10);
+                if (count === 0) {
+                    input.value = nombre;
+                    renderKardexTabCompleta();
+                }
+            }
         }
 
         function toggleCamposEscalonado() {
@@ -827,9 +844,19 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
             mostrarNotificacion('Producto actualizado', 'success');
         });
 
-        function eliminarProducto(index) {
-            if (confirm('¿Eliminar este producto permanentemente?')) {
-                productosDB.splice(index, 1);
+        async function eliminarProducto(index) {
+            const producto = productosDB[index];
+            if (await confirmarAccion({
+                titulo: 'Eliminar producto',
+                mensaje: producto ? `¿Eliminar "${producto.nombre}" permanentemente?` : '¿Eliminar este producto permanentemente?',
+                confirmarTexto: 'Eliminar',
+                destructivo: true
+            })) {
+                // Por referencia: la carga de productos de la nube puede reordenar productosDB
+                // mientras el diálogo está abierto, así que el index original ya no es fiable.
+                const posicion = productosDB.indexOf(producto);
+                if (posicion === -1) return;
+                productosDB.splice(posicion, 1);
                 guardarEstado();
                 renderProductList();
                 renderProductosVistaRapida();
@@ -993,9 +1020,22 @@ crearProducto({ codigo: "GL-003", nombre: "Toalla Gold Label Mano 70x40cm - La B
                 return registroEnCurso[tipoContador].correlativo;
             }
             let numero = await obtenerYAvanzarNumeroDocumento(tipoContador);
-            for (let intento = 0; intento < 5 && await existeCorrelativoEnUso(tipoContador, numero); intento++) {
+            const numeroInicial = numero;
+            let intento = 0;
+            for (; intento < 5 && await existeCorrelativoEnUso(tipoContador, numero); intento++) {
                 console.warn(`⚠️ Correlativo ${numero} (${tipoContador}) ya estaba en uso por otro documento activo — pidiendo otro número (intento ${intento + 1})`);
                 numero = await obtenerYAvanzarNumeroDocumento(tipoContador);
+            }
+            // Antes esto pasaba en silencio. La lógica no cambia (se sigue usando el número obtenido);
+            // solo se le explica a la persona qué ocurrió.
+            if (intento === 5 && await existeCorrelativoEnUso(tipoContador, numero)) {
+                mostrarAlerta({
+                    titulo: 'Posible correlativo duplicado',
+                    mensaje: `No se logró un N° libre tras varios intentos: el ${numero} podría estar repetido en otro documento activo (mucha actividad simultánea). Revisa el historial después de guardar.`,
+                    tipo: 'warning'
+                });
+            } else if (numero !== numeroInicial) {
+                mostrarToast(`El N° ${numeroInicial} ya estaba en uso por otro documento. Se asignó el N° ${numero}.`, 'warning');
             }
             registroEnCurso[tipoContador] = { objectId: registroEnCurso[tipoContador]?.objectId || null, correlativo: numero };
             guardarEstado();

@@ -3,8 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2B2E33">
     <title>Cotizador Profesional - Fabexsa/Confort Line</title>
-    
+
+    <!-- Aplica el tema oscuro/claro guardado ANTES de pintar, para que el panel de
+         contenido no haga un flash en claro y luego salte a oscuro al cargar. -->
+    <script>
+        (function () {
+            try {
+                if (localStorage.getItem('siaTheme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     <!-- Scripts externos CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -16,7 +29,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/auth.css">
@@ -28,6 +41,8 @@
     <link rel="stylesheet" href="css/responsive.css">
     <link rel="stylesheet" href="css/envios.css">
     <link rel="stylesheet" href="css/sucursales-nube.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/ui-alerts.css">
 </head>
 <body>
     <!-- PANTALLA DE ACCESO -->
@@ -62,8 +77,8 @@
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-content">
             <div class="spinner"></div>
-            <div style="font-weight: 600; color: #2d3748;">Generando cotización...</div>
-            <div style="margin-top: 10px; color: #718096; font-size: 0.9em;">Por favor espere</div>
+            <div style="font-weight: 600; color: #1c1917;">Generando cotización...</div>
+            <div style="margin-top: 10px; color: #78716c; font-size: 0.9em;">Por favor espere</div>
         </div>
     </div>
 
@@ -71,7 +86,7 @@
     <div class="modal" id="editProductoModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">✏️ Editar Producto</h2>
+                <h2 class="modal-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/></svg> Editar Producto</h2>
                 <button class="modal-close" onclick="closeEditProductoModal()">×</button>
             </div>
             <form id="editProductoForm">
@@ -93,8 +108,8 @@
                         <input type="number" step="0.01" min="0" class="form-input" id="editProductoMayor" required>
                     </div>
                 </div>
-                <div class="form-group" style="background:#f7fafc;border:1.5px dashed #cbd5e0;border-radius:8px;padding:12px;margin-top:4px;">
-                    <label style="display:flex;align-items:center;gap:8px;font-weight:700;color:#2d3748;cursor:pointer;">
+                <div class="form-group" style="background:#fafaf9;border:1.5px dashed #d6d3d1;border-radius:8px;padding:12px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:8px;font-weight:700;color:#1c1917;cursor:pointer;">
                         <input type="checkbox" id="editProductoEscalonado" onchange="toggleCamposEscalonado()" style="width:18px;height:18px;">
                         Habilitar precio escalonado (1/4 Docena + Mayor/Paquete)
                     </label>
@@ -126,7 +141,7 @@
                 </div>
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary" onclick="closeEditProductoModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-success">💾 Guardar</button>
+                    <button type="submit" class="btn btn-success"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar</button>
                 </div>
             </form>
         </div>
@@ -136,7 +151,7 @@
     <div class="modal" id="editEmpresaModal">
         <div class="modal-content" style="max-width:560px;">
             <div class="modal-header">
-                <h2 class="modal-title">🏢 Configurar Empresa</h2>
+                <h2 class="modal-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/><path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/></svg> Configurar Empresa</h2>
                 <button class="modal-close" onclick="closeEditEmpresaModal()">×</button>
             </div>
             <form id="editEmpresaForm" onsubmit="guardarEmpresaModal(event)">
@@ -171,8 +186,8 @@
                         <input type="text" class="form-input" id="editEmpresaRedSocial" placeholder="@usuario · sitio.pe">
                     </div>
                 </div>
-                <div style="background:#f7fafc;border:1.5px dashed #cbd5e0;border-radius:8px;padding:12px;margin-top:6px;">
-                    <div style="font-weight:700;color:#2d3748;margin-bottom:10px;">💳 Datos bancarios (aparecen en la cotización/orden de compra)</div>
+                <div style="background:#fafaf9;border:1.5px dashed #d6d3d1;border-radius:8px;padding:12px;margin-top:6px;">
+                    <div style="font-weight:700;color:#1c1917;margin-bottom:10px;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1z"/><path d="M2 10a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></svg> Datos bancarios (aparecen en la cotización/orden de compra)</div>
                     <div class="price-grid">
                         <div class="form-group">
                             <label class="form-label">Banco</label>
@@ -197,11 +212,11 @@
                 <div class="form-group" style="margin-top:10px;">
                     <label class="form-label">Código SVG del logo</label>
                     <textarea class="form-input" id="editEmpresaLogoSVG" rows="5" style="font-family:monospace;font-size:0.78em;" placeholder="Pega aquí el código <svg>...</svg> del logo" oninput="actualizarPreviewLogoEmpresa()"></textarea>
-                    <div style="margin-top:8px;padding:12px;background:white;border:1px solid #e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:center;min-height:60px;" id="previewLogoEmpresa"></div>
+                    <div style="margin-top:8px;padding:12px;background:white;border:1px solid #e7e5e4;border-radius:6px;display:flex;align-items:center;justify-content:center;min-height:60px;" id="previewLogoEmpresa"></div>
                 </div>
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary" onclick="closeEditEmpresaModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-success">💾 Guardar Empresa</button>
+                    <button type="submit" class="btn btn-success"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar Empresa</button>
                 </div>
             </form>
         </div>
@@ -211,7 +226,7 @@
     <div class="modal" id="editSucursalModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">✏️ Editar Sucursal</h2>
+                <h2 class="modal-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/></svg> Editar Sucursal</h2>
                 <button class="modal-close" onclick="closeEditSucursalModal()">×</button>
             </div>
             <form id="editSucursalForm">
@@ -245,7 +260,7 @@
                 </div>
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary" onclick="closeEditSucursalModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-success">💾 Guardar</button>
+                    <button type="submit" class="btn btn-success"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar</button>
                 </div>
             </form>
         </div>
@@ -255,12 +270,12 @@
     <div class="modal" id="verCotizacionModal" onclick="if(event.target===this) cerrarVerCotizacionModal()">
         <div class="modal-content ver-cotizacion-modal-content">
             <div class="modal-header">
-                <h2 class="modal-title" id="verCotizacionTitulo">📋 Documento</h2>
+                <h2 class="modal-title" id="verCotizacionTitulo"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg> Documento</h2>
                 <button class="modal-close" onclick="cerrarVerCotizacionModal()">×</button>
             </div>
             <div id="verCotizacionBody"></div>
             <div class="modal-buttons" style="margin-top:18px;">
-                <button class="btn btn-small" style="background:#edf2f7;color:var(--primary);" onclick="cerrarVerCotizacionModal()">Cerrar</button>
+                <button class="btn btn-small" style="background:#f5f5f4;color:var(--primary);" onclick="cerrarVerCotizacionModal()">Cerrar</button>
             </div>
         </div>
     </div>
@@ -270,13 +285,13 @@
     <div class="modal" id="actualizarPagoModal" onclick="if(event.target===this) cerrarModalActualizarPago()">
         <div class="modal-content" style="max-width:420px;">
             <div class="modal-header">
-                <h2 class="modal-title">💰 Actualizar Pago</h2>
+                <h2 class="modal-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1z"/><path d="M2 10a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></svg> Actualizar Pago</h2>
                 <button class="modal-close" onclick="cerrarModalActualizarPago()">×</button>
             </div>
             <input type="hidden" id="actualizarPagoObjectId">
             <div style="margin-bottom:14px;">
                 <div style="font-weight:700;color:var(--primary);" id="actualizarPagoCorrelativo"></div>
-                <div style="font-size:0.85em;color:#718096;" id="actualizarPagoCliente"></div>
+                <div style="font-size:0.85em;color:#78716c;" id="actualizarPagoCliente"></div>
             </div>
             <div class="form-group">
                 <label class="form-label">Total de la Orden de Compra</label>
@@ -288,8 +303,8 @@
             </div>
             <div style="font-weight:700;margin-top:6px;" id="actualizarPagoSaldoLabel"></div>
             <div class="modal-buttons" style="margin-top:18px;">
-                <button class="btn btn-small" style="background:#edf2f7;color:var(--primary);" onclick="cerrarModalActualizarPago()">Cancelar</button>
-                <button class="btn btn-small btn-primary" id="btnGuardarActualizarPago" onclick="guardarActualizacionPago()">💾 Guardar</button>
+                <button class="btn btn-small" style="background:#f5f5f4;color:var(--primary);" onclick="cerrarModalActualizarPago()">Cancelar</button>
+                <button class="btn btn-small btn-primary" id="btnGuardarActualizarPago" onclick="guardarActualizacionPago()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar</button>
             </div>
         </div>
     </div>
@@ -297,17 +312,17 @@
     <div class="modal" id="kardexPasswordModal">
         <div class="modal-content" style="max-width:420px;">
             <div class="modal-header">
-                <h2 class="modal-title">🔒 Editar Kardex</h2>
+                <h2 class="modal-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4m0 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/></svg> Editar Kardex</h2>
                 <button class="modal-close" onclick="cerrarModalEditarKardex()">×</button>
             </div>
             <div class="form-group">
                 <label class="form-label">Ingresa la contraseña para habilitar la edición</label>
                 <input type="password" class="form-input" id="kardexPasswordInput" placeholder="Contraseña" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmarPasswordEditarKardex();}">
             </div>
-            <p style="font-size:0.8em;color:#718096;margin-top:-6px;">Solo con la contraseña correcta se puede modificar el stock del Kardex directamente desde el sistema. El cambio se sube al mismo Excel de Dropbox.</p>
+            <p style="font-size:0.8em;color:#78716c;margin-top:-6px;">Solo con la contraseña correcta se puede modificar el stock del Kardex directamente desde el sistema. El cambio se sube al mismo Excel de Dropbox.</p>
             <div class="modal-buttons">
                 <button type="button" class="btn btn-secondary" onclick="cerrarModalEditarKardex()">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="confirmarPasswordEditarKardex()">🔓 Desbloquear</button>
+                <button type="button" class="btn btn-success" onclick="confirmarPasswordEditarKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M12 0a4 4 0 0 1 4 4v2.5h-1V4a3 3 0 1 0-6 0v2h.5A2.5 2.5 0 0 1 12 8.5v5A2.5 2.5 0 0 1 9.5 16h-7A2.5 2.5 0 0 1 0 13.5v-5A2.5 2.5 0 0 1 2.5 6H8V4a4 4 0 0 1 4-4"/></svg> Desbloquear</button>
             </div>
         </div>
     </div>
@@ -316,7 +331,7 @@
     <div class="modal" id="exportStockModal">
         <div class="modal-content" style="max-width:420px;">
             <div class="modal-header">
-                <h2 class="modal-title">📤 Exportar Stock</h2>
+                <h2 class="modal-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg> Exportar Stock</h2>
                 <button class="modal-close" onclick="cerrarModalExportarStock()">×</button>
             </div>
             <div class="form-group">
@@ -328,28 +343,125 @@
                     <option value="telas">Telas</option>
                 </select>
             </div>
-            <p style="font-size:0.8em;color:#718096;margin-top:-6px;">Se exporta el stock de la hoja del Kardex actualmente seleccionada, en un archivo Excel (.xlsx) con Código, Descripción y Stock actual.</p>
+            <p style="font-size:0.8em;color:#78716c;margin-top:-6px;">Se exporta el stock de la hoja del Kardex actualmente seleccionada, en un archivo Excel (.xlsx) con Código, Descripción y Stock actual.</p>
             <div class="modal-buttons">
                 <button type="button" class="btn btn-secondary" onclick="cerrarModalExportarStock()">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="exportarStockKardex()">📤 Exportar</button>
+                <button type="button" class="btn btn-success" onclick="exportarStockKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg> Exportar</button>
             </div>
         </div>
     </div>
 
     <!-- SISTEMA DE COTIZACIÓN -->
+    <div class="app-shell" id="appShell">
+        <!-- SIDEBAR — navegación de escritorio (≥768px). El móvil sigue con la barra
+             inferior fija + hoja (.tabs-mobile), sin cambios. Mismos data-tab/switchTab
+             que el resto del sistema: el sidebar es solo el "chrome" de navegación. -->
+        <aside class="sidebar" id="sidebarDesktop">
+            <div class="sidebar-brand">
+                <button type="button" class="sidebar-collapse-btn" id="btnSidebarCollapse" title="Colapsar menú" aria-label="Colapsar menú">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/></svg>
+                </button>
+                <span class="sidebar-brand-text">Cotizador S.I.A</span>
+            </div>
+
+            <nav class="sidebar-nav" id="sidebarNav">
+                <div class="sidebar-active-pill" id="sidebarActivePill" aria-hidden="true"></div>
+
+                <button type="button" class="sidebar-item active" data-tab="cotizar" onclick="switchTab('cotizar')" title="Cotizar">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0"/><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg></span>
+                    <span class="sidebar-item-label">Cotizar</span>
+                </button>
+                <button type="button" class="sidebar-item" data-tab="sucursales" onclick="switchTab('sucursales')" title="Sucursales">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M2.97 1.35A1 1 0 0 1 3.73 1h8.54a1 1 0 0 1 .76.35l2.609 3.044A1.5 1.5 0 0 1 16 5.37v.255a2.375 2.375 0 0 1-4.25 1.458A2.37 2.37 0 0 1 9.875 8 2.37 2.37 0 0 1 8 7.083 2.37 2.37 0 0 1 6.125 8a2.37 2.37 0 0 1-1.875-.917A2.375 2.375 0 0 1 0 5.625V5.37a1.5 1.5 0 0 1 .361-.976zm1.78 4.275a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 1 0 2.75 0V5.37a.5.5 0 0 0-.12-.325L12.27 2H3.73L1.12 5.045A.5.5 0 0 0 1 5.37v.255a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0M1.5 8.5A.5.5 0 0 1 2 9v6h1v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h6V9a.5.5 0 0 1 1 0v6h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1V9a.5.5 0 0 1 .5-.5M4 15h3v-5H4zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1zm3 0h-2v3h2z"/></svg></span>
+                    <span class="sidebar-item-label">Sucursales</span>
+                </button>
+                <button type="button" class="sidebar-item" data-tab="historial" onclick="switchTab('historial')" title="Historial">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z"/><path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z"/><path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5"/></svg></span>
+                    <span class="sidebar-item-label">Historial</span>
+                </button>
+
+                <div class="sidebar-group-label" data-group="envios">
+                    <span class="sidebar-group-label-text">Envíos</span>
+                    <span class="sidebar-group-line" aria-hidden="true"></span>
+                </div>
+                <button type="button" class="sidebar-item" data-tab="shalom" onclick="switchTab('shalom')" title="Seguimiento Shalom">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5zm1.294 7.456A2 2 0 0 1 4.732 11h5.536a2 2 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456M12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2m9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></svg></span>
+                    <span class="sidebar-item-label">Seguimiento Shalom</span>
+                </button>
+                <button type="button" class="sidebar-item" data-tab="envios" onclick="switchTab('envios')" title="Envíos">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2zm3.564 1.426L5.596 5 8 5.961 14.154 3.5zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/></svg></span>
+                    <span class="sidebar-item-label">Envíos</span>
+                    <span class="js-envios-badge sidebar-item-badge" hidden>0</span>
+                </button>
+
+                <div class="sidebar-group-label" data-group="inventario">
+                    <span class="sidebar-group-label-text">Inventario</span>
+                    <span class="sidebar-group-line" aria-hidden="true"></span>
+                </div>
+                <button type="button" class="sidebar-item" data-tab="kardex" onclick="switchTab('kardex')" title="Kardex">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M4 11a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0zm6-4a1 1 0 1 1 2 0v5a1 1 0 1 1-2 0zM7 9a1 1 0 0 1 2 0v3a1 1 0 1 1-2 0z"/><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg></span>
+                    <span class="sidebar-item-label">Kardex</span>
+                </button>
+                <button type="button" class="sidebar-item" data-tab="productos" onclick="switchTab('productos')" title="Productos">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M7.752.066a.5.5 0 0 1 .496 0l3.75 2.143a.5.5 0 0 1 .252.434v3.995l3.498 2A.5.5 0 0 1 16 9.07v4.286a.5.5 0 0 1-.252.434l-3.75 2.143a.5.5 0 0 1-.496 0l-3.502-2-3.502 2.001a.5.5 0 0 1-.496 0l-3.75-2.143A.5.5 0 0 1 0 13.357V9.071a.5.5 0 0 1 .252-.434L3.75 6.638V2.643a.5.5 0 0 1 .252-.434zM4.25 7.504 1.508 9.071l2.742 1.567 2.742-1.567zM7.5 9.933l-2.75 1.571v3.134l2.75-1.571zm1 3.134 2.75 1.571v-3.134L8.5 9.933zm.508-3.996 2.742 1.567 2.742-1.567-2.742-1.567zm2.242-2.433V3.504L8.5 5.076V8.21zM7.5 8.21V5.076L4.75 3.504v3.134zM5.258 2.643 8 4.21l2.742-1.567L8 1.076zM15 9.933l-2.75 1.571v3.134L15 13.067zM3.75 14.638v-3.134L1 9.933v3.134z"/></svg></span>
+                    <span class="sidebar-item-label">Productos</span>
+                </button>
+                <button type="button" class="sidebar-item" data-tab="fichas" onclick="switchTab('fichas')" title="Fichas Técnicas">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5"/><path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/></svg></span>
+                    <span class="sidebar-item-label">Fichas Técnicas</span>
+                </button>
+                <button type="button" class="sidebar-item" data-tab="movstock" onclick="switchTab('movstock')" title="Ingreso / Egreso" hidden>
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5m14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5"/></svg></span>
+                    <span class="sidebar-item-label">Ingreso/Egreso</span>
+                </button>
+
+                <div class="sidebar-group-label" data-group="sistema">
+                    <span class="sidebar-group-label-text">Sistema</span>
+                    <span class="sidebar-group-line" aria-hidden="true"></span>
+                </div>
+                <button type="button" class="sidebar-item" data-tab="ajustes" onclick="switchTab('ajustes')" title="Ajustes">
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z"/></svg></span>
+                    <span class="sidebar-item-label">Ajustes</span>
+                </button>
+                <button type="button" class="sidebar-item" data-tab="controldiario" onclick="switchTab('controldiario')" title="Control Diario" hidden>
+                    <span class="sidebar-item-icon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg></span>
+                    <span class="sidebar-item-label">Control Diario</span>
+                </button>
+            </nav>
+
+            <button type="button" class="sidebar-theme-toggle" id="btnSidebarTheme" title="Cambiar tema">
+                <span class="sidebar-item-icon" id="sidebarThemeIcon"><svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278M4.858 1.311A7.27 7.27 0 0 0 1.025 7.71c0 4.02 3.279 7.276 7.319 7.276a7.32 7.32 0 0 0 5.205-2.162q-.506.063-1.029.063c-4.61 0-8.343-3.714-8.343-8.29 0-1.167.242-2.278.681-3.286"/><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.73 1.73 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.73 1.73 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.73 1.73 0 0 0 1.097-1.097zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z"/></svg></span>
+                <span class="sidebar-item-label" id="sidebarThemeLabel">Oscuro</span>
+            </button>
+
+            <!-- Usuario logueado — antes vivía en el header, movido acá abajo
+                 del todo del sidebar. Mismos ids que ya usa js/auth.js
+                 (userBadge/userBadgeAvatar/userBadgeNombre/btnToggleModoPrueba)
+                 y el mismo onclick="cerrarSesion()" en "Salir", así que no hizo
+                 falta tocar ningún .js: solo cambió su ubicación en el DOM. -->
+            <div class="sidebar-user" id="userBadge" style="display:none;">
+                <div class="sidebar-user-row">
+                    <div class="user-badge-avatar" id="userBadgeAvatar">?</div>
+                    <span class="sidebar-user-name" id="userBadgeNombre">—</span>
+                    <button type="button" class="sidebar-user-logout" onclick="cerrarSesion()" title="Cerrar sesión">Salir</button>
+                </div>
+                <button type="button" id="btnToggleModoPrueba" class="sidebar-user-test-btn" onclick="toggleModoDesarrollador()" style="display:none;" title="Modo desarrollador: genera documentos de prueba sin afectar el correlativo real ni el Kardex">🧪 Prueba</button>
+            </div>
+        </aside>
+
     <div class="container" id="appContainer" style="display:none;">
+        <!-- Envoltorio flex-column interno: #appContainer sigue siendo el
+             elemento cuyo display alterna login/logout (none/block, ver
+             js/auth.js) — el flex-column vive acá adentro para que
+             .content pueda crecer (flex:1) y empujar .total-section hasta
+             el fondo real de la tarjeta, sin pelear con ese display inline. -->
+        <div class="app-column">
         <div class="header">
             <div class="header-title-block">
-                <h1>📊 S.I.A</h1>
+                <h1><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 11a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0zm6-4a1 1 0 1 1 2 0v5a1 1 0 1 1-2 0zM7 9a1 1 0 0 1 2 0v3a1 1 0 1 1-2 0z"/><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg> S.I.A</h1>
                 <div class="subtitle">Sistema Integral Administrativo · v8.15 </div>
             </div>
             <div class="header-user-panel" id="headerUserPanel">
-                <div class="user-badge" id="userBadge" style="display:none;">
-                    <div class="user-badge-avatar" id="userBadgeAvatar">?</div>
-                    <span id="userBadgeNombre">—</span>
-                    <button type="button" id="btnToggleModoPrueba" onclick="toggleModoDesarrollador()" style="display:none;font-size:0.75em;background:#fefcbf;color:#744210;border:1px solid #d69e2e;border-radius:6px;padding:2px 8px;cursor:pointer;font-weight:700;" title="Modo desarrollador: genera documentos de prueba sin afectar el correlativo real ni el Kardex">🧪 Prueba</button>
-                    <button type="button" onclick="cerrarSesion()">Salir</button>
-                </div>
                 <div id="correlativoPreview"></div>
             </div>
         </div>
@@ -365,30 +477,6 @@
 
 
         <div class="content">
-            <!-- MENÚ — versión escritorio: 3 pestañas fijas (uso diario) + desplegable "Más" -->
-            <div class="tabs" id="tabsDesktop">
-                <button class="tab active" data-tab="cotizar" onclick="switchTab('cotizar')">Cotizar</button>
-                <button class="tab" data-tab="sucursales" onclick="switchTab('sucursales')">Sucursales</button>
-                <button class="tab" data-tab="historial" onclick="switchTab('historial')">Historial</button>
-
-                <div class="tabs-more" id="tabsMore">
-                    <button type="button" class="tab tabs-more-trigger" onclick="toggleTabsMore(event)">
-                        Más <span class="tabs-more-caret">⌄</span>
-                    </button>
-                    <div class="tabs-more-panel">
-                        <button class="tab" data-tab="kardex" onclick="switchTab('kardex')">📊 Kardex</button>
-                        <button class="tab" data-tab="productos" onclick="switchTab('productos')">📦 Productos</button>
-                        <button class="tab" data-tab="controldiario" onclick="switchTab('controldiario')" hidden>🗑️ Control Diario</button>
-                        <button class="tab" data-tab="movstock" onclick="switchTab('movstock')" hidden>📦 Ingreso/Egreso</button>
-                        <button class="tab" data-tab="fichas" onclick="switchTab('fichas')">📄 Fichas Técnicas</button>
-                        <button class="tab" data-tab="shalom" onclick="switchTab('shalom')">🚚 Seguimiento Shalom</button>
-                        <button class="tab" data-tab="envios" onclick="switchTab('envios')">📦 Envíos <span class="js-envios-badge" hidden>0</span></button>
-                        <div class="tabs-more-divider"></div>
-                        <button class="tab" data-tab="ajustes" onclick="switchTab('ajustes')">⚙️ Ajustes</button>
-                    </div>
-                </div>
-            </div>
-
             <!-- MENÚ — versión móvil: barra fija abajo (zona del pulgar) + hoja para el resto -->
             <div class="tabs-mobile" id="tabsMobile">
                 <div class="tabs-mobile-bar">
@@ -454,7 +542,7 @@
                                 <label>RUC / DNI</label>
                                 <div class="ruc-buscar-row">
                                     <input type="text" id="clienteRUC" placeholder="20XXXXXXXXX / DNI" oninput="onClienteRUCInput()" onkeydown="if(event.key==='Enter'){event.preventDefault(); buscarRUCDNI();}">
-                                    <button type="button" class="ruc-buscar-btn" id="btnBuscarRUCDNI" onclick="buscarRUCDNI()" title="Buscar datos por RUC o DNI">🔍 Buscar</button>
+                                    <button type="button" class="ruc-buscar-btn" id="btnBuscarRUCDNI" onclick="buscarRUCDNI()" title="Buscar datos por RUC o DNI"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar</button>
                                 </div>
                                 <div class="ruc-buscar-status" id="clienteRUCStatus"></div>
                             </div>
@@ -475,7 +563,7 @@
                                 <textarea id="clienteNotas" rows="2" placeholder="Pedido especial, colores, indicaciones de entrega..." oninput="actualizarResumenCliente()"></textarea>
                             </div>
                         </div>
-                        <button class="cliente-save-btn" onclick="guardarClienteDB()">💾 Guardar cliente en base de datos</button>
+                        <button class="cliente-save-btn" onclick="guardarClienteDB()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar cliente en base de datos</button>
                     </div>
                 </div>
 
@@ -486,7 +574,7 @@
                 <div class="cliente-panel" id="envioPanel">
                     <div class="cliente-panel-header" id="envioPanelHeader">
                         <div class="cliente-panel-title">
-                            📦 Sucursal de envío
+                            <svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2zm3.564 1.426L5.596 5 8 5.961 14.154 3.5zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/></svg> Sucursal de envío
                             <span class="cliente-panel-badge" id="envioPanelBadge" style="display:none">Seleccionada</span>
                         </div>
                         <div id="envioPanelResumen" class="cliente-summary"></div>
@@ -494,7 +582,7 @@
                     </div>
                     <div class="cliente-panel-body" id="envioPanelBody">
                         <div class="search-container" style="margin-bottom:0;">
-                            <span class="search-icon">📍</span>
+                            <span class="search-icon"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10m0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6"/></svg></span>
                             <input type="text" class="search-input" id="envioSucursalSearch" autocomplete="off"
                                    placeholder="Escribe para buscar una sucursal...">
                             <div id="envioSucursalDropdown" class="autocomplete-dropdown"></div>
@@ -506,13 +594,13 @@
                 <div class="cliente-panel">
                     <div class="cliente-panel-header" onclick="toggleAgregarProductoPanel()">
                         <div class="cliente-panel-title">
-                            ➕ Agregar Producto a la Cotización
+                            <svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg> Agregar Producto a la Cotización
                         </div>
                         <span class="cliente-panel-toggle" id="agregarProductoToggleIcon">▼</span>
                     </div>
                     <div class="cliente-panel-body" id="agregarProductoPanelBody">
                         <div class="search-container">
-                            <span class="search-icon">🔍</span>
+                            <span class="search-icon"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg></span>
                             <input 
                                 type="text" 
                                 id="searchInput" 
@@ -535,11 +623,11 @@
                                 <div class="color-chips" id="colorChips"></div>
                             </div>
                             <div class="extra-field" style="max-width:110px;">
-                                <label>📦 Cant. inicial</label>
+                                <label><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2zm3.564 1.426L5.596 5 8 5.961 14.154 3.5zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/></svg> Cant. inicial</label>
                                 <input type="number" id="inputCantidadInicial" value="1" min="1" style="text-align:center;" oninput="actualizarDisponibleColorSeleccionado(document.getElementById('inputColor').value)">
                             </div>
                         </div>
-                        <div id="nuevoProductoAviso" style="display:none;margin-top:6px;font-size:0.8em;color:#9a3412;background:#fed7aa;padding:6px 10px;border-radius:6px;">✨ Estás creando un producto nuevo. Se guardará en la nube con un código genérico y no llevará control de Kardex.</div>
+                        <div id="nuevoProductoAviso" style="display:none;margin-top:6px;font-size:0.8em;color:#92400e;background:#fef3c7;padding:6px 10px;border-radius:6px;">✨ Estás creando un producto nuevo. Se guardará en la nube con un código genérico y no llevará control de Kardex.</div>
                         <div id="disponibleColorLabel" style="font-size:0.8em;margin-top:4px;min-height:1.2em;"></div>
 
                         <div style="margin-top:10px;">
@@ -562,7 +650,7 @@
                         </thead>
                         <tbody id="tableBody">
                             <tr class="empty-state">
-                                <td colspan="6">📋 No hay productos agregados</td>
+                                <td colspan="6"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg> No hay productos agregados</td>
                             </tr>
                         </tbody>
                     </table>
@@ -572,9 +660,9 @@
             <!-- TAB: SUCURSALES -->
             <div class="tab-content" id="tab-sucursales">
                 <div class="add-product-section">
-                    <div class="add-product-title">🔍 Buscar Sucursal para Envío</div>
+                    <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar Sucursal para Envío</div>
                     <div class="search-container">
-                        <span class="search-icon">📍</span>
+                        <span class="search-icon"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10m0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6"/></svg></span>
                         <input 
                             type="text" 
                             id="searchSucursal" 
@@ -584,15 +672,15 @@
                     </div>
                     <div class="filter-section" id="filterSection">
                         <button class="filter-btn active" onclick="filterByTipo('all')">🌍 Todas</button>
-                        <button class="filter-btn" onclick="filterByTipo('Grande / Co')">🏢 Grande</button>
+                        <button class="filter-btn" onclick="filterByTipo('Grande / Co')"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/><path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/></svg> Grande</button>
                         <button class="filter-btn" onclick="filterByTipo('Mediana')">🏪 Mediana</button>
                         <button class="filter-btn" onclick="filterByTipo('Pequeña')">🏠 Pequeña</button>
                         <button class="filter-btn" onclick="filterByTipo('Terminal')">🚌 Terminal</button>
-                        <button class="filter-btn" onclick="filterByTipo('Micro')">📦 Micro</button>
+                        <button class="filter-btn" onclick="filterByTipo('Micro')"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2zm3.564 1.426L5.596 5 8 5.961 14.154 3.5zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/></svg> Micro</button>
                     </div>
                     <div id="sucursalSeleccionada" style="margin-top: 15px; display: none;">
-                        <strong style="color: var(--success);">✅ Sucursal seleccionada:</strong>
-                        <div id="sucursalInfo" style="margin-top: 10px; padding: 15px; background: #f0fff4; border-radius: 8px; border: 2px solid var(--success);"></div>
+                        <strong style="color: var(--success);"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="m10.97 4.97-.02.022-3.473 4.425-2.093-2.094a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05"/></svg> Sucursal seleccionada:</strong>
+                        <div id="sucursalInfo" style="margin-top: 10px; padding: 15px; background: var(--chip-success-bg); border-radius: var(--radius-sm); border: 1.5px solid var(--success);"></div>
                         <div class="deselect-hint show" id="deselectHint">
                             💡 <strong>Tip:</strong> Click nuevamente en la sucursal para deseleccionarla
                         </div>
@@ -605,9 +693,9 @@
             <!-- TAB: GESTIÓN DE PRODUCTOS -->
             <div class="tab-content" id="tab-productos">
                 <div class="add-product-section">
-                    <div class="add-product-title">📦 Catálogo de Productos (<span id="productCountRapido">0</span>)</div>
+                    <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2zm3.564 1.426L5.596 5 8 5.961 14.154 3.5zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/></svg> Catálogo de Productos (<span id="productCountRapido">0</span>)</div>
                     <div class="search-container">
-                        <span class="search-icon">🔍</span>
+                        <span class="search-icon"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg></span>
                         <input 
                             type="text" 
                             id="searchProductosRapido" 
@@ -627,7 +715,7 @@
                                 <th>Precio Und.</th>
                                 <th>Precio Mayor</th>
                                 <th>Stock total</th>
-                                <th>Colores disponibles</th>
+                                <th>Colores</th>
                             </tr>
                         </thead>
                         <tbody id="productListBodyRapido"></tbody>
@@ -638,17 +726,17 @@
             <!-- TAB: KARDEX (STOCK DESDE DROPBOX) -->
             <div class="tab-content" id="tab-kardex">
                 <div class="new-form-section">
-                    <h3>📊 Kardex (Dropbox)</h3>
+                    <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 11a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0zm6-4a1 1 0 1 1 2 0v5a1 1 0 1 1-2 0zM7 9a1 1 0 0 1 2 0v3a1 1 0 1 1-2 0z"/><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg> Kardex (Dropbox)</h3>
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
-                        <button type="button" id="btnActualizarStock" class="btn btn-success" onclick="cargarKardex(true)">🔄 Actualizar desde Dropbox</button>
-                        <button type="button" id="btnExportarStock" class="btn btn-primary" onclick="abrirModalExportarStock()">📤 Exportar Stock</button>
-                        <button type="button" id="btnEditarKardex" class="btn" style="background:#805ad5;color:white;" onclick="abrirModalEditarKardex()">🔒 Editar Kardex</button>
-                        <button type="button" id="btnGuardarEdicionKardex" class="btn btn-success" style="display:none;" onclick="guardarEdicionKardex()">💾 Guardar cambios</button>
-                        <button type="button" id="btnCancelarEdicionKardex" class="btn btn-secondary" style="display:none;" onclick="cancelarEdicionKardex()">✖️ Cancelar edición</button>
+                        <button type="button" id="btnActualizarStock" class="btn btn-success" onclick="cargarKardex(true)"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg> Actualizar desde Dropbox</button>
+                        <button type="button" id="btnExportarStock" class="btn btn-primary" onclick="abrirModalExportarStock()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg> Exportar Stock</button>
+                        <button type="button" id="btnEditarKardex" class="btn" style="background:var(--secondary);color:white;" onclick="abrirModalEditarKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4m0 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/></svg> Editar Kardex</button>
+                        <button type="button" id="btnGuardarEdicionKardex" class="btn btn-success" style="display:none;" onclick="guardarEdicionKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar cambios</button>
+                        <button type="button" id="btnCancelarEdicionKardex" class="btn btn-secondary" style="display:none;" onclick="cancelarEdicionKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg> Cancelar edición</button>
                         <div id="kardexUltimaActualizacion" style="color:white;font-size:0.85em;opacity:0.85;"></div>
                     </div>
                     <div id="kardexColorWarning" style="display:none;background:#fefcbf;color:#744210;padding:8px 12px;border-radius:8px;font-size:0.82em;margin-bottom:10px;"></div>
-                    <div id="kardexEdicionAviso" style="display:none;background:#e9d8fd;color:#44337a;padding:8px 12px;border-radius:8px;font-size:0.82em;margin-bottom:10px;">🔓 Modo edición activo: cambia las cantidades de la columna de stock y presiona "💾 Guardar cambios" para subirlas al Kardex de Dropbox.</div>
+                    <div id="kardexEdicionAviso" style="display:none;background:var(--chip-info-bg);color:var(--chip-info-text);padding:8px 12px;border-radius:var(--radius-sm);font-size:0.82em;margin-bottom:10px;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M12 0a4 4 0 0 1 4 4v2.5h-1V4a3 3 0 1 0-6 0v2h.5A2.5 2.5 0 0 1 12 8.5v5A2.5 2.5 0 0 1 9.5 16h-7A2.5 2.5 0 0 1 0 13.5v-5A2.5 2.5 0 0 1 2.5 6H8V4a4 4 0 0 1 4-4"/></svg> Modo edición activo: cambia las cantidades de la columna de stock y presiona "<svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar cambios" para subirlas al Kardex de Dropbox.</div>
                     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
                         <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0;">
                             <label class="form-label" style="color:white;">📑 Hoja del Excel</label>
@@ -657,7 +745,7 @@
                             </select>
                         </div>
                         <div class="form-group" style="flex:2;min-width:220px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;">🔍 Buscar en esta hoja</label>
+                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar en esta hoja</label>
                             <input type="text" class="form-input" id="kardexSearchInput" placeholder="Buscar en cualquier columna..." oninput="renderKardexTabCompleta()">
                         </div>
                     </div>
@@ -668,7 +756,7 @@
                         🔗 Identificación de productos sin código (<span id="kardexSinCodigoCount">0</span>) <span id="identificacionToggleIcon">▼</span>
                     </div>
                     <div id="identificacionPanelBody" style="display:none;margin-top:10px;">
-                        <p style="font-size:0.82em;color:#718096;margin-bottom:10px;">
+                        <p style="font-size:0.82em;color:#78716c;margin-bottom:10px;">
                             Estos productos no tienen código en la columna <strong>ARTICULO</strong> del Kardex, así que el sistema los identifica
                             y vincula automáticamente usando su texto en la columna <strong>DESCRIPCION</strong>. Con esa vinculación se
                             reconocen igual en Control Diario, Orden de Compra y Exportar Stock, sin necesidad de asignarles un código manualmente.
@@ -683,7 +771,7 @@
                 </div>
 
                 <div class="add-product-section">
-                    <div class="add-product-title">📄 Filas en esta hoja (<span id="kardexCount">0</span>)</div>
+                    <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5"/><path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/></svg> Filas en esta hoja (<span id="kardexCount">0</span>)</div>
                 </div>
                 <div class="products-table-container" style="overflow-x:auto;">
                     <table class="products-table">
@@ -698,14 +786,14 @@
             <!-- TAB: CONTROL DIARIO (descarte directo de stock en el Kardex) -->
             <div class="tab-content" id="tab-controldiario">
                 <div class="new-form-section">
-                    <h3>🗑️ Control Diario — Descarte de Stock</h3>
+                    <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Control Diario — Descarte de Stock</h3>
                     <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
                         Registra aquí el descarte diario de productos (mermas, roturas, control de calidad, etc.).
                         Al registrar, se descuenta el stock <strong>directamente en el Kardex</strong> (igual que una Orden de Compra)
                         y queda guardado en el historial de movimientos para su consulta.
                     </p>
                     <div class="form-group" style="position:relative;">
-                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o nombre/descripción)</label>
+                        <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar producto (código o nombre/descripción)</label>
                         <input type="text" class="form-input" id="cdBuscarProducto" placeholder="Ej: 7015, o 'toalla belleza baño'..." autocomplete="off" oninput="buscarProductosControlDiario(this.value)">
                         <div class="cliente-db-dropdown" id="cdBuscarDropdown"></div>
                     </div>
@@ -714,19 +802,19 @@
                     </div>
                     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
                         <div class="form-group" style="max-width:160px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;">📉 Cantidad a descartar</label>
+                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Cantidad a descartar</label>
                             <input type="number" min="0.01" step="0.01" class="form-input" id="cdCantidad" placeholder="0">
                         </div>
                         <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;">📝 Motivo (opcional)</label>
+                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/></svg> Motivo (opcional)</label>
                             <input type="text" class="form-input" id="cdMotivo" placeholder="Ej: producto dañado, control de calidad...">
                         </div>
-                        <button type="button" id="btnRegistrarControlDiario" class="btn btn-warning" onclick="registrarControlDiario()">📉 Registrar Descarte</button>
+                        <button type="button" id="btnRegistrarControlDiario" class="btn btn-warning" onclick="registrarControlDiario()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Registrar Descarte</button>
                     </div>
                 </div>
 
                 <div class="add-product-section">
-                    <div class="add-product-title">🕓 Consulta de Movimientos de Control Diario</div>
+                    <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z"/><path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z"/><path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5"/></svg> Consulta de Movimientos de Control Diario</div>
                     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
                         <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Desde</label>
@@ -740,7 +828,7 @@
                             <label class="form-label">Buscar por código, descripción o usuario</label>
                             <input type="text" class="form-input" id="cdFiltroTexto" placeholder="Buscar..." oninput="pintarMovimientosControlDiario()">
                         </div>
-                        <button type="button" class="btn btn-primary" onclick="cargarMovimientosControlDiario()">🔄 Actualizar</button>
+                        <button type="button" class="btn btn-primary" onclick="cargarMovimientosControlDiario()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg> Actualizar</button>
                     </div>
                 </div>
                 <div class="products-table-container" style="overflow-x:auto;">
@@ -749,7 +837,7 @@
                             <tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Registrado por</th></tr>
                         </thead>
                         <tbody id="cdMovimientosBody">
-                            <tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">Presiona "🔄 Actualizar" para ver los movimientos.</td></tr>
+                            <tr><td colspan="5" style="text-align:center;color:#a8a29e;padding:16px;">Presiona "<svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg> Actualizar" para ver los movimientos.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -758,14 +846,14 @@
             <!-- TAB: INGRESO / EGRESO RÁPIDO DE STOCK (reemplaza el llenado manual del Excel) -->
             <div class="tab-content" id="tab-movstock">
                 <div class="new-form-section">
-                    <h3>📥 Ingreso de Stock (San Jacinto / La Bellota)</h3>
+                    <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/></svg> Ingreso de Stock (San Jacinto / La Bellota)</h3>
                     <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
                         Reemplaza el llenado manual del Excel: busca el producto, indica qué marca llegó y la cantidad.
                         El sistema suma automáticamente en INGRESO CANT SJACINTO/BELLOTA, actualiza el SALDO,
                         y registra la fecha de hoy en FECHA INGRESO — directamente en el Kardex, conservando sus fórmulas.
                     </p>
                     <div class="form-group" style="position:relative;">
-                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o descripción)</label>
+                        <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar producto (código o descripción)</label>
                         <input type="text" class="form-input" id="ingBuscarProducto" placeholder="Ej: 7015, o 'sábana...'..." autocomplete="off" oninput="buscarProductosIngreso(this.value)">
                         <div class="cliente-db-dropdown" id="ingBuscarDropdown"></div>
                     </div>
@@ -781,25 +869,25 @@
                             </select>
                         </div>
                         <div class="form-group" style="max-width:160px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;">📥 Cantidad que llegó</label>
+                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/></svg> Cantidad que llegó</label>
                             <input type="number" min="0.01" step="0.01" class="form-input" id="ingCantidad" placeholder="0">
                         </div>
                         <div class="form-group" style="max-width:180px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;">📅 Fecha de ingreso</label>
+                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2M1 3.857C1 3.384 1.448 3 2 3h12c.552 0 1 .384 1 .857v10.286c0 .473-.448.857-1 .857H2c-.552 0-1-.384-1-.857z"/><path d="M6.5 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/></svg> Fecha de ingreso</label>
                             <input type="date" class="form-input" id="ingFecha">
                         </div>
-                        <button type="button" id="btnRegistrarIngreso" class="btn btn-success" onclick="registrarIngresoStock()">📥 Registrar Ingreso</button>
+                        <button type="button" id="btnRegistrarIngreso" class="btn btn-success" onclick="registrarIngresoStock()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/></svg> Registrar Ingreso</button>
                     </div>
                 </div>
 
                 <div class="new-form-section" style="margin-top:20px;">
-                    <h3>📤 Egreso del Día</h3>
+                    <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg> Egreso del Día</h3>
                     <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
                         Registra la salida de stock del día. El sistema la suma en la columna del día correspondiente (1 al 31),
                         actualiza TOTAL EGRESO y descuenta el SALDO — directamente en el Kardex, conservando sus fórmulas.
                     </p>
                     <div class="form-group" style="position:relative;">
-                        <label class="form-label" style="color:white;">🔍 Buscar producto (código o descripción)</label>
+                        <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar producto (código o descripción)</label>
                         <input type="text" class="form-input" id="egrBuscarProducto" placeholder="Ej: 7015, o 'sábana...'..." autocomplete="off" oninput="buscarProductosEgreso(this.value)">
                         <div class="cliente-db-dropdown" id="egrBuscarDropdown"></div>
                     </div>
@@ -808,14 +896,14 @@
                     </div>
                     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
                         <div class="form-group" style="max-width:160px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;">📤 Cantidad de salida</label>
+                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg> Cantidad de salida</label>
                             <input type="number" min="0.01" step="0.01" class="form-input" id="egrCantidad" placeholder="0">
                         </div>
                         <div class="form-group" style="max-width:180px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;">📅 Fecha de egreso</label>
+                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2M1 3.857C1 3.384 1.448 3 2 3h12c.552 0 1 .384 1 .857v10.286c0 .473-.448.857-1 .857H2c-.552 0-1-.384-1-.857z"/><path d="M6.5 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/></svg> Fecha de egreso</label>
                             <input type="date" class="form-input" id="egrFecha">
                         </div>
-                        <button type="button" id="btnRegistrarEgreso" class="btn btn-warning" onclick="registrarEgresoStock()">📤 Registrar Egreso</button>
+                        <button type="button" id="btnRegistrarEgreso" class="btn btn-warning" onclick="registrarEgresoStock()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg> Registrar Egreso</button>
                     </div>
                 </div>
             </div>
@@ -823,14 +911,29 @@
             <!-- TAB: AJUSTES (Gestión de Sucursales + Editar/Agregar Productos) -->
             <div class="tab-content" id="tab-ajustes">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
-                    <button type="button" class="tab ajustes-subtab-btn active" id="ajustesSubBtn_productos" onclick="cambiarAjustesSubTab('productos')">📦 Productos</button>
-                    <button type="button" class="tab ajustes-subtab-btn" id="ajustesSubBtn_sucursales" onclick="cambiarAjustesSubTab('sucursales')">🏢 Sucursales</button>
+                    <button type="button" class="tab ajustes-subtab-btn active" id="ajustesSubBtn_productos" onclick="cambiarAjustesSubTab('productos')"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2zm3.564 1.426L5.596 5 8 5.961 14.154 3.5zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/></svg> Productos</button>
+                    <button type="button" class="tab ajustes-subtab-btn" id="ajustesSubBtn_sucursales" onclick="cambiarAjustesSubTab('sucursales')"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/><path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/></svg> Sucursales</button>
+                </div>
+
+                <!-- Ajustes generales — antes vivía como botón en la barra de total de
+                     Cotizar; ahora es un icono acá, independiente de la subpestaña activa. -->
+                <div class="add-product-section ajustes-general-row">
+                    <button type="button" id="btnCarpetaFija" class="ajustes-icon-btn" onclick="elegirCarpetaFija()" title="Elegir carpeta fija de descargas">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v.64c.57.265.94.876.856 1.546l-.64 5.124A2.5 2.5 0 0 1 12.733 15H3.266a2.5 2.5 0 0 1-2.481-2.19l-.64-5.124A1.5 1.5 0 0 1 1 6.14zM2 6h12v-.5a.5.5 0 0 0-.5-.5H9c-.964 0-1.71-.629-2.174-1.154C6.374 3.334 5.82 3 5.264 3H2.5a.5.5 0 0 0-.5.5zm-.367 1a.5.5 0 0 0-.496.562l.64 5.124A1.5 1.5 0 0 0 3.266 14h9.468a1.5 1.5 0 0 0 1.489-1.314l.64-5.124A.5.5 0 0 0 14.367 7z"/></svg>
+                    </button>
+                    <button type="button" id="btnQuitarCarpetaFija" class="ajustes-icon-btn" onclick="quitarCarpetaFija()" style="display:none;" title="Quitar carpeta fija">
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg>
+                    </button>
+                    <div class="ajustes-general-text">
+                        <div class="ajustes-general-title">Carpeta de descargas</div>
+                        <span id="carpetaFijaLabel">Se preguntará la carpeta en cada descarga</span>
+                    </div>
                 </div>
 
                 <!-- AJUSTES > PRODUCTOS -->
                 <div id="ajustesSub-productos" class="ajustes-subtab-content">
                     <div class="new-form-section">
-                        <h3>➕ Agregar Nuevo Producto</h3>
+                        <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg> Agregar Nuevo Producto</h3>
                         <form id="newProductForm" onsubmit="agregarNuevoProducto(event)">
                             <div class="form-group">
                                 <label class="form-label" style="color: white;">Código del Producto</label>
@@ -850,12 +953,12 @@
                                     <input type="number" step="0.01" min="0" class="form-input" id="newProductMayor" placeholder="0.00" required>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-success" style="width: 100%;">💾 Agregar Producto</button>
+                            <button type="submit" class="btn btn-success" style="width: 100%;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Agregar Producto</button>
                         </form>
                     </div>
 
                     <div class="add-product-section">
-                        <div class="add-product-title">📦 Lista de Productos (<span id="productCount">0</span>)</div>
+                        <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2zm3.564 1.426L5.596 5 8 5.961 14.154 3.5zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/></svg> Lista de Productos (<span id="productCount">0</span>)</div>
                     </div>
                     <div class="products-table-container">
                         <table class="products-table">
@@ -877,7 +980,7 @@
                 <!-- AJUSTES > SUCURSALES -->
                 <div id="ajustesSub-sucursales" class="ajustes-subtab-content" style="display:none;">
                     <div class="new-form-section">
-                        <h3>➕ Agregar Nueva Sucursal</h3>
+                        <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg> Agregar Nueva Sucursal</h3>
                         <form id="newSucursalForm" onsubmit="agregarNuevaSucursal(event)">
                             <div class="form-group">
                                 <label class="form-label" style="color: white;">Nombre de la Sucursal</label>
@@ -910,29 +1013,29 @@
                                     <option value="Micro E/r">Micro E/r</option>
                                 </select>
                             </div>
-                            <button type="submit" class="btn btn-success" style="width: 100%;">💾 Agregar Sucursal</button>
+                            <button type="submit" class="btn btn-success" style="width: 100%;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Agregar Sucursal</button>
                         </form>
                     </div>
 
                     <!-- GENERAR IMAGEN DE SUCURSALES POR PROVINCIA -->
                     <div class="add-product-section">
-                        <div class="add-product-title">📸 Generar imagen de sucursales por provincia</div>
+                        <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar imagen de sucursales por provincia</div>
                         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
                             <div style="flex:1; min-width:220px;">
                                 <label class="form-label">Provincia</label>
                                 <input type="text" class="form-input" id="provinciaImagenInput" list="listaProvincias" placeholder="Escribe o elige una provincia...">
                                 <datalist id="listaProvincias"></datalist>
                             </div>
-                            <button type="button" class="btn btn-success" id="btnGenerarImagenSucursalesProvincia">📸 Generar imagen</button>
+                            <button type="button" class="btn btn-success" id="btnGenerarImagenSucursalesProvincia"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar imagen</button>
                         </div>
                         <div id="provinciaImagenStatus" style="margin-top:10px; font-size:0.85em;"></div>
                     </div>
 
                     <!-- LISTA DE SUCURSALES -->
                     <div class="add-product-section">
-                        <div class="add-product-title">🏢 Lista de Sucursales (<span id="sucursalCount">0</span>)</div>
+                        <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/><path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/></svg> Lista de Sucursales (<span id="sucursalCount">0</span>)</div>
                         <div class="search-container">
-                            <span class="search-icon">🔍</span>
+                            <span class="search-icon"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg></span>
                             <input 
                                 type="text" 
                                 id="searchSucursalGestion" 
@@ -968,40 +1071,40 @@
 <div class="tab-content" id="tab-historial">
     <div class="historial-header-row">
         <div>
-            <strong style="font-size:1.1em; color:var(--primary);">🕓 Historial de Cotizaciones</strong>
+            <strong style="font-size:1.1em; color:var(--primary);"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z"/><path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z"/><path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5"/></svg> Historial de Cotizaciones</strong>
             <span class="historial-count-badge" id="historialCount">0</span>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <button class="btn btn-small" id="btnExportarHistorialLocal" onclick="exportarHistorialLocal()" style="display:none;font-size:0.8em;background:#e6fffa;color:#234e52;">📤 Exportar historial local (temporal)</button>
-            <button class="btn btn-small" id="btnImportarHistorial" onclick="document.getElementById('inputImportarHistorial').click()" style="display:none;font-size:0.8em;background:#fefcbf;color:#744210;">📥 Importar cotizaciones desde archivo</button>
+            <button class="btn btn-small" id="btnExportarHistorialLocal" onclick="exportarHistorialLocal()" style="display:none;font-size:0.8em;background:#e6fffa;color:#234e52;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg> Exportar historial local (temporal)</button>
+            <button class="btn btn-small" id="btnImportarHistorial" onclick="document.getElementById('inputImportarHistorial').click()" style="display:none;font-size:0.8em;background:#fefcbf;color:#744210;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/></svg> Importar cotizaciones desde archivo</button>
             <input type="file" id="inputImportarHistorial" accept="application/json" style="display:none;" onchange="importarHistorialDesdeArchivo(event)">
-            <button class="btn btn-small" id="btnToggleMaster" onclick="toggleVerTodasCotizaciones()" style="display:none;font-size:0.8em;background:#edf2f7;color:var(--primary);">👥 Ver todas</button>
-            <button class="btn btn-danger btn-small" onclick="limpiarHistorial()" style="font-size:0.8em;">🗑️ Ocultar todo</button>
+            <button class="btn btn-small" id="btnToggleMaster" onclick="toggleVerTodasCotizaciones()" style="display:none;font-size:0.8em;background:#f5f5f4;color:var(--primary);">👥 Ver todas</button>
+            <button class="btn btn-danger btn-small" onclick="limpiarHistorial()" style="font-size:0.8em;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Ocultar todo</button>
         </div>
     </div>
     <div id="historialList">
-        <div class="historial-empty">No hay cotizaciones guardadas aún.<br><br>Después de armar una cotización, haz clic en <strong>"💾 Guardar"</strong> o genera un PDF/Imagen para guardarla automáticamente.</div>
+        <div class="historial-empty">No hay cotizaciones guardadas aún.<br><br>Después de armar una cotización, haz clic en <strong>"<svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar"</strong> o genera un PDF/Imagen para guardarla automáticamente.</div>
     </div>
 </div>
 
 <div class="tab-content" id="tab-fichas">
     <!-- SELECTOR DE PRODUCTO POR CATEGORÍA -->
     <div class="add-product-section">
-        <div class="add-product-title">🖼️ Imágenes de Productos</div>
+        <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1z"/></svg> Imágenes de Productos</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;margin-top:10px;">
             <button type="button" class="tab ficha-cat-btn" id="fichaCatBtn_catalogo" onclick="cambiarCategoriaFicha('catalogo')">📱 Catálogo</button>
             <button type="button" class="tab ficha-cat-btn active" id="fichaCatBtn_toallas" onclick="cambiarCategoriaFicha('toallas')">🧺 Toallas</button>
             <button type="button" class="tab ficha-cat-btn" id="fichaCatBtn_telas" onclick="cambiarCategoriaFicha('telas')">🧵 Telas</button>
             <button type="button" class="tab ficha-cat-btn" id="fichaCatBtn_vestimenta" onclick="cambiarCategoriaFicha('vestimenta')">👕 Vestimenta</button>
         </div>
-        <input type="text" class="form-input" id="fichaBuscarProducto" placeholder="🔍 Buscar por nombre..." oninput="renderPickerFicha()" style="margin-bottom:16px;">
+        <input type="text" class="form-input" id="fichaBuscarProducto" placeholder="Buscar por nombre..." oninput="renderPickerFicha()" style="margin-bottom:16px;">
     </div>
 
     <div class="ficha-layout">
         <div id="fichaProductoGrid" class="galeria-grid"></div>
         <div class="ficha-preview-panel">
             <div id="fichaPreviewPanel">
-                <div style="text-align:center;color:#a0aec0;padding:40px 16px;">Selecciona un producto para ver su imagen aquí.</div>
+                <div style="text-align:center;color:#a8a29e;padding:40px 16px;">Selecciona un producto para ver su imagen aquí.</div>
             </div>
         </div>
     </div>
@@ -1009,7 +1112,7 @@
     <!-- FORMULARIO DE FICHA TÉCNICA -->
     <div id="fichaFormSection" style="display: none;">
         <div class="new-form-section">
-            <h3>📝 Información Técnica del Producto</h3>
+            <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/></svg> Información Técnica del Producto</h3>
             <form id="fichaForm">
                 <!-- INFORMACIÓN BÁSICA -->
                 <div class="form-row">
@@ -1095,7 +1198,7 @@
                 </div>
 
                 <!-- INFORMACIÓN ADICIONAL -->
-                <h4 style="margin-top: 20px; margin-bottom: 15px; color: white;">📋 Información Adicional</h4>
+                <h4 style="margin-top: 20px; margin-bottom: 15px; color: white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg> Información Adicional</h4>
                 
                 <div class="form-row">
                     <div class="form-group">
@@ -1114,19 +1217,19 @@
                 </div>
 
                 <button type="button" class="btn btn-success" onclick="generarFichaPDF()" style="width: 100%; margin-top: 20px;">
-                    📄 Generar Ficha Técnica en PDF
+                    <svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5"/><path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/></svg> Generar Ficha Técnica en PDF
                 </button>
             </form>
         </div>
 
         <!-- VISTA PREVIA -->
         <div class="add-product-section" style="margin-top: 20px;">
-            <div class="add-product-title">👁️ Vista Previa</div>
+            <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/></svg> Vista Previa</div>
             <button class="btn btn-primary" onclick="mostrarVistaPrevia()" style="margin-bottom: 15px;">
-                🔄 Actualizar Vista Previa
+                <svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg> Actualizar Vista Previa
             </button>
             <div id="fichaPreview" style="border: 2px solid var(--border); padding: 20px; background: white; border-radius: 8px;">
-                <p style="text-align: center; color: #718096;">Completa el formulario y click en "Actualizar Vista Previa"</p>
+                <p style="text-align: center; color: #78716c;">Completa el formulario y click en "Actualizar Vista Previa"</p>
             </div>
         </div>
     </div>
@@ -1140,7 +1243,7 @@
         </div>
         <div style="text-align: right;">
             <h1 style="font-size: 2.5em; color: var(--primary); margin: 0;">FICHA TÉCNICA</h1>
-            <p style="color: #718096; margin-top: 5px;" id="fichaPrintFecha"></p>
+            <p style="color: #78716c; margin-top: 5px;" id="fichaPrintFecha"></p>
         </div>
     </div>
 
@@ -1174,7 +1277,7 @@
 
     <!-- REGISTRAR NUEVA GUÍA (entrada manual = la forma confiable) -->
     <div class="add-product-section">
-        <div class="add-product-title">➕ Registrar nueva guía</div>
+        <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg> Registrar nueva guía</div>
         <p style="font-size:0.85em; opacity:0.9; margin-bottom:15px;">Copia el N° de Orden y el Código (4 dígitos) tal como aparecen impresos en tu comprobante Shalom.</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
             <input type="text" class="form-input" id="shalomGuiaManual" maxlength="8" placeholder="N° de Orden" style="max-width:150px;">
@@ -1187,41 +1290,41 @@
             <input type="text" class="form-input" id="shalomOcManual" list="listaOrdenesCompra" placeholder="Busca por N° de OC o cliente..." style="max-width:320px;">
             <datalist id="listaOrdenesCompra"></datalist>
         </div>
-        <button type="button" class="btn btn-success" style="margin-top:12px;" id="btnRegistrarGuiaManual">➕ Registrar</button>
+        <button type="button" class="btn btn-success" style="margin-top:12px;" id="btnRegistrarGuiaManual"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg> Registrar</button>
 
         <!-- Escanear QR: opcional. El QR de Shalom NO trae el N° de Orden
              público ni el código — trae un ID interno (oseId) que solo la
              app oficial de Shalom puede usar. Por eso se muestra solo como
              referencia; el registro confiable es el manual de arriba. -->
         <details style="margin-top:18px;">
-            <summary style="cursor:pointer; color:var(--gray-500); font-size:0.9em;">📷 Escanear QR (referencia — no autocompleta los datos)</summary>
+            <summary style="cursor:pointer; color:var(--gray-500); font-size:0.9em;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Escanear QR (referencia — no autocompleta los datos)</summary>
             <div style="margin-top:10px;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
-                    <button type="button" class="btn btn-primary" id="btnIniciarCamara">📷 Usar cámara</button>
-                    <button type="button" class="btn" style="background:var(--border); display:none;" id="btnDetenerCamara">✕ Detener cámara</button>
+                    <button type="button" class="btn btn-primary" id="btnIniciarCamara"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Usar cámara</button>
+                    <button type="button" class="btn" style="background:var(--border); display:none;" id="btnDetenerCamara"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg> Detener cámara</button>
                     <label class="btn btn-warning" style="cursor:pointer;">
-                        🖼️ Subir foto
+                        <svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1z"/></svg> Subir foto
                         <input type="file" accept="image/*" capture="environment" style="display:none;" id="shalomInputArchivo">
                     </label>
                 </div>
                 <div id="shalomCameraWrapper" style="display:none; position:relative; max-width:400px;">
-                    <video id="shalomVideo" style="width:100%; border-radius:8px; background:#000;" playsinline autoplay muted></video>
+                    <video id="shalomVideo" style="width:100%; border-radius:var(--radius-sm); background:var(--primary);" playsinline autoplay muted></video>
                     <div id="shalomCameraHint" style="font-size:0.8em; color:var(--gray-500); margin-top:6px;">Apunta la cámara al código QR de tu guía…</div>
                 </div>
                 <canvas id="shalomCanvas" style="display:none;"></canvas>
-                <div id="shalomCameraError" style="display:none; margin-top:10px; padding:12px; background:#fff5f5; border-radius:8px; border:1px solid var(--danger); font-size:0.85em; color:var(--danger);"></div>
+                <div id="shalomCameraError" style="display:none; margin-top:10px; padding:12px; background:var(--chip-danger-bg); border-radius:var(--radius-sm); border:1px solid var(--danger); font-size:0.85em; color:var(--danger);"></div>
 
-                <div id="shalomQrResultado" style="display:none; margin-top:15px; padding:15px; background:#fffbea; border-radius:8px; border:2px solid var(--accent); color:#2d3748;">
+                <div id="shalomQrResultado" style="display:none; margin-top:15px; padding:15px; background:var(--chip-warning-bg); border-radius:var(--radius-md); border:2px solid var(--warning); color:var(--chip-warning-text);">
                     <strong>📎 Contenido leído del QR:</strong> <span id="shalomQrTexto"></span>
-                    <p style="font-size:0.85em; color:#718096; margin:8px 0 0;">Esto no es el N° de Orden — es un código interno de Shalom que esta app no traduce automáticamente (su sistema de seguridad bloquea intentos automatizados, y lo respetamos). Escribe el N° de Orden y el Código arriba, tal como aparecen impresos en tu comprobante.</p>
+                    <p style="font-size:0.85em; color:var(--gray-500); margin:8px 0 0;">Esto no es el N° de Orden — es un código interno de Shalom que esta app no traduce automáticamente (su sistema de seguridad bloquea intentos automatizados, y lo respetamos). Escribe el N° de Orden y el Código arriba, tal como aparecen impresos en tu comprobante.</p>
                 </div>
             </div>
         </details>
     </div>
 
     <!-- REGISTRAR ENVÍO LIMA (entrega local, sin guía Shalom) -->
-    <div class="add-product-section" style="margin-top:18px; border-color:#3182ce;">
-        <div class="add-product-title">🏙️ Registrar envío Lima</div>
+    <div class="add-product-section" style="margin-top:18px; border-color:var(--secondary);">
+        <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/><path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/></svg> Registrar envío Lima</div>
         <p style="font-size:0.85em; opacity:0.9; margin-bottom:15px;">Para entregas dentro de Lima (moto propia, delivery local, recojo en tienda) que no pasan por Shalom — no necesitan N° de guía ni código. Como no hay rastreo automático, el estado se actualiza a mano desde la tarjeta del envío.</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
             <input type="text" class="form-input" id="limaClienteManual" placeholder="Cliente (opcional)" style="flex:1 1 180px; min-width:150px;">
@@ -1236,7 +1339,7 @@
             <label class="form-label" style="font-size:0.85em;">Vincular a una orden de compra (opcional)</label>
             <input type="text" class="form-input" id="limaOcManual" list="listaOrdenesCompra" placeholder="Busca por N° de OC o cliente..." style="max-width:320px; width:100%;">
         </div>
-        <button type="button" class="btn btn-success" style="margin-top:12px; background:#3182ce;" id="btnRegistrarEnvioLima">🏙️ Registrar envío Lima</button>
+        <button type="button" class="btn btn-success" style="margin-top:12px; background:var(--secondary);" id="btnRegistrarEnvioLima"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/><path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/></svg> Registrar envío Lima</button>
     </div>
 
     <!-- LISTA DE ENVÍOS RASTREADOS -->
@@ -1274,24 +1377,24 @@
 <div class="tab-content" id="tab-envios">
     <div class="historial-header-row">
         <div>
-            <strong style="font-size:1.1em; color:var(--primary);">🚚 Envíos de Órdenes de Compra</strong>
+            <strong style="font-size:1.1em; color:var(--primary);"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5zm1.294 7.456A2 2 0 0 1 4.732 11h5.536a2 2 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456M12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2m9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></svg> Envíos de Órdenes de Compra</strong>
             <span class="historial-count-badge" id="enviosCount">0</span>
         </div>
         <button class="ios-link-btn" id="btnActualizarEnvios">Actualizar</button>
     </div>
-    <p style="color:var(--gray-500); font-size:0.85em; margin-bottom:15px;">Vista de tus Órdenes de Compra confirmadas y el estado de su envío. Para registrar una guía nueva, ve a <strong>🚚 Seguimiento Shalom</strong>.</p>
+    <p style="color:var(--gray-500); font-size:0.85em; margin-bottom:15px;">Vista de tus Órdenes de Compra confirmadas y el estado de su envío. Para registrar una guía nueva, ve a <strong><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5zm1.294 7.456A2 2 0 0 1 4.732 11h5.536a2 2 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456M12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2m9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></svg> Seguimiento Shalom</strong>.</p>
 
     <!-- LISTA DE COMPRA: agrupa producto+color+cantidad de todas las OC
          que todavía no se despacharon (sin guía, o con guía aún
          "pendiente"/"error"), para saber qué y cuánto comprar antes del
          próximo envío. -->
-    <div class="add-product-section" style="margin-bottom:15px; border-color:var(--accent); background:#fffbea;" id="listaCompraResumenWrap">
+    <div class="add-product-section" style="margin-bottom:15px; border-style:solid; border-color:var(--warning); background:var(--chip-warning-bg);" id="listaCompraResumenWrap">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div>
-                <div style="font-weight:700; color:#2d3748; font-size:1.02em;">🛒 Lista de compra — productos pendientes de despacho</div>
-                <div style="font-size:0.85em; color:#718096; margin-top:2px;" id="listaCompraResumenTexto">Calculando...</div>
+                <div style="font-weight:700; color:var(--chip-warning-text); font-size:1.02em;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .49.598l-1 5a.5.5 0 0 1-.465.401l-9.397.472L4.415 11H13a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M3.102 4l.84 4.479 9.144-.459L13.89 4zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/></svg> Lista de compra — productos pendientes de despacho</div>
+                <div style="font-size:0.85em; color:var(--chip-warning-text); margin-top:2px;" id="listaCompraResumenTexto">Calculando...</div>
             </div>
-            <button class="btn btn-warning" style="white-space:nowrap;" id="btnAbrirListaCompra">📋 Ver lista de compra</button>
+            <button class="btn btn-warning" style="white-space:nowrap;" id="btnAbrirListaCompra"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg> Ver lista de compra</button>
         </div>
     </div>
 
@@ -1314,7 +1417,7 @@
                 </select>
             </div>
             <div>
-                <button class="btn btn-small" style="background:var(--border);" id="btnLimpiarFiltrosEnvios">✕ Limpiar filtros</button>
+                <button class="btn btn-small" style="background:var(--border);" id="btnLimpiarFiltrosEnvios"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg> Limpiar filtros</button>
             </div>
         </div>
     </div>
@@ -1329,77 +1432,77 @@
         </div>
 
         <div class="total-section">
-            <div class="total-info-container">
-                <div id="totalInfo" style="font-size: 0.95em;">0 productos</div>
-                <div style="font-size: 0.8em; opacity: 0.8; margin-top: 5px;" id="itemsBreakdown"></div>
-                <div id="envioInfo" style="font-size: 0.85em; margin-top: 10px;"></div>
+            <div class="total-row">
                 <div class="global-discount-row">
-                    <span style="margin-left:10px;">📄</span>
+                    <span style="margin-left:10px;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5"/><path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/></svg></span>
                     <select id="tipoDocumento" onchange="alCambiarTipoDocumentoManualmente()" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:3px 7px;font-size:0.85em;font-weight:700;cursor:pointer;">
                         <option value="cotizacion">Cotización</option>
                         <option value="ORDEN DE COMPRA">ORDEN DE COMPRA</option>
                         <option value="DESPACHO">DESPACHO (sin precios)</option>
                     </select>
-                    <span style="margin-left:10px;">🏢</span>
+                    <span style="margin-left:10px;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/><path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/></svg></span>
                     <select id="empresaActivaSelect" onchange="cambiarEmpresaActiva()" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:3px 7px;font-size:0.85em;font-weight:700;cursor:pointer;">
                         <option value="fabexsa">Fabexsa</option>
                         <option value="confortline">Confort Line</option>
                     </select>
-                    <button type="button" onclick="abrirEditEmpresaModal()" title="Configurar datos de empresa (logo, banco, contacto)" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:3px 8px;font-size:0.85em;cursor:pointer;">⚙️</button>
+                    <button type="button" onclick="abrirEditEmpresaModal()" title="Configurar datos de empresa (logo, banco, contacto)" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:3px 8px;font-size:0.85em;cursor:pointer;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z"/></svg></button>
                 </div>
-                <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <button type="button" id="btnCarpetaFija" onclick="elegirCarpetaFija()" style="background:rgba(255,255,255,0.15);color:white;border:1.5px solid rgba(255,255,255,0.35);border-radius:6px;padding:4px 10px;font-size:0.82em;font-weight:700;cursor:pointer;">📁 Elegir carpeta fija</button>
-                    <button type="button" id="btnQuitarCarpetaFija" onclick="quitarCarpetaFija()" style="display:none;background:rgba(255,255,255,0.1);color:white;border:1.5px solid rgba(255,255,255,0.25);border-radius:6px;padding:4px 10px;font-size:0.82em;cursor:pointer;">✕ Quitar</button>
-                    <span id="carpetaFijaLabel" style="font-size:0.78em;opacity:0.85;">Se preguntará la carpeta en cada descarga</span>
-                </div>
-                <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.2);">
-                    <div style="font-size:0.82em;font-weight:700;margin-bottom:6px;opacity:0.85;">💰 Forma de Pago</div>
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span style="font-size:0.82em;">Adelanto S/:</span>
+                <div class="total-pago-block">
+                    <div class="total-pago-row">
+                        <span class="total-pago-label">Adelanto S/:</span>
                         <input type="number" id="montoAdelanto" min="0" step="0.50" placeholder="0.00"
-                            style="width:80px;padding:4px 8px;border-radius:6px;border:1.5px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.15);color:white;font-weight:700;font-size:0.9em;text-align:right;"
+                            style="width:76px;padding:4px 8px;border-radius:6px;border:1.5px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.15);color:white;font-weight:700;font-size:0.9em;text-align:right;"
                             oninput="actualizarPago()">
                         <span id="saldoPendienteLabel" style="font-size:0.82em;opacity:0.9;"></span>
                     </div>
-                    <div id="pagoResumen" style="font-size:0.78em;margin-top:4px;opacity:0.75;"></div>
+                    <div id="pagoResumen" style="font-size:0.78em;margin-top:2px;opacity:0.75;"></div>
                 </div>
             </div>
-            <div style="text-align: right;">
-                <div id="subtotalRows"></div>
-                <div class="total-amount" id="totalAmount">S/ 0.00</div>
-                <div class="action-buttons">
-                    <button class="btn btn-danger-outline btn-small" onclick="clearAll()">Nueva Solicitud</button>
-                    <button class="btn btn-primary" id="btnGuardarHistorial" disabled onclick="guardarEnHistorial()">💾 Guardar</button>
-                    <button class="btn btn-success" id="btnGenerateImage" disabled onclick="generarImagen()">🖼️ Imagen</button>
-                    <button class="btn btn-success" id="btnCopyImage" disabled onclick="copiarImagen()">📋 Copiar imagen</button>
+            <div class="total-row">
+                <div class="total-info-block">
+                    <div id="totalInfo" style="font-size: 0.95em;">0 productos</div>
+                    <div style="font-size: 0.8em; opacity: 0.8; margin-top: 5px;" id="itemsBreakdown"></div>
+                    <div id="envioInfo" style="font-size: 0.85em; margin-top: 10px;"></div>
                 </div>
+                <div class="total-amount-block">
+                    <div id="subtotalRows"></div>
+                    <div class="total-amount" id="totalAmount">S/ 0.00</div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-danger-outline btn-small" onclick="clearAll()">Nueva Solicitud</button>
+                <button class="btn btn-primary" id="btnGuardarHistorial" disabled onclick="guardarEnHistorial()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar</button>
+                <button class="btn btn-success" id="btnGenerateImage" disabled onclick="generarImagen()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1z"/></svg> Imagen</button>
+                <button class="btn btn-success" id="btnCopyImage" disabled onclick="copiarImagen()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg> Copiar imagen</button>
             </div>
         </div>
+        </div>
+    </div>
     </div>
 
     <!-- COTIZACIÓN PARA IMPRIMIR/PDF/IMAGEN -->
     <div class="cotizacion-print" id="cotizacionPrint">
 
         <!-- ENCABEZADO COMPACTO -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2d3748;padding-bottom:14px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1c1917;padding-bottom:14px;margin-bottom:14px;">
             <div>
                 <div class="print-logo" id="printLogoContainer"></div>
-                <div id="printEmpresaNombre" style="font-size:0.95em;font-weight:700;color:#2d3748;margin-top:4px;"></div>
-                <div id="printEmpresaDireccion" style="font-size:0.72em;color:#718096;margin-top:3px;"></div>
-                <div id="printEmpresaContacto" style="font-size:0.7em;color:#a0aec0;"></div>
+                <div id="printEmpresaNombre" style="font-size:0.95em;font-weight:700;color:#1c1917;margin-top:4px;"></div>
+                <div id="printEmpresaDireccion" style="font-size:0.72em;color:#78716c;margin-top:3px;"></div>
+                <div id="printEmpresaContacto" style="font-size:0.7em;color:#a8a29e;"></div>
             </div>
             <div style="text-align:right;">
-                <div id="printTipoDoc" style="font-size:2em;color:#2d3748;font-weight:800;letter-spacing:-0.5px;line-height:1;">COTIZACIÓN</div>
-                <div id="printNumeroCot" style="font-size:0.8em;color:#718096;margin-top:2px;"></div>
-                <div class="print-date" id="printDate" style="font-size:0.8em;color:#718096;margin-top:2px;"></div>
-                <div id="printValidezBadge" style="margin-top:6px;background:#fbbf24;color:#2d3748;padding:4px 10px;border-radius:4px;font-size:0.72em;font-weight:700;display:inline-block;">⏰ Válido 7 días</div>
+                <div id="printTipoDoc" style="font-size:2em;color:#1c1917;font-weight:800;letter-spacing:-0.5px;line-height:1;">COTIZACIÓN</div>
+                <div id="printNumeroCot" style="font-size:0.8em;color:#78716c;margin-top:2px;"></div>
+                <div class="print-date" id="printDate" style="font-size:0.8em;color:#78716c;margin-top:2px;"></div>
+                <div id="printValidezBadge" style="margin-top:6px;background:#fbbf24;color:#1c1917;padding:4px 10px;border-radius:4px;font-size:0.72em;font-weight:700;display:inline-block;">⏰ Válido 7 días</div>
             </div>
         </div>
 
         <!-- CLIENTE + ENVÍO EN UN SOLO BLOQUE LADO A LADO -->
         <div id="infoBloqueCompacto" style="display:none;margin-bottom:12px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div id="clientePrintBox" style="background:#f8faff;border:1.5px solid #c7d2fe;border-radius:7px;padding:11px 14px;display:none;"></div>
+                <div id="clientePrintBox" style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:7px;padding:11px 14px;display:none;"></div>
                 <div id="envioInfoPrint" style="background:#e6fffa;border:1.5px solid #81e6d9;border-radius:7px;padding:11px 14px;display:none;"></div>
             </div>
         </div>
@@ -1422,35 +1525,35 @@
         <div id="printTotalesBancoGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
 
             <!-- BANCO -->
-            <div style="background:#2d3748;color:white;padding:14px 16px;border-radius:8px;">
+            <div style="background:#1c1917;color:white;padding:14px 16px;border-radius:8px;">
                 <div style="font-weight:700;font-size:0.88em;margin-bottom:8px;color:#fbbf24;">💳 Datos para Transferencia</div>
                 <div style="font-size:0.78em;line-height:1.8;" id="printDatosBanco"></div>
             </div>
 
             <!-- TOTALES -->
-            <div style="background:#edf2f7;padding:14px 16px;border-radius:8px;">
-                <div id="printTotalesDetalle" style="font-size:0.82em;color:#718096;margin-bottom:8px;line-height:1.9;"></div>
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:1.4em;font-weight:800;color:#2d3748;border-top:2px solid #cbd5e0;padding-top:8px;">
+            <div style="background:#f5f5f4;padding:14px 16px;border-radius:8px;">
+                <div id="printTotalesDetalle" style="font-size:0.82em;color:#78716c;margin-bottom:8px;line-height:1.9;"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:1.4em;font-weight:800;color:#1c1917;border-top:2px solid #d6d3d1;padding-top:8px;">
                     <span id="printTotalLabel">TOTAL:</span>
                     <span id="printTotal">S/ 0.00</span>
                 </div>
                 <!-- PAGO -->
-                <div id="printPagoSection" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #cbd5e0;font-size:0.82em;">
-                    <div style="display:flex;justify-content:space-between;color:#2d3748;">
+                <div id="printPagoSection" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #d6d3d1;font-size:0.82em;">
+                    <div style="display:flex;justify-content:space-between;color:#1c1917;">
                         <span>✅ Adelanto pagado:</span>
-                        <span id="printAdelanto" style="font-weight:700;color:#38a169;"></span>
+                        <span id="printAdelanto" style="font-weight:700;color:#15803d;"></span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;color:#2d3748;margin-top:4px;">
+                    <div style="display:flex;justify-content:space-between;color:#1c1917;margin-top:4px;">
                         <span>⏳ Saldo pendiente:</span>
-                        <span id="printSaldo" style="font-weight:700;color:#e53e3e;"></span>
+                        <span id="printSaldo" style="font-weight:700;color:#dc2626;"></span>
                     </div>
                 </div>
-                <div style="margin-top:6px;font-size:0.7em;color:#a0aec0;" id="printTotalInfo"></div>
+                <div style="margin-top:6px;font-size:0.7em;color:#a8a29e;" id="printTotalInfo"></div>
             </div>
         </div>
 
         <!-- FOOTER -->
-        <div style="text-align:center;padding-top:12px;border-top:1.5px solid #e2e8f0;color:#a0aec0;font-size:0.78em;" id="printFooter">
+        <div style="text-align:center;padding-top:12px;border-top:1.5px solid #e7e5e4;color:#a8a29e;font-size:0.78em;" id="printFooter">
         </div>
     </div>
     <!-- ============================================ -->
@@ -1467,8 +1570,8 @@
                 <div class="papeleta-card" id="papeletaPreviewCard"></div>
             </div>
             <div class="modal-buttons">
-                <button type="button" class="btn btn-success" id="btnDescargarPapeleta">🖼️ Descargar / Compartir</button>
-                <button type="button" class="btn btn-success" id="btnCopiarPapeleta">📋 Copiar imagen</button>
+                <button type="button" class="btn btn-success" id="btnDescargarPapeleta"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1z"/></svg> Descargar / Compartir</button>
+                <button type="button" class="btn btn-success" id="btnCopiarPapeleta"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg> Copiar imagen</button>
             </div>
         </div>
     </div>
@@ -1477,7 +1580,7 @@
     <div class="modal" id="listaCompraModal" role="dialog" aria-modal="true" aria-labelledby="listaCompraModalTitulo">
         <div class="modal-content" style="max-width:700px;">
             <div class="modal-header">
-                <h2 class="modal-title" id="listaCompraModalTitulo">🛒 Lista de compra — pendientes de despacho</h2>
+                <h2 class="modal-title" id="listaCompraModalTitulo"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .49.598l-1 5a.5.5 0 0 1-.465.401l-9.397.472L4.415 11H13a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M3.102 4l.84 4.479 9.144-.459L13.89 4zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/></svg> Lista de compra — pendientes de despacho</h2>
                 <button class="modal-close" id="btnCerrarListaCompraModal" aria-label="Cerrar">×</button>
             </div>
             <div id="listaCompraContenido"></div>
@@ -1499,6 +1602,7 @@
     </div>
 
     <script src="js/config.js"></script>
+    <script src="js/ui-alerts.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/productos.js"></script>
     <script src="js/kardex.js"></script>
@@ -1520,5 +1624,248 @@
     <script src="js/envios/lima.js"></script>
     <script src="js/envios/lista-compra.js"></script>
     <script src="js/init.js"></script>
+
+    <!-- ============================================
+         SIDEBAR (chrome de navegación de escritorio) — colapsar, tema
+         oscuro/claro e indicador activo deslizante. No contiene lógica de
+         negocio: solo reacciona a los mismos data-tab/switchTab(id) que ya
+         usa el resto del sistema, así que no toca ningún archivo .js.
+         ============================================ -->
+    <script>
+        (function () {
+            var sidebar = document.getElementById('sidebarDesktop');
+            var nav = document.getElementById('sidebarNav');
+            var pill = document.getElementById('sidebarActivePill');
+            var btnCollapse = document.getElementById('btnSidebarCollapse');
+            var btnTheme = document.getElementById('btnSidebarTheme');
+            var themeIcon = document.getElementById('sidebarThemeIcon');
+            var themeLabel = document.getElementById('sidebarThemeLabel');
+            if (!sidebar || !nav || !pill) return;
+
+            var ICON_MOON = '<svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278M4.858 1.311A7.27 7.27 0 0 0 1.025 7.71c0 4.02 3.279 7.276 7.319 7.276a7.32 7.32 0 0 0 5.205-2.162q-.506.063-1.029.063c-4.61 0-8.343-3.714-8.343-8.29 0-1.167.242-2.278.681-3.286"/><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.73 1.73 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.73 1.73 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.73 1.73 0 0 0 1.097-1.097zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z"/></svg>';
+            var ICON_SUN = '<svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708"/></svg>';
+
+            // ---- Colapsar / expandir ----
+            if (btnCollapse) {
+                btnCollapse.addEventListener('click', function () {
+                    sidebar.classList.toggle('collapsed');
+                });
+            }
+
+            // ---- Tema oscuro/claro del panel de contenido ----
+            function aplicarTema(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                if (themeIcon) themeIcon.innerHTML = theme === 'dark' ? ICON_SUN : ICON_MOON;
+                if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Claro' : 'Oscuro';
+            }
+            aplicarTema(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+            if (btnTheme) {
+                btnTheme.addEventListener('click', function () {
+                    var actual = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+                    var siguiente = actual === 'dark' ? 'light' : 'dark';
+                    aplicarTema(siguiente);
+                    try { localStorage.setItem('siaTheme', siguiente); } catch (e) {}
+                });
+            }
+
+            // ---- Indicador activo deslizante ----
+            var pillColocado = false;
+            function posicionarPill() {
+                var activo = nav.querySelector('.sidebar-item.active');
+                if (!activo || activo.style.display === 'none' || activo.hidden) {
+                    pill.style.opacity = '0';
+                    return;
+                }
+                // Oculto (p. ej. antes del login): no hay medidas fiables todavía
+                if (activo.offsetParent === null) return;
+                pill.style.opacity = '1';
+                if (!pillColocado) {
+                    // Primera colocación: sin transición, para que no "caiga" desde arriba
+                    pill.style.transition = 'none';
+                    pill.style.transform = 'translateY(' + activo.offsetTop + 'px)';
+                    void pill.offsetWidth;
+                    pill.style.transition = '';
+                    pillColocado = true;
+                    return;
+                }
+                pill.style.transform = 'translateY(' + activo.offsetTop + 'px)';
+            }
+
+            // ---- Agrupa los data-tab en grupos según los .sidebar-group-label que los
+            // preceden, para poder ocultar un grupo completo (encabezado incluido)
+            // cuando el rol restringido ('control_diario') no deja ningún ítem visible
+            // dentro de él — adapta la idea de "forced-open" a este layout de grupos. ----
+            function gruposSidebar() {
+                var grupos = [];
+                var actual = null;
+                Array.prototype.forEach.call(nav.children, function (el) {
+                    if (el.classList && el.classList.contains('sidebar-group-label')) {
+                        actual = { label: el, items: [] };
+                        grupos.push(actual);
+                    } else if (actual && el.classList && el.classList.contains('sidebar-item')) {
+                        actual.items.push(el);
+                    }
+                });
+                return grupos;
+            }
+
+            function itemVisible(btn) {
+                return !btn.hidden && btn.style.display !== 'none';
+            }
+
+            function sincronizarGrupos() {
+                gruposSidebar().forEach(function (g) {
+                    var algunoVisible = g.items.some(itemVisible);
+                    var display = algunoVisible ? '' : 'none';
+                    if (g.label.style.display !== display) g.label.style.display = display;
+                });
+            }
+
+            function refrescar() {
+                sincronizarGrupos();
+                posicionarPill();
+            }
+
+            nav.addEventListener('click', function (e) {
+                if (e.target.closest('.sidebar-item')) refrescar();
+            });
+
+            // El rol 'control_diario' (js/auth.js -> aplicarPermisosPorNivel) oculta
+            // botones vía style.display, y otras pantallas cambian la pestaña activa
+            // (js/historial.js, js/cotizacion.js) sin pasar por este archivo: se observa
+            // el propio menú para mantener el pill y los grupos sincronizados sin
+            // depender de ningún .js existente.
+            var observer = new MutationObserver(refrescar);
+            observer.observe(nav, { attributes: true, attributeFilter: ['class', 'style', 'hidden'], subtree: true });
+
+            refrescar();
+            window.addEventListener('load', refrescar);
+            window.addEventListener('resize', posicionarPill);
+        })();
+    </script>
+
+    <!-- ============================================
+         BARRA DE TOTAL/ACCIONES (.total-section) — solo debe verse en la
+         pestaña "Cotizar" (guardar/generar imagen y el total son acciones
+         de la cotización, no tienen sentido en las otras 10 pantallas).
+         Se sincroniza observando la clase "active" de cada .tab-content en
+         vez de tocar switchTab()/switchTabById() en los .js existentes.
+         ============================================ -->
+    <script>
+        (function () {
+            var totalSection = document.querySelector('.total-section');
+            var tabCotizar = document.getElementById('tab-cotizar');
+            if (!totalSection || !tabCotizar) return;
+
+            function sincronizarBarraTotal() {
+                totalSection.style.display = tabCotizar.classList.contains('active') ? '' : 'none';
+            }
+
+            document.querySelectorAll('.tab-content').forEach(function (panel) {
+                new MutationObserver(sincronizarBarraTotal)
+                    .observe(panel, { attributes: true, attributeFilter: ['class'] });
+            });
+
+            sincronizarBarraTotal();
+        })();
+    </script>
+
+    <!-- ============================================
+         PAGINACIÓN DE HISTORIAL — muestra máx. 10 tarjetas a la vez con un
+         selector de páginas fijo abajo, para no renderizar/animar de golpe
+         todas las cotizaciones (eso es lo que ponía lento el sistema con
+         historiales largos). No toca cargarHistorialDesdeNube ni
+         renderHistorial/renderListaCotizaciones/renderUsuariosHistorial de
+         js/cotizacion.js: observa el resultado que esas funciones ya pintan
+         en #historialResultsArea (siempre "<div class="historial-list">"
+         con tarjetas ".historial-card" como hijos directos, tanto en la
+         vista normal como en la agrupada por usuario) y solo oculta/muestra
+         tarjetas + dibuja el paginador al lado.
+         ============================================ -->
+    <script>
+        (function () {
+            var historialList = document.getElementById('historialList');
+            if (!historialList) return;
+
+            var PAGINA_TAM = 10;
+            var paginaActual = 1;
+            var observer;
+
+            function obtenerTarjetas() {
+                var lista = historialList.querySelector('.historial-list');
+                if (!lista) return null;
+                return { lista: lista, tarjetas: Array.prototype.filter.call(lista.children, function (el) {
+                    return el.classList && el.classList.contains('historial-card');
+                }) };
+            }
+
+            function dibujarPaginador(lista, totalPaginas) {
+                var existente = document.getElementById('historialPaginador');
+                if (existente) existente.remove();
+                if (totalPaginas <= 1) return;
+
+                var nav = document.createElement('div');
+                nav.id = 'historialPaginador';
+                nav.className = 'historial-paginador';
+
+                var btnPrev = document.createElement('button');
+                btnPrev.type = 'button';
+                btnPrev.className = 'historial-pagina-btn';
+                btnPrev.textContent = '‹ Anterior';
+                btnPrev.disabled = paginaActual <= 1;
+                btnPrev.addEventListener('click', function () { irAPagina(paginaActual - 1); });
+
+                var info = document.createElement('span');
+                info.className = 'historial-pagina-info';
+                info.textContent = 'Página ' + paginaActual + ' de ' + totalPaginas;
+
+                var btnNext = document.createElement('button');
+                btnNext.type = 'button';
+                btnNext.className = 'historial-pagina-btn';
+                btnNext.textContent = 'Siguiente ›';
+                btnNext.disabled = paginaActual >= totalPaginas;
+                btnNext.addEventListener('click', function () { irAPagina(paginaActual + 1); });
+
+                nav.appendChild(btnPrev);
+                nav.appendChild(info);
+                nav.appendChild(btnNext);
+                lista.insertAdjacentElement('afterend', nav);
+            }
+
+            function aplicar(resetearPagina) {
+                var datos = obtenerTarjetas();
+                if (observer) observer.disconnect();
+                try {
+                    if (!datos || !datos.tarjetas.length) {
+                        var previo = document.getElementById('historialPaginador');
+                        if (previo) previo.remove();
+                        return;
+                    }
+                    if (resetearPagina) paginaActual = 1;
+                    var totalPaginas = Math.max(1, Math.ceil(datos.tarjetas.length / PAGINA_TAM));
+                    if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+                    var desde = (paginaActual - 1) * PAGINA_TAM;
+                    var hasta = desde + PAGINA_TAM;
+                    datos.tarjetas.forEach(function (tarjeta, i) {
+                        tarjeta.style.display = (i >= desde && i < hasta) ? '' : 'none';
+                    });
+                    dibujarPaginador(datos.lista, totalPaginas);
+                } finally {
+                    if (observer) observer.observe(historialList, { childList: true, subtree: true });
+                }
+            }
+
+            function irAPagina(n) {
+                paginaActual = n;
+                aplicar(false);
+                var lista = historialList.querySelector('.historial-list');
+                if (lista) lista.scrollIntoView({ block: 'nearest' });
+            }
+
+            observer = new MutationObserver(function () { aplicar(true); });
+            observer.observe(historialList, { childList: true, subtree: true });
+            aplicar(true);
+        })();
+    </script>
 </body>
 </html>
