@@ -229,28 +229,9 @@
             border-radius: var(--radius-md);
         }
 
-        /* COTIZAR: los 3 paneles de arriba (Cliente, Sucursal, Agregar
-           producto) se quedan siempre visibles y estáticos — el que crece y
-           scrollea internamente es la tabla de productos agregados, que es
-           la única parte que puede volverse larga (muchos productos). Así
-           nunca hay que perder de vista los controles de arriba para seguir
-           viendo la lista completa. Solo aplica a este tab — el resto de las
-           10 pantallas sigue con el scroll normal de .content (ver layout.css). */
-        #tab-cotizar.active {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-
-        #tab-cotizar.active > .cliente-panel {
-            flex-shrink: 0;
-        }
-
-        #tab-cotizar.active > .products-table-container {
-            flex: 1;
-            min-height: 120px;
-            overflow-y: auto;
-        }
+        /* COTIZAR: la tabla de productos NO tiene scroll propio — crece con la cantidad de
+           productos agregados y el único scroll de la pantalla es el de .content (layout.css).
+           La barra de total (.total-section) queda fuera de .content, así que sigue fija abajo. */
 
         .products-table {
             width: 100%;
