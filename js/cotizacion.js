@@ -2010,6 +2010,64 @@
         }
 
         // Vista master — agrupa las cotizaciones por usuario y muestra una tarjeta por persona
+        // ============================================
+        // PAGINACIÓN REAL DEL HISTORIAL
+        // ============================================
+        // ANTES: renderListaCotizaciones() armaba el HTML de TODAS las filas que calzaban con el
+        // filtro (hasta miles), y un script aparte en index.html las escondía con display:none
+        // dejando ver solo 10 — el costo de construir/parsear esas filas de más ya estaba pagado
+        // igual (ver tests/stress-historial.html, check 1: 5.000 OC tardaban ~1.1s en vez de <500ms).
+        // AHORA: se corta ANTES de construir el HTML — solo se arma la página actual. El script de
+        // index.html ya no observa el DOM ni esconde nada: dibujarPaginadorHistorial() solo dibuja
+        // los botones "‹ Anterior / Siguiente ›" que llaman de vuelta a irAPaginaHistorial().
+        const HISTORIAL_PAGINA_TAM = 10;
+        let paginaHistorialActual = 1;
+        let historialPaginacionEstado = null; // { items, container, renderItem, encabezadoHTML }
+
+        // Punto único de entrada: guarda QUÉ hay que paginar (la lista ya filtrada, dónde pintarla y
+        // cómo convertir cada elemento en HTML) y dibuja la página 1. Lo usan renderListaCotizaciones()
+        // (filas de Cotización/OC), su rama de búsqueda en la nube, y renderUsuariosHistorial() (la
+        // vista agrupada por usuario del master) — los 3 lugares que antes armaban un
+        // `<div class="historial-list">...</div>` con todo de una vez.
+        function iniciarPaginacionHistorial(container, items, renderItem, encabezadoHTML) {
+            historialPaginacionEstado = { items, container, renderItem, encabezadoHTML: encabezadoHTML || '' };
+            paginaHistorialActual = 1;
+            pintarPaginaHistorial();
+        }
+
+        // Redibuja SOLO la página actual a partir del último estado guardado — no vuelve a filtrar
+        // ni a tocar la red, así que cambiar de página es prácticamente instantáneo sin importar
+        // cuántos resultados haya en total.
+        function pintarPaginaHistorial() {
+            const estado = historialPaginacionEstado;
+            if (!estado) return;
+            const totalPaginas = Math.max(1, Math.ceil(estado.items.length / HISTORIAL_PAGINA_TAM));
+            if (paginaHistorialActual > totalPaginas) paginaHistorialActual = totalPaginas;
+            if (paginaHistorialActual < 1) paginaHistorialActual = 1;
+            const desde = (paginaHistorialActual - 1) * HISTORIAL_PAGINA_TAM;
+            const itemsDeEstaPagina = estado.items.slice(desde, desde + HISTORIAL_PAGINA_TAM);
+
+            estado.container.innerHTML = `${estado.encabezadoHTML}<div class="historial-list">${itemsDeEstaPagina.map(estado.renderItem).join('')}</div>`;
+
+            // dibujarPaginadorHistorial() vive en index.html (dibuja los botones reutilizando las
+            // mismas clases .historial-paginador/.historial-pagina-btn de siempre). Se protege con
+            // typeof porque tests/stress-historial.html carga js/cotizacion.js solo, sin ese script.
+            if (typeof dibujarPaginadorHistorial === 'function') {
+                const listaEl = estado.container.querySelector('.historial-list');
+                dibujarPaginadorHistorial(listaEl, paginaHistorialActual, totalPaginas);
+            }
+        }
+
+        // Llamado por los botones "‹ Anterior/Siguiente ›" (ver dibujarPaginadorHistorial en
+        // index.html).
+        function irAPaginaHistorial(numero) {
+            if (!historialPaginacionEstado) return;
+            paginaHistorialActual = numero;
+            pintarPaginaHistorial();
+            const listaEl = historialPaginacionEstado.container.querySelector('.historial-list');
+            if (listaEl) listaEl.scrollIntoView({ block: 'nearest' });
+        }
+
         function renderUsuariosHistorial(container) {
             const ahora = new Date();
             const mesActual = ahora.getMonth();
@@ -2037,14 +2095,12 @@
             const usuarios = Object.values(porUsuario).sort((a, b) => new Date(b.ultimaFecha) - new Date(a.ultimaFecha));
             const nombreMesActual = ahora.toLocaleDateString('es-PE', { month: 'long' });
 
-            container.innerHTML = `
-                <div style="margin-bottom:12px;color:var(--gray-500);font-size:0.85em;">Selecciona un usuario para ver sus cotizaciones, o escribe arriba para buscar en todas a la vez</div>
-                <div class="historial-list">
-                    ${usuarios.map(u => {
-                        const fecha = new Date(u.ultimaFecha).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' });
-                        return `
+            const encabezado = `<div style="margin-bottom:12px;color:var(--gray-500);font-size:0.85em;">Selecciona un usuario para ver sus cotizaciones, o escribe arriba para buscar en todas a la vez</div>`;
+            iniciarPaginacionHistorial(container, usuarios, u => {
+                const fecha = new Date(u.ultimaFecha).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+                return `
                         <div class="historial-card historial-card-clickable" onclick="verHistorialDeUsuario('${u.usuario}')">
-                            <p class="historial-card-title">${u.nombre}</p>
+                            <p class="historial-card-title">${escaparHtml(u.nombre)}</p>
                             <div class="historial-card-meta">
                                 <span>${u.cantidad} cotización${u.cantidad !== 1 ? 'es' : ''}</span>
                                 <span>Última: ${fecha}</span>
@@ -2055,9 +2111,7 @@
                                 <div class="historial-card-total">S/ ${u.totalAcumulado.toFixed(2)}</div>
                             </div>
                         </div>`;
-                    }).join('')}
-                </div>
-            `;
+            }, encabezado);
         }
 
         function verHistorialDeUsuario(username) {
@@ -2139,12 +2193,12 @@
 
         // IMPORTANTE: las 3 plantillas de fila de abajo mantienen la clase "historial-card" en su
         // <div> raíz (además de "historial-fila"/"historial-fila--…") aunque el rediseño ya no use su
-        // CSS de tarjeta suelta. Dos cosas de fuera de este archivo dependen de ese nombre exacto y
-        // NO se tocan en este rediseño: (1) el paginador de historial en index.html, que busca
-        // ".historial-card" como hijo directo de ".historial-list" para mostrar de a 10 y dibujar
-        // "Página X de Y"; (2) js/envios/lima.js, que reutiliza ese mismo nombre de clase para sus
-        // propias tarjetas de envío Lima. Quitar la clase rompería el paginador (mostraría las miles
-        // de filas de golpe) sin que nada avise del error.
+        // CSS de tarjeta suelta. js/envios/lima.js reutiliza ese mismo nombre de clase para sus
+        // propias tarjetas de envío Lima (archivo que este rediseño no toca) — quitarla sería un
+        // cambio de estilo compartido sin necesidad. La paginación de historial YA NO depende de
+        // esta clase: desde que se reescribió (ver HISTORIAL_PAGINA_TAM/pintarPaginaHistorial más
+        // arriba y dibujarPaginadorHistorial en index.html), corta la lista antes de construir el
+        // HTML, no cuenta tarjetas ya pintadas.
         //
         // Punto de entrada: reparte cada fila del historial según su tipo real (ignorando el sufijo
         // "_prueba" del Modo Desarrollador solo para decidir la plantilla — el dato en sí no se toca).
@@ -2333,6 +2387,7 @@
             const etiquetaSeccionVacia = seccionHistorial === 'cotizacion' ? 'cotizaciones' : 'Órdenes de Compra';
 
             if (lista.length === 0) {
+                historialPaginacionEstado = null; // no queda ninguna página vigente que redibujar
                 if (!filtro) {
                     container.innerHTML = `${encabezado}<div class="historial-empty">No hay ${etiquetaSeccionVacia} visibles en este apartado.</div>`;
                     return;
@@ -2363,12 +2418,12 @@
                         return;
                     }
                     const notaNube = `<div style="font-size:0.8em;color:#744210;background:#fefcbf;padding:6px 10px;border-radius:6px;margin-bottom:10px;">🔎 Encontrado buscando en toda la base de datos (no estaba entre los últimos 200 registros recientes)</div>`;
-                    container.innerHTML = `${encabezado}${notaNube}<div class="historial-list">${encontrados.map(e => renderTarjetaHistorialHTML(e, mostrarVendedorPorTarjeta)).join('')}</div>`;
+                    iniciarPaginacionHistorial(container, encontrados, e => renderTarjetaHistorialHTML(e, mostrarVendedorPorTarjeta), encabezado + notaNube);
                 });
                 return;
             }
 
-            container.innerHTML = `${encabezado}<div class="historial-list">${lista.map(entry => renderTarjetaHistorialHTML(entry, mostrarVendedorPorTarjeta)).join('')}</div>`;
+            iniciarPaginacionHistorial(container, lista, entry => renderTarjetaHistorialHTML(entry, mostrarVendedorPorTarjeta), encabezado);
         }
 
         function toggleVerTodasCotizaciones() {
