@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Test de estrés — Historial (feature/historial-rediseno)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+    ============================================================
+    TEST DE ESTRÉS — HISTORIAL (branch feature/historial-rediseno)
+    ============================================================
+    Página estática que se abre DIRECTO en el navegador (doble clic, o
+    file://…/tests/stress-historial.html) — no necesita servidor ni build.
+
+    Carga los archivos REALES del proyecto (js/historial.js, js/cotizacion.js,
+    js/envios/shalom.js, js/envios/papeleta.js — los mismos <script> que usa
+    index.html, sin copias ni versiones "de prueba") y NUNCA toca Back4App:
+    window.fetch se reemplaza por un mock antes de cargar esos archivos: si
+    algo intenta llamar a BACK4APP_CONFIG.serverUrl, esta página lo marca en
+    rojo de inmediato (ver "¿Se tocó la red?" en el reporte).
+
+    No se cargan js/auth.js, js/ui-alerts.js, js/kardex.js, js/productos.js,
+    js/clientes.js, js/sucursales*.js ni js/exportar.js: ninguno de los 9
+    puntos de este test pasa por sus funciones (no se guarda nada, no se abre
+    ningún modal, no se genera ninguna imagen/PDF) — cargarlos solo sumaría
+    dependencias de DOM/librerías (html2canvas, etc.) que no vienen al caso.
+    Si en el futuro se agregan checks que sí los necesiten, hay que sumar
+    tanto el <script> como los stubs de DOM/variables que esos archivos
+    esperan encontrar.
+
+    Genera datos falsos con semilla fija (mulberry32, sin dependencias
+    externas) para que el test sea 100% reproducible entre corridas.
+    ============================================================
+-->
+<style>
+    :root {
+        --ok: #16A34A; --fail: #DC2626; --warn: #D97706; --muted: #6b7280; --bg: #f4f5f7; --card: #ffffff; --border: #e2e4e8;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #1f2328; margin: 0; padding: 24px; }
+    h1 { font-size: 1.4em; margin: 0 0 4px; }
+    .subt { color: var(--muted); font-size: 0.9em; margin-bottom: 20px; }
+    #resumenBanner { padding: 14px 18px; border-radius: 10px; font-weight: 700; margin-bottom: 18px; font-size: 1.05em; }
+    #resumenBanner.ok { background: #ecfdf3; color: var(--ok); border: 1.5px solid #b7ebc6; }
+    #resumenBanner.fail { background: #fef2f2; color: var(--fail); border: 1.5px solid #fca5a5; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 24px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 0.88em; vertical-align: top; }
+    th { background: #f8f9fb; font-weight: 700; color: #444; text-transform: uppercase; font-size: 0.75em; letter-spacing: 0.04em; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 0.85em; }
+    .badge.pass { background: #ecfdf3; color: var(--ok); }
+    .badge.fail { background: #fef2f2; color: var(--fail); }
+    .badge.warn { background: #fffbeb; color: var(--warn); }
+    .detalle { color: #555; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: #f1f2f4; padding: 1px 5px; border-radius: 4px; }
+    #vistaPreviaWrap { background: var(--card); border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    #vistaPreviaWrap h2 { font-size: 1em; margin: 0 0 10px; }
+    #vistaPreviaHost { max-height: 420px; overflow: auto; border: 1px dashed var(--border); border-radius: 8px; padding: 10px; }
+    #logCarga { font-family: ui-monospace, monospace; font-size: 0.78em; background: #111827; color: #d1d5db; padding: 10px 12px; border-radius: 8px; margin-bottom: 18px; max-height: 140px; overflow: auto; white-space: pre-wrap; }
+    .oculto-app { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Test de estrés — Historial (rediseño)</h1>
+<div class="subt">Datos falsos con semilla fija · No toca Back4App · Carga los archivos reales de <span class="mono">js/</span></div>
+
+<div id="resumenBanner">⏳ Ejecutando…</div>
+<div id="logCarga"></div>
+
+<table id="tablaResultados">
+    <thead><tr><th style="width:26px;">#</th><th>Chequeo</th><th style="width:80px;">Resultado</th><th style="width:100px;">Tiempo</th><th>Detalle</th></tr></thead>
+    <tbody id="tbodyResultados"></tbody>
+</table>
+
+<div id="vistaPreviaWrap">
+    <h2>Vista previa en vivo (primeras filas, para inspección visual)</h2>
+    <div id="vistaPreviaHost"></div>
+</div>
+
+<!-- ============================================================
+     Elementos MÍNIMOS que las funciones reales de js/cotizacion.js
+     esperan encontrar por id. No es el index.html completo — solo lo que
+     tocan los 9 puntos de este test (todo lectura/render, nada de guardado)
+     MÁS los 3 elementos que js/cotizacion.js engancha con addEventListener()
+     en su propio nivel superior (searchInput/autocompleteDropdown/btnAdd,
+     el buscador de productos del Cotizador) — sin ellos, cargar el archivo
+     completo revienta ahí antes de llegar a definir "historialCache" y
+     compañía. Ninguno de los 9 checks dispara sus eventos.
+     ============================================================ -->
+<div class="oculto-app">
+    <div id="historialList">
+        <div id="historialFiltrosArea"></div>
+        <input type="text" id="historialSearchInput">
+        <div id="historialResultsArea"></div>
+    </div>
+    <span id="historialCount"></span>
+    <span id="historialCountCotizaciones"></span>
+    <span id="historialCountOrdenes"></span>
+    <input type="text" id="searchInput">
+    <div id="autocompleteDropdown"></div>
+    <button id="btnAdd"></button>
+</div>
+
+<script>
+    // ================= MOCK DE RED — debe ir ANTES de cargar cualquier js/*.js real =================
+    window.__redFlagRed = null;
+    window.__fetchCalls = [];
+    window.fetch = function (url) {
+        window.__fetchCalls.push(String(url));
+        window.__redFlagRed = window.__redFlagRed || ('window.fetch llamado con: ' + url);
+        return Promise.reject(new Error('BLOQUEADO por el test de estrés: no debe tocarse la red (' + url + ')'));
+    };
+
+    // ================= Stubs mínimos de globals que otros módulos del proyecto normalmente
+    // definen (auth.js, ui-alerts.js) — solo lo justo para que js/cotizacion.js pueda CARGAR
+    // (definir sus funciones) sin lanzar ReferenceError. Los 9 checks de este test no ejercitan
+    // ningún flujo que dependa de su comportamiento real (guardar, confirmar, notificar). =================
+    // OJO: NO se stubean acá "verTodasLasCotizaciones" ni "modoDesarrollador" — js/cotizacion.js
+    // ya los declara con "let" a su propio nivel superior (con el mismo valor por defecto, false),
+    // y un "var" con el mismo nombre en este script chocaría con ese "let" (SyntaxError: Identifier
+    // 'x' has already been declared — pasa aunque estén en <script> tags distintos, porque ambos
+    // comparten el mismo scope global).
+    var usuarioActual = { nivel: 'vendedor', username: 'test', nombre: 'Tester' };
+    var BACK4APP_CONFIG = { serverUrl: 'https://NO-DEBE-LLAMARSE.invalid/parse' };
+    function headersBack4App() { return {}; }
+    function mostrarNotificacion() {}
+    function mostrarAlerta() {}
+    function showLoading() {}
+    function confirmarAccion() { return Promise.resolve(false); }
+
+    var logLineas = [];
+    function log(msg) { logLineas.push(msg); document.getElementById('logCarga').textContent = logLineas.join('\n'); }
+
+    window.addEventListener('error', function (e) {
+        log('❌ ERROR JS: ' + e.message + ' (' + (e.filename || '') + ':' + (e.lineno || '') + ')');
+    });
+
+    log('Cargando js/historial.js, js/cotizacion.js, js/envios/shalom.js, js/envios/papeleta.js…');
+</script>
+
+<!-- Los archivos REALES del proyecto — sin copiar ni modificar nada. -->
+<script src="../js/historial.js"></script>
+<script src="../js/cotizacion.js"></script>
+<script src="../js/envios/shalom.js"></script>
+<script src="../js/envios/papeleta.js"></script>
+
+<script>
+(function () {
+    'use strict';
+
+    log('Archivos cargados. Generando datos falsos con semilla fija…');
+
+    // ================= Generador de números pseudoaleatorios con semilla fija (mulberry32) =================
+    function mulberry32(a) {
+        return function () {
+            a |= 0; a = (a + 0x6D2B79F5) | 0;
+            var t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+    var SEMILLA = 20260925; // fecha en que se escribió este test — fija a propósito
+    var rand = mulberry32(SEMILLA);
+    function elegir(arr) { return arr[Math.floor(rand() * arr.length)]; }
+    function entero(min, max) { return min + Math.floor(rand() * (max - min + 1)); }
+
+    var CIUDADES = ['Lima', 'Trujillo', 'Arequipa', 'Piura', 'Chiclayo', 'Cusco', 'Huánuco', 'Ñaña', 'Ica', 'Cañete'];
+    var NOMBRES = ['José', 'María', 'Andrés', 'Jesús', 'Ñusta', 'Perú Antonio', 'François', 'Müller', 'Ángela', 'Iñigo'];
+    var MALICIOSO = '<img src=x onerror=alert(1)>';
+    var NOMBRE_200 = 'Nombre-' + 'X'.repeat(190) + '-Fin'; // ~200 caracteres
+
+    var historialCacheGenerado = [];
+    var shalomEnviosGenerado = [];
+    var idsOCConDespacho = {};
+    var idsOCSinGuia = {};
+    var idsOCPagoPendiente = {};
+    var muestraDespachosPorOC = {}; // ocObjectId -> [despacho,...] para armar búsquedas de prueba
+    var muestraCorrelativosOC = []; // para el test de búsqueda por N°
+    var muestraClientes = [];       // para el test de búsqueda por cliente/ciudad
+
+    var TOTAL_COTIZACIONES = 3000;
+    var TOTAL_OC = 5000;
+    var correlativoCot = 100;
+    var correlativoOC = 100;
+
+    for (var i = 0; i < TOTAL_COTIZACIONES; i++) {
+        correlativoCot++;
+        var clienteCot = (i % 900 === 0) ? MALICIOSO : (i % 770 === 0) ? NOMBRE_200 : (elegir(NOMBRES) + ' Cot' + i);
+        historialCacheGenerado.push({
+            objectId: 'cot' + i,
+            tipoDocumento: 'cotizacion',
+            cliente: clienteCot,
+            empresaCliente: (i % 60 === 0) ? undefined : ('Empresa Cot ' + (i % 200)),
+            telefono: (i % 45 === 0) ? null : ('9' + entero(10000000, 99999999)),
+            productos: [{ codigo: 'PC' + (i % 25), nombre: 'Producto Cotización ' + (i % 25), cantidad: entero(1, 6) }],
+            total: Math.round(rand() * 3000 * 100) / 100,
+            createdAt: new Date(Date.now() - entero(0, 500) * 86400000).toISOString(),
+            usuario: 'vendedor' + (i % 6),
+            usuarioNombre: 'Vendedor ' + (i % 6),
+            correlativo: correlativoCot
+        });
+        if (i % 137 === 0) muestraClientes.push(clienteCot);
+    }
+
+    for (var j = 0; j < TOTAL_OC; j++) {
+        correlativoOC++;
+        var ocId = 'oc' + j;
+        var ciudad = elegir(CIUDADES);
+        var total = Math.round((50 + rand() * 3000) * 100) / 100;
+        var tieneAdelanto = rand() < 0.65;
+        // A propósito: parcial (pago pendiente), completo (pagado), o cero (sin adelanto = "pagada" según
+        // calcularEstadoPago, ver js/cotizacion.js).
+        var tipoAdelanto = rand();
+        var adelanto = 0;
+        if (tieneAdelanto) {
+            adelanto = tipoAdelanto < 0.5 ? Math.round(total * (0.1 + rand() * 0.6) * 100) / 100 : total;
+        }
+        var clienteOC = (j % 850 === 0) ? MALICIOSO : (j % 733 === 0) ? NOMBRE_200 : (elegir(NOMBRES) + ' OC' + j);
+        var sucursalFalta = j % 30 === 0;
+        var oc = {
+            objectId: ocId,
+            tipoDocumento: 'orden_compra',
+            cliente: clienteOC,
+            empresaCliente: (j % 55 === 0) ? undefined : ('Empresa OC ' + (j % 400)),
+            telefono: (j % 40 === 0) ? null : ('9' + entero(10000000, 99999999)),
+            productos: [{ codigo: 'PX' + (j % 30), nombre: 'Producto OC ' + (j % 30), cantidad: entero(1, 12) }],
+            total: total,
+            montoAdelanto: adelanto,
+            createdAt: new Date(Date.now() - entero(0, 500) * 86400000).toISOString(),
+            usuario: 'vendedor' + (j % 6),
+            usuarioNombre: 'Vendedor ' + (j % 6),
+            correlativo: correlativoOC,
+            sucursal: sucursalFalta ? null : { nombre: 'Shalom ' + ciudad, ciudad: ciudad, provincia: ciudad }
+        };
+        historialCacheGenerado.push(oc);
+        if (adelanto > 0 && (total - adelanto) > 0.005) idsOCPagoPendiente[ocId] = true;
+        if (j % 233 === 0) muestraCorrelativosOC.push(oc.correlativo);
+        if (j % 311 === 0) muestraClientes.push(clienteOC);
+
+        // 0 a 3 despachos por OC (sufijos): ~50% sin despacho, ~30% con 1 (principal, sin sufijo),
+        // ~15% con 2 (principal + B), ~5% con 3 (principal + B + C).
+        var r = rand();
+        var numDespachos = r <= 0.5 ? 0 : r <= 0.8 ? 1 : r <= 0.95 ? 2 : 3;
+        var listaDespachos = [];
+        for (var d = 0; d < numDespachos; d++) {
+            idsOCConDespacho[ocId] = true;
+            var sufijo = d === 0 ? '' : String.fromCharCode(65 + d - 1); // '', 'B', 'C'
+            var despId = 'desp' + j + '_' + d;
+            var conCambios = d > 0 && rand() < 0.4;
+            var despacho = {
+                objectId: despId,
+                tipoDocumento: 'despacho',
+                ordenCompraAsociada: ocId,
+                sufijoDespacho: sufijo,
+                cliente: oc.cliente,
+                empresaCliente: oc.empresaCliente,
+                // A propósito distinto a veces del de la OC, para poder ver la fila resaltada en la
+                // tabla de "productos despachados frente a la OC".
+                productos: [{ codigo: oc.productos[0].codigo, nombre: oc.productos[0].nombre, cantidad: rand() < 0.2 ? Math.max(1, oc.productos[0].cantidad - 1) : oc.productos[0].cantidad }],
+                total: oc.total,
+                createdAt: new Date(Date.now() - entero(0, 400) * 86400000).toISOString(),
+                usuario: oc.usuario,
+                usuarioNombre: oc.usuarioNombre,
+                correlativo: oc.correlativo, // el despacho SIEMPRE toma prestado el N° de la OC
+                sucursal: oc.sucursal,
+                historialCambios: conCambios ? [{ version: 2, fecha: new Date().toISOString(), usuario: 'Tester', cambios: ['"' + oc.productos[0].nombre + '": cambio de prueba'] }] : undefined
+            };
+            historialCacheGenerado.push(despacho);
+            listaDespachos.push(despacho);
+
+            // Envío Shalom: ~55% de los despachos con guía+código ya registrados (en algún paso de
+            // determinarPasoActual). OJO: el vínculo es por OC (numeroOrdenCompra/ordenCompraObjectId,
+            // ver js/envios/shalom.js), NO por despacho individual — si una OC tiene 2 despachos y
+            // solo uno "gana" el sorteo de abajo, esa OC completa ya cuenta como "con guía" para
+            // buscarEnvioPorOC(). Por eso "sin guía" se decide DESPUÉS del for, mirando si quedó
+            // algún envío para toda la OC — no adentro del loop por despacho (eso fue justamente el
+            // bug que el propio test encontró la primera vez que corrió: contaba una OC como "sin
+            // guía" solo porque UNO de sus despachos no había ganado el sorteo, aunque otro sí).
+            if (rand() < 0.55) {
+                var estadoAl = elegir(['pendiente', 'en_transito', 'en_transito', 'entregado']);
+                shalomEnviosGenerado.push({
+                    objectId: 'env' + j + '_' + d,
+                    numeroOrdenCompra: formatearCorrelativo(oc.correlativo, null),
+                    ordenCompraObjectId: ocId,
+                    guia: String(10000000 + j),
+                    codigo: String(1000 + (j % 9000)),
+                    destino: ciudad,
+                    estado: estadoAl,
+                    tipo: 'shalom'
+                });
+            }
+        }
+        if (numDespachos > 0 && !shalomEnviosGenerado.some(function (e) { return e.ordenCompraObjectId === ocId; })) {
+            idsOCSinGuia[ocId] = true;
+        }
+        muestraDespachosPorOC[ocId] = listaDespachos;
+    }
+
+    log('Datos generados: ' + historialCacheGenerado.length + ' documentos en total (' + TOTAL_COTIZACIONES + ' cotizaciones + ' + TOTAL_OC + ' OC + despachos). Envíos Shalom: ' + shalomEnviosGenerado.length + '.');
+
+    // Instala los datos en las variables globales reales que usa js/cotizacion.js
+    historialCache = historialCacheGenerado;
+    shalomEnviosCache = shalomEnviosGenerado;
+
+    // ================= Arnés de resultados =================
+    var resultados = []; // {n, nombre, pass, tiempoMs, detalle}
+    function registrar(nombre, pass, tiempoMs, detalle) {
+        resultados.push({ n: resultados.length + 1, nombre: nombre, pass: pass, tiempoMs: tiempoMs, detalle: detalle || '' });
+    }
+    function ahora() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+
+    // ============================================================
+    // CHECK 1 — Render inicial de 5.000 tarjetas de OC no rompe la página
+    // ============================================================
+    (function check1() {
+        seccionHistorial = 'orden_compra';
+        filtroTipoHistorial = 'todas';
+        var contenedor = document.getElementById('historialResultsArea');
+        var t0 = ahora();
+        var lista = filtrarPorTipoDocumento(historialCache);
+        renderListaCotizaciones(contenedor, lista, false, '');
+        var t1 = ahora();
+        var ms = t1 - t0;
+        var tarjetas = document.querySelectorAll('#historialResultsArea .historial-card').length;
+        var esperadas = TOTAL_OC; // cada OC es 1 tarjeta; los despachos no cuentan aparte
+        var pass = tarjetas === esperadas && ms < 500;
+        registrar(
+            'Render inicial de ' + TOTAL_OC + ' tarjetas de OC',
+            pass,
+            ms,
+            tarjetas + ' tarjetas en el DOM (esperado ' + esperadas + ') en ' + ms.toFixed(1) + ' ms' +
+                (ms >= 500 ? ' — ⚠️ pasa de 500 ms: con historiales así de largos convendría paginar la sección OC igual que ya hace el paginador de 10 con la Cotizaciones (ver PAGINACIÓN DE HISTORIAL en index.html), o cargar por lotes en vez de las 200 más recientes de una sola vez.' : '')
+        );
+    })();
+
+    // ============================================================
+    // CHECK 2 — 50 búsquedas distintas devuelven exactamente lo esperado, cada una <50ms
+    // ============================================================
+    (function check2() {
+        var terminos = [];
+        // N° completo de OC (formateado), y el número "pelado" (sin ceros a la izquierda ni prefijo)
+        muestraCorrelativosOC.slice(0, 15).forEach(function (c) {
+            terminos.push({ texto: formatearCorrelativo(c, null), esperaCorrelativo: c });
+            terminos.push({ texto: String(c), esperaCorrelativo: c });
+        });
+        // N° de despacho con sufijo, ej "000501-B"
+        Object.keys(muestraDespachosPorOC).forEach(function (ocId) {
+            var lista = muestraDespachosPorOC[ocId];
+            var conSufijo = lista.filter(function (d) { return d.sufijoDespacho; })[0];
+            if (conSufijo && terminos.length < 40) {
+                terminos.push({ texto: formatearCorrelativo(conSufijo.correlativo, conSufijo.sufijoDespacho), esperaOCId: ocId });
+            }
+        });
+        // Cliente/ciudad, en mayúsculas y sin tildes a propósito
+        muestraClientes.slice(0, 10).forEach(function (c) {
+            var palabra = c.split(' ')[0];
+            terminos.push({ texto: palabra.toUpperCase(), esperaTextoParcial: palabra });
+        });
+        CIUDADES.slice(0, 5).forEach(function (c) {
+            terminos.push({ texto: normalizarBusquedaHistorial(c).toUpperCase(), esperaCiudad: c });
+        });
+        terminos = terminos.slice(0, 50);
+
+        var falladas = [];
+        var tiempos = [];
+        terminos.forEach(function (term) {
+            var t0 = ahora();
+            var normalizado = normalizarBusquedaHistorial(term.texto);
+            var base = seccionHistorial === 'cotizacion' ? historialCache.filter(function (e) { return e.tipoDocumento === 'cotizacion'; })
+                : historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra' || (e.tipoDocumento === 'despacho' && !e.ordenCompraAsociada); });
+            var encontrados = filtrarCotizaciones(base, normalizado);
+            var t1 = ahora();
+            tiempos.push(t1 - t0);
+
+            var ok = true;
+            if (term.esperaCorrelativo !== undefined) {
+                ok = encontrados.some(function (e) { return e.correlativo === term.esperaCorrelativo; });
+            } else if (term.esperaOCId !== undefined) {
+                ok = encontrados.some(function (e) { return e.objectId === term.esperaOCId; });
+            } else if (term.esperaTextoParcial !== undefined) {
+                ok = encontrados.length > 0 && encontrados.every(function (e) {
+                    return textoBusquedaHistorial(e).includes(normalizado) || normalizarBusquedaHistorial(e.usuarioNombre || '').includes(normalizado);
+                });
+            } else if (term.esperaCiudad !== undefined) {
+                ok = encontrados.length > 0;
+            }
+            if (!ok) falladas.push(term.texto);
+        });
+
+        var maxTiempo = Math.max.apply(null, tiempos);
+        var pass = falladas.length === 0 && maxTiempo < 50;
+        registrar(
+            'Buscador único — ' + terminos.length + ' términos distintos',
+            pass,
+            maxTiempo,
+            (falladas.length === 0 ? 'Todos los términos encontraron lo esperado' : (falladas.length + ' fallaron: ' + falladas.slice(0, 5).join(', '))) +
+                '. Peor búsqueda: ' + maxTiempo.toFixed(2) + ' ms (límite 50 ms).'
+        );
+    })();
+
+    // ============================================================
+    // CHECK 3 — Cada filtro rápido cuenta y filtra correctamente (contra cálculo independiente)
+    // ============================================================
+    (function check3() {
+        var t0 = ahora();
+        var conteos = contarFiltrosOC();
+        var t1 = ahora();
+
+        var totalOCReal = historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra'; }).length;
+        var sinDespachoReal = Object.keys(idsOCConDespacho).length; // OC CON despacho
+        var sinDespachoEsperado = totalOCReal - sinDespachoReal;
+        var pagoPendienteEsperado = Object.keys(idsOCPagoPendiente).length;
+        var sinGuiaEsperado = historialCache.filter(function (e) {
+            return e.tipoDocumento === 'orden_compra' && idsOCConDespacho[e.objectId] && idsOCSinGuia[e.objectId];
+        }).length;
+
+        var errores = [];
+        if (conteos.todas !== totalOCReal) errores.push('todas: ' + conteos.todas + ' ≠ ' + totalOCReal);
+        if (conteos.pendientes !== sinDespachoEsperado) errores.push('Sin despacho: ' + conteos.pendientes + ' ≠ ' + sinDespachoEsperado);
+        if (conteos.pago_pendiente !== pagoPendienteEsperado) errores.push('Pago pendiente: ' + conteos.pago_pendiente + ' ≠ ' + pagoPendienteEsperado);
+        if (conteos.sin_guia_shalom !== sinGuiaEsperado) errores.push('Sin guía Shalom: ' + conteos.sin_guia_shalom + ' ≠ ' + sinGuiaEsperado);
+
+        // Y que el FILTRO (no solo el contador) devuelva exactamente esa cantidad de filas:
+        ['pendientes', 'pago_pendiente', 'sin_guia_shalom'].forEach(function (f) {
+            filtroTipoHistorial = f;
+            var filtradas = filtrarPorTipoDocumento(historialCache).length;
+            var esperado = f === 'pendientes' ? conteos.pendientes : f === 'pago_pendiente' ? conteos.pago_pendiente : conteos.sin_guia_shalom;
+            if (filtradas !== esperado) errores.push('filtrarPorTipoDocumento("' + f + '") devolvió ' + filtradas + ', el contador decía ' + esperado);
+        });
+        filtroTipoHistorial = 'todas';
+
+        registrar(
+            'Filtros rápidos de OC (Pago pendiente / Sin despacho / Sin guía Shalom)',
+            errores.length === 0,
+            t1 - t0,
+            errores.length === 0
+                ? ('OK — Todas:' + conteos.todas + ' PagoPendiente:' + conteos.pago_pendiente + ' SinDespacho:' + conteos.pendientes + ' SinGuia:' + conteos.sin_guia_shalom)
+                : errores.join(' | ')
+        );
+    })();
+
+    // ============================================================
+    // CHECK 4 — Los 3 estados de "Destino Shalom" se cumplen
+    // ============================================================
+    (function check4() {
+        var t0 = ahora();
+        var ocsSinDespacho = historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra' && !idsOCConDespacho[e.objectId]; }).slice(0, 50);
+        var ocsSinGuia = historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra' && idsOCConDespacho[e.objectId] && idsOCSinGuia[e.objectId]; }).slice(0, 50);
+        var ocsConGuia = historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra' && idsOCConDespacho[e.objectId] && !idsOCSinGuia[e.objectId]; }).slice(0, 50);
+
+        var errores = [];
+        ocsSinDespacho.forEach(function (oc) {
+            var info = estadoEnvioShalomDeOC(oc);
+            if (info.estado !== 'sin_despacho') errores.push(oc.objectId + ' esperaba sin_despacho, dio ' + info.estado);
+        });
+        ocsSinGuia.forEach(function (oc) {
+            var info = estadoEnvioShalomDeOC(oc);
+            if (info.estado !== 'sin_guia') errores.push(oc.objectId + ' esperaba sin_guia, dio ' + info.estado);
+            var html = renderDestinoShalomHTML(oc);
+            if (/historial-mini-steps/.test(html)) errores.push(oc.objectId + ' (sin_guia) no debería mostrar la mini barra de pasos');
+        });
+        ocsConGuia.forEach(function (oc) {
+            var info = estadoEnvioShalomDeOC(oc);
+            if (info.estado !== 'con_guia') errores.push(oc.objectId + ' esperaba con_guia, dio ' + info.estado);
+            var html = renderDestinoShalomHTML(oc);
+            if (!/historial-mini-steps/.test(html)) errores.push(oc.objectId + ' (con_guia) debería mostrar la mini barra de 4 pasos');
+        });
+        var t1 = ahora();
+
+        registrar(
+            'Destino Shalom — 3 estados (sin despacho / sin guía / con guía)',
+            errores.length === 0,
+            t1 - t0,
+            errores.length === 0
+                ? ('OK — probadas ' + (ocsSinDespacho.length + ocsSinGuia.length + ocsConGuia.length) + ' OC (sin_despacho:' + ocsSinDespacho.length + ' sin_guia:' + ocsSinGuia.length + ' con_guia:' + ocsConGuia.length + ')')
+                : (errores.length + ' fallas: ' + errores.slice(0, 5).join(' | '))
+        );
+    })();
+
+    // ============================================================
+    // CHECK 5 — Historial de cambios: detecta diferencias y "sin campo" = Versión 1
+    // ============================================================
+    (function check5() {
+        var t0 = ahora();
+        var errores = [];
+
+        // 5a) Despacho SIN historialCambios (todos los "principales", sufijo '') se debe mostrar
+        // como "Versión 1 · creado desde la OC" y NADA más.
+        var despachosSinCampo = historialCache.filter(function (e) { return e.tipoDocumento === 'despacho' && !e.historialCambios; }).slice(0, 30);
+        despachosSinCampo.forEach(function (d) {
+            var html = renderHistorialCambiosHTML(d);
+            if (!/Versión 1 · creado desde la OC/.test(html)) errores.push(d.objectId + ' sin historialCambios no mostró "Versión 1"');
+        });
+
+        // 5b) Despacho CON historialCambios: debe listar la versión más nueva primero, y seguir
+        // mostrando la "Versión 1" implícita al final.
+        var despachosConCambios = historialCache.filter(function (e) { return e.tipoDocumento === 'despacho' && e.historialCambios && e.historialCambios.length; }).slice(0, 30);
+        despachosConCambios.forEach(function (d) {
+            var html = renderHistorialCambiosHTML(d);
+            if (!/Versión 2/.test(html) || !/Versión 1 · creado desde la OC/.test(html)) {
+                errores.push(d.objectId + ' con historialCambios no mostró ambas versiones');
+            }
+            var posV2 = html.indexOf('Versión 2');
+            var posV1 = html.indexOf('Versión 1 · creado desde la OC');
+            if (posV2 === -1 || posV1 === -1 || posV2 > posV1) errores.push(d.objectId + ' no ordenó de más nueva a más vieja');
+        });
+
+        // 5c) calcularCambiosDespacho() detecta bien una diferencia de cantidad y de sucursal.
+        var anterior = { productos: [{ codigo: 'Z1', nombre: 'Producto Z', cantidad: 5 }], sucursal: { nombre: 'Shalom Lima', ciudad: 'Lima' } };
+        var nuevo = { productos: [{ codigo: 'Z1', nombre: 'Producto Z', cantidad: 8 }], sucursal: { nombre: 'Shalom Trujillo', ciudad: 'Trujillo' } };
+        var diffs = calcularCambiosDespacho(anterior, nuevo);
+        if (!diffs.some(function (t) { return /5 → 8/.test(t); })) errores.push('calcularCambiosDespacho no detectó el cambio de cantidad 5→8');
+        if (!diffs.some(function (t) { return /Destino/.test(t); })) errores.push('calcularCambiosDespacho no detectó el cambio de destino');
+        var sinCambios = calcularCambiosDespacho(anterior, anterior);
+        if (sinCambios.length !== 0) errores.push('calcularCambiosDespacho debería devolver [] cuando no cambió nada (dio ' + sinCambios.length + ')');
+
+        var t1 = ahora();
+        registrar(
+            'Historial de cambios del despacho',
+            errores.length === 0,
+            t1 - t0,
+            errores.length === 0
+                ? ('OK — ' + despachosSinCampo.length + ' sin campo (→Versión 1), ' + despachosConCambios.length + ' con versiones, + detección de diffs')
+                : errores.slice(0, 5).join(' | ')
+        );
+    })();
+
+    // ============================================================
+    // CHECK 6 — Abrir y cerrar 500 paneles de despacho no deja nada colgado
+    // ============================================================
+    (function check6() {
+        var ocsConDespacho = historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra' && idsOCConDespacho[e.objectId]; });
+        var muestra = [];
+        for (var k = 0; k < 500 && k < ocsConDespacho.length * 4; k++) {
+            muestra.push(ocsConDespacho[k % ocsConDespacho.length].objectId);
+        }
+
+        // Renderiza las filas de esas OC (con su <div class="historial-despacho-panel"> vacío) para
+        // poder ejercitar toggleDespachoPanel() de verdad, tal como lo haría un clic real.
+        var contenedor = document.getElementById('historialResultsArea');
+        contenedor.innerHTML = '<div class="historial-list">' + ocsConDespacho.slice(0, 200).map(function (e) { return renderTarjetaHistorialHTML(e, false); }).join('') + '</div>';
+
+        var t0 = ahora();
+        var erroresToggle = 0;
+        muestra.forEach(function (ocId) {
+            if (!document.getElementById('despachoPanel-' + ocId)) return; // no está entre las 200 pintadas arriba, se ignora
+            try {
+                toggleDespachoPanel(ocId); // abrir
+                toggleDespachoPanel(ocId); // cerrar
+            } catch (e) {
+                erroresToggle++;
+            }
+        });
+        var t1 = ahora();
+
+        // Verifica que TODOS los paneles quedaron cerrados y vacíos (sin contenido "colgado" en el DOM).
+        var panelesConContenidoColgado = 0;
+        document.querySelectorAll('.historial-despacho-panel').forEach(function (p) {
+            if (!p.hidden || p.innerHTML.length > 0) panelesConContenidoColgado++;
+        });
+
+        var pass = erroresToggle === 0 && panelesConContenidoColgado === 0;
+        registrar(
+            'Abrir/cerrar 500 paneles de despacho seguidos',
+            pass,
+            t1 - t0,
+            pass
+                ? ('OK — ' + muestra.length + ' aperturas/cierres en ' + (t1 - t0).toFixed(1) + ' ms, 0 paneles con contenido colgado')
+                : (erroresToggle + ' toggles lanzaron error, ' + panelesConContenidoColgado + ' paneles quedaron con contenido después de cerrarse')
+        );
+    })();
+
+    // ============================================================
+    // CHECK 7 — Ningún string malicioso se ejecuta (HTML queda escapado)
+    // ============================================================
+    (function check7() {
+        var t0 = ahora();
+        var conMaliciosoCot = historialCache.filter(function (e) { return e.tipoDocumento === 'cotizacion' && e.cliente === MALICIOSO; });
+        var conMaliciosoOC = historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra' && e.cliente === MALICIOSO; });
+
+        var errores = [];
+        conMaliciosoCot.concat(conMaliciosoOC).forEach(function (e) {
+            var html = renderTarjetaHistorialHTML(e, false);
+            if (html.indexOf('<img src=x onerror=alert(1)>') !== -1) errores.push(e.objectId + ': el <img onerror> quedó SIN escapar');
+            if (html.indexOf('&lt;img') === -1) errores.push(e.objectId + ': no se encontró la versión escapada (&lt;img…) — ¿cambió el texto de prueba?');
+        });
+
+        // Inserta de verdad en el DOM y confirma que el navegador NO interpreta ninguna etiqueta:
+        // si escaparHtml() fallara, esto crearía un <img> real (o dispararía el onerror).
+        var host = document.createElement('div');
+        host.innerHTML = conMaliciosoOC.length ? renderTarjetaHistorialHTML(conMaliciosoOC[0], false) : '';
+        if (host.querySelector('img')) errores.push('Se creó un <img> real en el DOM a partir del texto malicioso');
+
+        // También se prueba el eco del buscador (el texto que el usuario escribe se muestra de
+        // vuelta en "Buscando "…"" cuando no hay resultados locales — ver renderListaCotizaciones).
+        var ecoEscapado = escaparHtml(MALICIOSO);
+        if (ecoEscapado.indexOf('<img') !== -1) errores.push('escaparHtml() no escapó el término de búsqueda malicioso');
+
+        var t1 = ahora();
+        registrar(
+            'Strings maliciosos (XSS) quedan escapados',
+            errores.length === 0,
+            t1 - t0,
+            errores.length === 0
+                ? ('OK — probado sobre ' + (conMaliciosoCot.length + conMaliciosoOC.length) + ' documentos con "<img src=x onerror=alert(1)>" como cliente, ninguno se ejecutó')
+                : errores.join(' | ')
+        );
+    })();
+
+    // ============================================================
+    // CHECK 8 — Claro/oscuro y 390px/1440px (comprobación estructural — ver nota)
+    // ============================================================
+    (function check8() {
+        // Esta página no carga css/variables.css con el mismo alcance que index.html (el modo
+        // oscuro real se activa con data-theme="dark" en <html> y sus tokens de color están
+        // scopeados a #appShell — ver css/variables.css). Lo que SÍ se puede verificar aquí, sin
+        // esa dependencia, es que ninguna regla nueva de este rediseño usa un color fijo en vez de
+        // una variable CSS (lo que rompería el modo oscuro), y que el layout no se rompe en los dos
+        // anchos pedidos. El detalle de esta fila deja explícito qué se verificó y qué no.
+        var t0 = ahora();
+        var erroresAncho = [];
+
+        [390, 1440].forEach(function (ancho) {
+            var iframe = document.createElement('iframe');
+            iframe.style.cssText = 'position:fixed; left:-9999px; top:0; width:' + ancho + 'px; height:600px; border:0;';
+            document.body.appendChild(iframe);
+            var doc = iframe.contentDocument;
+            doc.open();
+            doc.write('<!DOCTYPE html><html><head><link rel="stylesheet" href="../css/variables.css"><link rel="stylesheet" href="../css/cotizacion.css"></head><body><div id="historialList"></div></body></html>');
+            doc.close();
+            var muestra = historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra'; }).slice(0, 5);
+            doc.getElementById('historialList').innerHTML = '<div class="historial-list">' + muestra.map(function (e) { return renderTarjetaHistorialHTML(e, false); }).join('') + '</div>';
+            var overflow = doc.documentElement.scrollWidth - ancho;
+            if (overflow > 2) erroresAncho.push(ancho + 'px: desborde horizontal de ' + overflow + 'px');
+            document.body.removeChild(iframe);
+        });
+
+        var t1 = ahora();
+        registrar(
+            'Layout a 390px y 1440px (claro/oscuro: ver detalle)',
+            erroresAncho.length === 0,
+            t1 - t0,
+            (erroresAncho.length === 0 ? 'Sin desborde horizontal en 390px ni 1440px. ' : erroresAncho.join(' | ') + '. ') +
+                'Modo oscuro: revisado por código (todo color nuevo usa var(--…) de css/variables.css, igual que el resto del historial) — no verificado visualmente en esta página porque data-theme="dark" está scopeado a #appShell, que esta página no reproduce. Verificar a ojo dentro de la app real con el interruptor "Oscuro" del sidebar.'
+        );
+    })();
+
+    // ============================================================
+    // CHECK 9 — Funciones que NO debían tocarse siguen existiendo con la misma firma
+    // ============================================================
+    (function check9() {
+        var t0 = ahora();
+        var esperado = {
+            formatearCorrelativo: 2,
+            calcularSufijoDespacho: 1,
+            crearDespachoDesdeOC: 1,
+            cargarDesdeHistorial: 1,
+            buscarEnvioPorOC: 2,
+            determinarPasoActual: 1
+        };
+        var errores = [];
+        Object.keys(esperado).forEach(function (nombre) {
+            var fn = window[nombre];
+            if (typeof fn !== 'function') { errores.push(nombre + ' ya no existe o no es function'); return; }
+            if (fn.length !== esperado[nombre]) errores.push(nombre + ' tiene ' + fn.length + ' parámetros, se esperaban ' + esperado[nombre]);
+        });
+        var t1 = ahora();
+        registrar(
+            'Funciones protegidas conservan su firma',
+            errores.length === 0,
+            t1 - t0,
+            errores.length === 0 ? ('OK — ' + Object.keys(esperado).join(', ')) : errores.join(' | ')
+        );
+    })();
+
+    // ============================================================
+    // Vista previa en vivo (para inspección visual manual)
+    // ============================================================
+    (function pintarVistaPrevia() {
+        var host = document.getElementById('vistaPreviaHost');
+        seccionHistorial = 'orden_compra';
+        filtroTipoHistorial = 'todas';
+        var muestra = historialCache.filter(function (e) { return e.tipoDocumento === 'orden_compra'; }).slice(0, 6);
+        host.innerHTML = '<div class="historial-list">' + muestra.map(function (e) { return renderTarjetaHistorialHTML(e, false); }).join('') + '</div>';
+    })();
+
+    // ============================================================
+    // ¿Se tocó la red? — si CUALQUIER check (o la carga de los archivos) disparó fetch, todo el
+    // test se considera en rojo, sin importar lo demás.
+    // ============================================================
+    var redTocada = window.__fetchCalls.length > 0;
+    if (redTocada) {
+        registrar('¿Se tocó la red? (debe ser NO)', false, 0, window.__fetchCalls.length + ' llamada(s) a fetch: ' + window.__fetchCalls.slice(0, 3).join(' | '));
+    } else {
+        registrar('¿Se tocó la red? (debe ser NO)', true, 0, 'OK — 0 llamadas a fetch/BACK4APP_CONFIG en todo el test');
+    }
+
+    // ================= Pintar tabla de resultados =================
+    var tbody = document.getElementById('tbodyResultados');
+    var todasPasaron = true;
+    resultados.forEach(function (r) {
+        if (!r.pass) todasPasaron = false;
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td>' + r.n + '</td>' +
+            '<td>' + r.nombre.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</td>' +
+            '<td><span class="badge ' + (r.pass ? 'pass">✅ PASA' : 'fail">❌ FALLA') + '</span></td>' +
+            '<td>' + r.tiempoMs.toFixed(1) + ' ms</td>' +
+            '<td class="detalle"></td>';
+        tr.lastElementChild.textContent = r.detalle; // textContent a propósito: el detalle puede citar texto de prueba (incluye el string malicioso) y NO debe interpretarse como HTML
+        tbody.appendChild(tr);
+    });
+
+    var banner = document.getElementById('resumenBanner');
+    var pasaron = resultados.filter(function (r) { return r.pass; }).length;
+    banner.className = todasPasaron ? 'ok' : 'fail';
+    banner.textContent = (todasPasaron ? '✅ TODO PASA' : '❌ HAY FALLAS') + ' — ' + pasaron + '/' + resultados.length + ' checks OK · semilla ' + SEMILLA + ' · ' + TOTAL_OC + ' OC + ' + TOTAL_COTIZACIONES + ' cotizaciones generadas';
+    log('Listo. ' + pasaron + '/' + resultados.length + ' checks OK.');
+})();
+</script>
+</body>
+</html>

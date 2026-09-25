@@ -1522,6 +1522,10 @@
            — ver css/responsive.css). */
         .historial-fila {
             display: flex;
+            /* .historial-card (ver arriba) declara flex-direction:column para su propio uso —
+               como ambos selectores calzan en el mismo elemento con la misma especificidad, hay
+               que declararlo acá explícito (no basta con "omitirlo y que gane el default"). */
+            flex-direction: row;
             align-items: flex-start;
             flex-wrap: wrap;
             gap: 16px;

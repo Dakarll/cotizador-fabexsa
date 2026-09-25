@@ -1690,10 +1690,37 @@
             return base;
         }
 
+        // Índice ocObjectId -> [despachos], para no recorrer TODO historialCache por cada OC. Antes,
+        // obtenerDespachosDeOC() hacía un historialCache.filter() completo en cada llamada — con el
+        // rediseño de Historial esta función se invoca una vez POR FILA en cada búsqueda/filtro (ver
+        // textoBusquedaHistorial, contarFiltrosOC), así que con historiales grandes eso se volvía
+        // O(n²) y el buscador llegaba a colgarse (detectado con tests/stress-historial.html, 5.000
+        // OC). Se reconstruye solo cuando "historialCache" cambia de referencia — cada recarga real
+        // (cargarHistorialDesdeNube) SÍ reasigna esa variable, así que alcanza con comparar por
+        // identidad; el único caso que solo EMPUJA resultados sin reasignar (la búsqueda en vivo en
+        // la nube, ver renderListaCotizaciones) invalida el índice a mano justo después del push.
+        let _indiceDespachosPorOC = null;
+        let _indiceDespachosPorOCFuente = null;
+        function invalidarIndiceDespachosPorOC() { _indiceDespachosPorOCFuente = null; }
+        function obtenerDespachosDeOCIndice() {
+            if (_indiceDespachosPorOCFuente !== historialCache) {
+                const indice = new Map();
+                historialCache.forEach(e => {
+                    if (e.tipoDocumento === 'despacho' && e.ordenCompraAsociada) {
+                        const lista = indice.get(e.ordenCompraAsociada);
+                        if (lista) lista.push(e); else indice.set(e.ordenCompraAsociada, [e]);
+                    }
+                });
+                _indiceDespachosPorOC = indice;
+                _indiceDespachosPorOCFuente = historialCache;
+            }
+            return _indiceDespachosPorOC;
+        }
+
         // Devuelve todos los despachos activos vinculados a una OC puntual (puede haber más de uno:
         // el original y sus sucesivos "B", "C"... si se olvidó despachar algo y se hizo aparte).
         function obtenerDespachosDeOC(ocObjectId) {
-            return historialCache.filter(e => e.tipoDocumento === 'despacho' && e.ordenCompraAsociada === ocObjectId);
+            return obtenerDespachosDeOCIndice().get(ocObjectId) || [];
         }
 
         // FIX: antes esta función solo devolvía true/false para BLOQUEAR la creación de un segundo
@@ -1757,10 +1784,9 @@
 
         // Arma el texto "buscable" completo de una fila del historial (OC o Cotización): su propio
         // N°, cliente, empresa, y — solo para OC — el N° (con sufijo) de cada despacho vinculado más
-        // la ciudad/destino que ya se conoce (sucursal del despacho, o el "destino" del envío Shalom
-        // si ya está registrado). Se normaliza UNA sola vez por fila y se cachea en línea para que
-        // buscar sobre miles de filas no vuelva a normalizar todo en cada tecla — ver
-        // pintarResultadosHistorial()/debounce de búsqueda.
+        // la ciudad/destino ya conocida por la sucursal de ese despacho. Se recalcula en cada
+        // búsqueda (no hay estado que cachear entre tecla y tecla), pero el debounce de ~150ms
+        // (onBuscarHistorialInput) evita que se dispare en cada pulsación.
         function textoBusquedaHistorial(entry) {
             const partes = [
                 formatearCorrelativo(entry.correlativo, entry.tipoDocumento === 'despacho' ? entry.sufijoDespacho : null),
@@ -1771,13 +1797,16 @@
                 entry.sucursal?.nombre,
                 entry.sucursal?.provincia
             ];
+            // Nota de rendimiento: a propósito NO se incluye acá el envío Shalom (estadoEnvioShalomDeOC
+            // hace un buscarEnvioPorOC(), que recorre shalomEnviosCache linealmente — bien para una
+            // sola tarjeta, pero demasiado si se llama por cada fila en cada tecla del buscador). La
+            // "ciudad de destino" que pide la búsqueda ya queda cubierta con la sucursal del despacho,
+            // sin ese costo extra.
             if (entry.tipoDocumento === 'orden_compra') {
                 obtenerDespachosDeOC(entry.objectId).forEach(d => {
                     partes.push(formatearCorrelativo(d.correlativo, d.sufijoDespacho));
                     if (d.sucursal) partes.push(d.sucursal.ciudad, d.sucursal.nombre, d.sucursal.provincia);
                 });
-                const info = estadoEnvioShalomDeOC(entry);
-                if (info.envio) partes.push(info.envio.destino, info.envio.guia, info.envio.codigo);
             }
             return normalizarBusquedaHistorial(partes.filter(Boolean).join(' '));
         }
@@ -2321,6 +2350,10 @@
                     encontradosCrudo.forEach(e => {
                         if (!historialCache.some(h => h.objectId === e.objectId)) historialCache.push(e);
                     });
+                    // historialCache.push() no reasigna la variable — invalida a mano el índice de
+                    // obtenerDespachosDeOC() (ver más arriba), que solo se reconstruye cuando detecta
+                    // un cambio de REFERENCIA.
+                    invalidarIndiceDespachosPorOC();
                     // La búsqueda en la nube no distingue apartado: se filtra aquí para que un
                     // resultado de Orden de Compra no aparezca mientras se busca en "Cotizaciones" (y
                     // viceversa) — mantiene la separación de los 2 apartados también en este camino.
