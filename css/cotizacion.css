@@ -1512,6 +1512,267 @@
             font-weight: 600;
         }
 
+        /* ============================================
+           REDISEÑO DE HISTORIAL — fila por OC/Cotización (rama feature/historial-rediseno)
+           ============================================
+           Compone con .historial-card (que sigue aportando borde/sombra/radio/fondo — ver el
+           comentario en renderTarjetaHistorialHTML, js/cotizacion.js, sobre por qué esa clase se
+           mantiene). Estas reglas solo cambian el LAYOUT: fila a todo el ancho en escritorio,
+           apilada en móvil (@media max-width:768px, mismo breakpoint que ya usa el resto del sitio
+           — ver css/responsive.css). */
+        .historial-fila {
+            display: flex;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .historial-fila-principal { flex: 1 1 260px; min-width: 0; }
+        .historial-fila-doc {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+        .historial-fila-estado {
+            flex: 0 0 210px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .historial-fila-lateral {
+            flex: 0 0 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        .historial-fila-acciones {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        /* Todo botón de este rediseño cumple el mínimo de 44px de alto/ancho para uso táctil y de
+           teclado — se aplica de forma general en vez de repetirlo en cada clase de botón. Solo
+           afecta a lo que vive DENTRO de una fila o del panel de despacho, nunca a otras vistas que
+           reutilicen .btn-historial-* (ver js/envios/lima.js). */
+        .historial-fila button,
+        .historial-despacho-panel button {
+            min-height: 44px;
+        }
+        .historial-fila .btn-historial-del { min-width: 44px; }
+        .historial-fila button:focus-visible,
+        .historial-despacho-panel button:focus-visible,
+        .historial-seccion-btn:focus-visible,
+        .chip-filtro-historial:focus-visible {
+            outline: 2px solid var(--secondary);
+            outline-offset: 2px;
+        }
+
+        /* Estado de Cotización: Abierta / Vencida (7 días, mismo criterio que el badge "Válido 7
+           días" del PDF — ver cotizacionVencida() en js/cotizacion.js). */
+        .historial-estado-chip {
+            font-size: 0.72em;
+            font-weight: 700;
+            padding: 2px 9px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+        .historial-estado-chip--abierta { background: var(--chip-success-bg); color: var(--chip-success-text); }
+        .historial-estado-chip--vencida { background: var(--chip-danger-bg); color: var(--chip-danger-text); }
+
+        /* Barra de avance de pago — botón completo (min. 44px) para poder actualizar el adelanto
+           con un solo toque, sin ningún módulo de abonos nuevo: solo lee/escribe montoAdelanto. */
+        .historial-pago-btn {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            width: 100%;
+            justify-content: center;
+            background: transparent;
+            border: 1.5px solid var(--gray-200);
+            border-radius: var(--radius-sm);
+            padding: 8px 10px;
+            cursor: pointer;
+            text-align: left;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+.historial-pago-btn:hover { border-color: var(--gray-400); background: var(--gray-50); }
+}
+        .historial-pago-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: var(--gray-200);
+            overflow: hidden;
+        }
+        .historial-pago-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .historial-pago-bar-fill--pendiente { background: var(--warning); }
+        .historial-pago-bar-fill--completo { background: var(--success); }
+        .historial-pago-label { font-size: 0.78em; font-weight: 700; }
+        .historial-pago-label--pendiente { color: var(--warning); }
+        .historial-pago-label--completo { color: var(--success); }
+
+        /* Bloque "Destino Shalom" — los 3 estados del punto 4 del rediseño (ver
+           renderDestinoShalomHTML/estadoEnvioShalomDeOC en js/cotizacion.js). */
+        .historial-destino-bloque {
+            font-size: 0.82em;
+            color: var(--gray-600);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .historial-destino-bloque--vacio { color: var(--gray-400); font-style: italic; }
+        .historial-destino-paso { font-size: 0.78em; font-weight: 600; color: var(--gray-600); }
+        .historial-mini-steps { display: flex; align-items: center; gap: 3px; }
+        .historial-mini-step {
+            width: 16px;
+            height: 5px;
+            border-radius: 3px;
+            background: var(--gray-200);
+            display: inline-block;
+        }
+        .historial-mini-step.listo { background: var(--secondary); }
+        .historial-mini-step.actual { background: var(--secondary); box-shadow: 0 0 0 2px var(--secondary-light); }
+
+        /* Botón "Ver / editar despacho" — el mismo .historial-quick-btn de siempre, con una
+           flechita que indica si el panel de abajo está abierto (aria-expanded). */
+        .historial-btn-despacho-toggle::after { content: ' ▾'; }
+        .historial-btn-despacho-toggle[aria-expanded="true"]::after { content: ' ▴'; }
+
+        /* Panel inline "Ver / editar despacho" — al usar flex-basis:100% dentro de .historial-fila
+           (que tiene flex-wrap:wrap), cae a su propia línea de ancho completo debajo de las 3
+           columnas de la fila, sin necesitar una grilla aparte. */
+        .historial-despacho-panel {
+            flex-basis: 100%;
+            margin-top: 12px;
+            padding-top: 14px;
+            border-top: 1.5px dashed var(--gray-200);
+        }
+        .historial-despacho-panel[hidden] { display: none; }
+        .historial-despacho-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .historial-despacho-tab {
+            background: var(--gray-100);
+            color: var(--gray-600);
+            border: 1.5px solid var(--gray-200);
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            padding: 8px 12px;
+            font-size: 0.82em;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .historial-despacho-tab.active {
+            background: var(--surface);
+            color: var(--primary);
+            border-color: var(--secondary);
+        }
+        .historial-despacho-panel-body {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .historial-despacho-seccion-titulo {
+            font-size: 0.78em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gray-500);
+            margin-bottom: 6px;
+        }
+        .historial-despacho-destino-linea { font-size: 0.85em; color: var(--gray-700); }
+        .historial-despacho-guia { font-size: 0.82em; color: var(--gray-600); margin-top: 4px; }
+        .historial-despacho-guia--vacio { color: var(--gray-400); font-style: italic; }
+        .historial-despacho-nota { font-size: 0.76em; color: var(--gray-400); font-style: italic; margin-top: 4px; }
+
+        .historial-despacho-tabla-productos { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+        .historial-despacho-tabla-productos th {
+            text-align: left;
+            color: var(--gray-500);
+            font-weight: 700;
+            font-size: 0.82em;
+            padding: 6px 8px;
+            border-bottom: 1.5px solid var(--border);
+        }
+        .historial-despacho-tabla-productos th:not(:first-child),
+        .historial-despacho-tabla-productos td:not(:first-child) { text-align: center; }
+        .historial-despacho-tabla-productos td { padding: 6px 8px; border-bottom: 0.5px solid var(--border); }
+        .historial-despacho-fila-distinta td { background: var(--chip-warning-bg); }
+        .historial-despacho-cant { font-weight: 700; }
+        .historial-despacho-color { font-size: 0.85em; color: var(--gray-500); }
+        .historial-despacho-codigo { font-size: 0.76em; color: var(--gray-400); font-family: monospace; }
+
+        .historial-cambios-item { padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+        .historial-cambios-item:last-child { border-bottom: none; }
+        .historial-cambios-item--base { color: var(--gray-400); font-style: italic; font-size: 0.85em; }
+        .historial-cambios-version { font-size: 0.8em; font-weight: 700; color: var(--gray-600); margin-bottom: 4px; }
+        .historial-cambios-lista {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.82em;
+            color: var(--gray-600);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .historial-despacho-panel-acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+        .historial-despacho-link-adicional {
+            background: transparent;
+            border: none;
+            color: var(--secondary);
+            font-size: 0.82em;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 10px 4px;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        /* Contador de cada chip de filtro rápido (Pago pendiente / Sin despacho / Sin guía Shalom) */
+        .chip-filtro-historial-count {
+            display: inline-block;
+            margin-left: 4px;
+            background: var(--gray-200);
+            color: var(--gray-700);
+            border-radius: 8px;
+            padding: 0 6px;
+            font-size: 0.85em;
+            font-weight: 800;
+        }
+        .chip-filtro-historial.active .chip-filtro-historial-count { background: rgba(255,255,255,0.3); color: #fff; }
+
+        /* Fila apilada en móvil/tablet — mismo breakpoint que ya usa el resto del sitio. */
+        @media (max-width: 768px) {
+            .historial-fila { flex-direction: column; align-items: stretch; }
+            .historial-fila-estado,
+            .historial-fila-lateral {
+                flex: 1 1 auto;
+                width: 100%;
+                align-items: stretch;
+            }
+            .historial-fila-acciones,
+            .historial-card-quickbar {
+                justify-content: stretch;
+            }
+            .historial-fila-acciones button,
+            .historial-card-quickbar button {
+                flex: 1 1 auto;
+            }
+            .historial-fila-lateral .historial-card-total { align-self: flex-end; }
+        }
+
         /* MODO COMPACTO — pantallas de PC de poca altura (ver css/layout.css).
            Achica los paneles colapsables, la tabla y la barra de totales de Cotizar
            para que quede más alto real disponible para ver filas de productos sin

@@ -1212,6 +1212,53 @@
         let historialCache = [];
         let verTodasLasCotizaciones = false; // solo aplica si el usuario es "master"
 
+        // Compara la versión anterior de un despacho (documento completo, tal como está en el
+        // servidor) contra lo que se está por guardar ("entrada": productos y sucursal ya armados
+        // por guardarEnHistorial) y arma una lista de frases legibles para el historial de cambios
+        // (punto 6 del rediseño de Historial). Deliberadamente NO reutiliza calcularDiferenciaProductos()
+        // (js/kardex.js): esa función es específica del Kardex (excluye productos "sinKardex", agrupa
+        // solo para saber cuánto stock ajustar) y no debe tocarse ni mezclarse con este propósito.
+        function calcularCambiosDespacho(anterior, nuevo) {
+            if (!anterior) return [];
+            const cambios = [];
+
+            const clave = p => `${String(p.codigo).trim()}||${String(p.color || '').trim().toLowerCase()}`;
+            const agrupar = lista => {
+                const mapa = {};
+                (lista || []).forEach(p => {
+                    const k = clave(p);
+                    mapa[k] = { ...p, cantidad: (mapa[k]?.cantidad || 0) + (parseFloat(p.cantidad) || 0) };
+                });
+                return mapa;
+            };
+            const mapaAnt = agrupar(anterior.productos);
+            const mapaNuevo = agrupar(nuevo.productos);
+            const todasLasClaves = new Set([...Object.keys(mapaAnt), ...Object.keys(mapaNuevo)]);
+            todasLasClaves.forEach(k => {
+                const ant = mapaAnt[k];
+                const nue = mapaNuevo[k];
+                const nombre = (nue || ant)?.nombre || (nue || ant)?.codigo || k;
+                if (!ant) {
+                    cambios.push(`+ Se agregó "${nombre}" (${nue.cantidad} unid.)`);
+                } else if (!nue) {
+                    cambios.push(`− Se quitó "${nombre}" (tenía ${ant.cantidad} unid.)`);
+                } else if (ant.cantidad !== nue.cantidad) {
+                    cambios.push(`"${nombre}": ${ant.cantidad} → ${nue.cantidad} unid.`);
+                }
+            });
+
+            const sucAnt = anterior.sucursal || null;
+            const sucNuevo = nuevo.sucursal || null;
+            const idSucursal = s => s ? `${s.nombre || ''}|${s.ciudad || ''}|${s.provincia || ''}` : '';
+            if (idSucursal(sucAnt) !== idSucursal(sucNuevo)) {
+                if (!sucAnt && sucNuevo) cambios.push(`Se asignó destino: ${sucNuevo.nombre || ''}${sucNuevo.ciudad ? ' — ' + sucNuevo.ciudad : ''}`);
+                else if (sucAnt && !sucNuevo) cambios.push(`Se quitó el destino (antes: ${sucAnt.nombre || ''})`);
+                else cambios.push(`Destino: ${sucAnt.nombre || ''} → ${sucNuevo.nombre || ''}${sucNuevo.ciudad ? ' (' + sucNuevo.ciudad + ')' : ''}`);
+            }
+
+            return cambios;
+        }
+
         async function guardarEnHistorial() {
             if (productosEnTabla.length === 0) { mostrarNotificacion('Agrega productos primero', 'warning'); return; }
             const cliente = getClienteData();
@@ -1309,6 +1356,25 @@
             }
             sufijoDespacho = sufijoDespacho || '';
 
+            // Historial de cambios de un despacho (punto 6 del rediseño de Historial): antes de
+            // sobrescribir un despacho que YA existía, se trae su versión actual del servidor (no el
+            // caché local, que puede estar desactualizado) para poder comparar productos/sucursal más
+            // abajo y armar el resumen de qué cambió. Es una lectura APARTE y aditiva — no toca la
+            // verificación de concurrencia de más abajo ni ninguna otra parte del guardado, y solo se
+            // dispara para despachos reales (nunca para "_prueba", porque tipoContador ahí es
+            // "despacho_prueba", no "despacho").
+            let despachoAnteriorParaHistorial = null;
+            if (tipoContador === 'despacho' && registroExistente?.objectId) {
+                try {
+                    const respAnterior = await fetch(`${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_COTIZACIONES}/${registroExistente.objectId}`, {
+                        headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken })
+                    });
+                    if (respAnterior.ok) despachoAnteriorParaHistorial = await respAnterior.json();
+                } catch (eAnterior) {
+                    console.warn('No se pudo leer la versión anterior del despacho para el historial de cambios (se omite el registro de esta versión):', eAnterior);
+                }
+            }
+
             // Guarda/actualiza al cliente DIRECTAMENTE en la nube (clase "Clientes") antes de
             // guardar la cotización, para poder incluir su objectId dentro de la cotización misma
             // (entrada.clienteObjectId, más abajo). Ese vínculo es lo que permite que, si más tarde
@@ -1356,6 +1422,26 @@
             if (tipoContador === 'despacho') {
                 if (ordenCompraVinculada) entrada.ordenCompraAsociada = ordenCompraVinculada;
                 if (sufijoDespacho) entrada.sufijoDespacho = sufijoDespacho;
+            }
+            // Historial de cambios (punto 6 del rediseño de Historial): campo NUEVO y OPCIONAL
+            // "historialCambios" — se compara la versión anterior (leída arriba) contra "entrada"
+            // (productos y sucursal/destino) y se arma un resumen legible. El sufijo -B/-C sigue
+            // usándose SOLO para envíos adicionales (ver crearEnvioAdicionalDesdeOC): una corrección
+            // como esta NUNCA genera un N° nuevo. Si no hay cambios reales (ej. se volvió a guardar
+            // solo para imprimir la guía, ver imprimirGuiaDespacho), no se toca historialCambios — así
+            // no se ensucia con versiones vacías. Un despacho sin este campo se interpreta como
+            // "Versión 1 · creado desde la OC" (ver renderHistorialCambiosHTML).
+            if (tipoContador === 'despacho' && despachoAnteriorParaHistorial) {
+                const cambiosDetectados = calcularCambiosDespacho(despachoAnteriorParaHistorial, entrada);
+                if (cambiosDetectados.length > 0) {
+                    const historialPrevio = Array.isArray(despachoAnteriorParaHistorial.historialCambios) ? despachoAnteriorParaHistorial.historialCambios : [];
+                    entrada.historialCambios = [...historialPrevio, {
+                        version: historialPrevio.length + 2, // v1 es implícita (la creación original, sin entrada propia)
+                        fecha: new Date().toISOString(),
+                        usuario: usuarioActual?.nombre || usuarioActual?.username || '',
+                        cambios: cambiosDetectados
+                    }];
+                }
             }
             // Estado de pago: solo aplica a la Orden de Compra (es donde entra el dinero — la
             // Cotización es una simple consulta y el Despacho es solo movimiento de stock, sin
@@ -1513,7 +1599,7 @@
         // se muestran directamente DENTRO de la tarjeta de su Orden de Compra (ver
         // renderTarjetaHistorialHTML) — así se elimina la necesidad de ir a buscarlos aparte.
         let seccionHistorial = 'cotizacion'; // 'cotizacion' | 'orden_compra'
-        let filtroTipoHistorial = 'todas'; // 'todas' | 'pendientes' | 'pago_pendiente' — solo aplica dentro de la sección "orden_compra"
+        let filtroTipoHistorial = 'todas'; // 'todas' | 'pendientes' | 'pago_pendiente' | 'sin_guia_shalom' — solo aplica dentro de la sección "orden_compra"
 
         function cambiarSeccionHistorial(seccion) {
             if (seccionHistorial === seccion) return;
@@ -1529,19 +1615,38 @@
             pintarResultadosHistorial();
         }
 
+        // Cuenta, sobre TODAS las OC en memoria (no solo las visibles), cuántas caen en cada filtro
+        // rápido — para los contadores de los chips. "sin_despacho"/"pago_pendiente" reutilizan
+        // exactamente el mismo criterio que aplicará filtrarPorTipoDocumento() más abajo.
+        function contarFiltrosOC() {
+            const ocs = historialCache.filter(e => e.tipoDocumento === 'orden_compra');
+            const idsConDespacho = new Set(
+                historialCache.filter(e => e.tipoDocumento === 'despacho' && e.ordenCompraAsociada).map(e => e.ordenCompraAsociada)
+            );
+            let sinDespacho = 0, pagoPendiente = 0, sinGuia = 0;
+            ocs.forEach(oc => {
+                if (!idsConDespacho.has(oc.objectId)) sinDespacho++;
+                if (calcularEstadoPago(oc).pendiente) pagoPendiente++;
+                if (estadoEnvioShalomDeOC(oc).estado === 'sin_guia') sinGuia++;
+            });
+            return { todas: ocs.length, pendientes: sinDespacho, pago_pendiente: pagoPendiente, sin_guia_shalom: sinGuia };
+        }
+
         // Chips de filtro rápido, arriba de la lista — solo tienen sentido dentro del apartado
-        // "Órdenes de Compra" (son justamente los dos estados que antes costaba ubicar: qué falta
-        // despachar y qué falta cobrar). El apartado "Cotizaciones" no los necesita, así que no
-        // se dibuja ningún chip ahí.
+        // "Órdenes de Compra" (son justamente los 3 estados que antes costaba ubicar: qué falta
+        // despachar, qué falta cobrar y qué despacho no tiene guía Shalom registrada todavía). El
+        // apartado "Cotizaciones" no los necesita, así que no se dibuja ningún chip ahí.
         function renderFiltrosTipoHistorial() {
             if (seccionHistorial !== 'orden_compra') return '';
+            const conteos = contarFiltrosOC();
             const filtros = [
                 { valor: 'todas', etiqueta: 'Todas' },
-                { valor: 'pendientes', etiqueta: '🚚 Pendientes de despachar' },
-                { valor: 'pago_pendiente', etiqueta: '💰 Pago pendiente' }
+                { valor: 'pago_pendiente', etiqueta: '💰 Pago pendiente' },
+                { valor: 'pendientes', etiqueta: '🚚 Sin despacho' },
+                { valor: 'sin_guia_shalom', etiqueta: '📍 Sin guía Shalom' }
             ];
             return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
-                ${filtros.map(f => `<button type="button" class="chip-filtro-historial${filtroTipoHistorial === f.valor ? ' active' : ''}" onclick="aplicarFiltroTipoHistorial('${f.valor}')">${f.etiqueta}</button>`).join('')}
+                ${filtros.map(f => `<button type="button" class="chip-filtro-historial${filtroTipoHistorial === f.valor ? ' active' : ''}" onclick="aplicarFiltroTipoHistorial('${f.valor}')">${f.etiqueta} <span class="chip-filtro-historial-count">${conteos[f.valor]}</span></button>`).join('')}
             </div>`;
         }
 
@@ -1553,10 +1658,12 @@
         }
 
         // Aplica primero el apartado activo (Cotizaciones / Órdenes de Compra) y luego, si corresponde,
-        // el chip secundario. "pendientes" muestra solo OC activas que NO tengan ningún Despacho activo
-        // vinculado todavía — la lista de "qué me falta enviar". "pago_pendiente" muestra solo OC con
-        // saldo por cobrar. Ambos se calculan sobre historialCache completo (no solo sobre la lista que
-        // se está mostrando) para que la detección de vínculo sea siempre correcta.
+        // el chip secundario. "pendientes" (Sin despacho) muestra solo OC activas que NO tengan ningún
+        // Despacho activo vinculado todavía. "pago_pendiente" muestra solo OC con saldo por cobrar.
+        // "sin_guia_shalom" muestra OC que SÍ tienen despacho pero cuyo envío Shalom todavía no tiene
+        // guía+código registrados (ver estadoEnvioShalomDeOC). Los 3 se calculan sobre historialCache
+        // completo (no solo sobre la lista que se está mostrando) para que la detección sea siempre
+        // correcta, y coinciden exactamente con contarFiltrosOC() de arriba.
         function filtrarPorTipoDocumento(lista) {
             const base = seccionHistorial === 'cotizacion'
                 ? lista.filter(e => e.tipoDocumento === 'cotizacion')
@@ -1575,6 +1682,9 @@
                 }
                 if (filtroTipoHistorial === 'pago_pendiente') {
                     return base.filter(e => e.tipoDocumento === 'orden_compra' && calcularEstadoPago(e).pendiente);
+                }
+                if (filtroTipoHistorial === 'sin_guia_shalom') {
+                    return base.filter(e => e.tipoDocumento === 'orden_compra' && estadoEnvioShalomDeOC(e).estado === 'sin_guia');
                 }
             }
             return base;
@@ -1620,6 +1730,94 @@
             return { pendiente, adelanto, saldoPendiente, total };
         }
 
+        // ============================================
+        // REDISEÑO DE HISTORIAL — helpers de texto/HTML
+        // ============================================
+        // Escapa texto dinámico antes de insertarlo en innerHTML. No existía un escapador genérico
+        // en el proyecto — solo escaparAtributo() (js/kardex.js), pensado únicamente para meter texto
+        // dentro de un atributo, no para nodos de texto/HTML completos.
+        function escaparHtml(texto) {
+            return String(texto ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Quita tildes/diacríticos y pasa a minúsculas, para que el buscador del historial ignore
+        // mayúsculas y acentos (mismo patrón que normalizarPapeleta() en js/envios/papeleta.js, pero
+        // sin duplicar esa función porque vive en otro módulo con otro propósito).
+        function normalizarBusquedaHistorial(texto) {
+            return String(texto ?? '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '');
+        }
+
+        // Arma el texto "buscable" completo de una fila del historial (OC o Cotización): su propio
+        // N°, cliente, empresa, y — solo para OC — el N° (con sufijo) de cada despacho vinculado más
+        // la ciudad/destino que ya se conoce (sucursal del despacho, o el "destino" del envío Shalom
+        // si ya está registrado). Se normaliza UNA sola vez por fila y se cachea en línea para que
+        // buscar sobre miles de filas no vuelva a normalizar todo en cada tecla — ver
+        // pintarResultadosHistorial()/debounce de búsqueda.
+        function textoBusquedaHistorial(entry) {
+            const partes = [
+                formatearCorrelativo(entry.correlativo, entry.tipoDocumento === 'despacho' ? entry.sufijoDespacho : null),
+                entry.correlativo,
+                entry.cliente,
+                entry.empresaCliente,
+                entry.sucursal?.ciudad,
+                entry.sucursal?.nombre,
+                entry.sucursal?.provincia
+            ];
+            if (entry.tipoDocumento === 'orden_compra') {
+                obtenerDespachosDeOC(entry.objectId).forEach(d => {
+                    partes.push(formatearCorrelativo(d.correlativo, d.sufijoDespacho));
+                    if (d.sucursal) partes.push(d.sucursal.ciudad, d.sucursal.nombre, d.sucursal.provincia);
+                });
+                const info = estadoEnvioShalomDeOC(entry);
+                if (info.envio) partes.push(info.envio.destino, info.envio.guia, info.envio.codigo);
+            }
+            return normalizarBusquedaHistorial(partes.filter(Boolean).join(' '));
+        }
+
+        // Resuelve, para una OC puntual, en cuál de los 3 estados de envío está (sin usar ningún
+        // campo nuevo — se apoya solo en obtenerDespachosDeOC() y en buscarEnvioPorOC(), ya
+        // existentes en js/envios/shalom.js, que este archivo no modifica):
+        //   'sin_despacho' → todavía no se generó ningún despacho para esta OC.
+        //   'sin_guia'     → ya hay despacho, pero nadie registró la guía en Seguimiento Shalom
+        //                    (o es un envío tipo "lima", que no usa guía/código de Shalom).
+        //   'con_guia'     → hay despacho Y un envío Shalom registrado con guía+código (o es tipo
+        //                    "lima", que no los necesita).
+        function estadoEnvioShalomDeOC(entry) {
+            const despachos = obtenerDespachosDeOC(entry.objectId);
+            if (despachos.length === 0) return { estado: 'sin_despacho', despachos, envio: null };
+            const envio = (typeof buscarEnvioPorOC === 'function')
+                ? buscarEnvioPorOC(formatearCorrelativo(entry.correlativo, null), entry.objectId)
+                : null;
+            const registrado = envio && (envio.tipo === 'lima' || (envio.guia && envio.codigo));
+            if (!registrado) return { estado: 'sin_guia', despachos, envio: null };
+            return { estado: 'con_guia', despachos, envio };
+        }
+
+        // Mini barra de 4 pasos para la tarjeta de OC (compacta, propia de este rediseño — NO
+        // reutiliza las clases .papeleta-steps de js/envios/papeleta.js porque esas están afinadas
+        // para el ancho fijo de 300px que rasteriza html2canvas; sí reutiliza su LÓGICA,
+        // determinarPasoActual()/ETIQUETAS_PASO_PAPELETA, sin tocar ese archivo).
+        function renderMiniPasosEnvioHTML(envio) {
+            if (envio.tipo === 'lima' || typeof determinarPasoActual !== 'function') {
+                return `<span class="historial-destino-paso">${envio.estado === 'entregado' ? '✅ Entregado' : '🏙️ Envío Lima — pendiente'}</span>`;
+            }
+            const paso = determinarPasoActual(envio);
+            const etiqueta = (typeof ETIQUETAS_PASO_PAPELETA !== 'undefined' && ETIQUETAS_PASO_PAPELETA[paso - 1]) || '';
+            return `
+                <div class="historial-mini-steps" role="img" aria-label="Envío: paso ${paso} de 4 — ${escaparHtml(etiqueta)}">
+                    ${[1, 2, 3, 4].map(p => `<span class="historial-mini-step ${p <= paso ? 'listo' : ''} ${p === paso ? 'actual' : ''}"></span>`).join('')}
+                </div>
+                <span class="historial-destino-paso">${escaparHtml(etiqueta)}</span>`;
+        }
+
         // Actualiza los contadores de cada pestaña del selector de apartados (📋 Cotizaciones /
         // 📦 Órdenes de Compra), para que se pueda ver de un vistazo cuánto hay en cada uno sin
         // tener que entrar. Cuenta lo mismo que filtrarPorTipoDocumento() mostraría con el chip
@@ -1662,13 +1860,13 @@
             // recrear al escribir (si se recreara en cada tecla, el cursor perdería el foco).
             // Solo el contenido de #historialResultsArea se redibuja en cada búsqueda.
             const placeholder = (usuarioActual?.nivel === 'master' && verTodasLasCotizaciones && !usuarioSeleccionadoHistorial)
-                ? '🔍 Buscar por N°, cliente, empresa, teléfono o vendedor...'
-                : '🔍 Buscar por N°, cliente, empresa o teléfono...';
+                ? '🔍 Buscar por N° (OC o despacho), cliente, empresa, ciudad o vendedor...'
+                : '🔍 Buscar por N° (OC o despacho), cliente, empresa o ciudad...';
 
             listEl.innerHTML = `
                 <div id="historialFiltrosArea">${renderFiltrosTipoHistorial()}</div>
                 <div style="margin-bottom:14px;">
-                    <input type="text" class="form-input" id="historialSearchInput" placeholder="${placeholder}" oninput="pintarResultadosHistorial()">
+                    <input type="text" class="form-input" id="historialSearchInput" placeholder="${placeholder}" oninput="onBuscarHistorialInput()">
                 </div>
                 <div id="historialResultsArea"></div>
             `;
@@ -1676,17 +1874,29 @@
             pintarResultadosHistorial();
         }
 
-        // Filtra cotizaciones por número correlativo, cliente, empresa o teléfono
-        function filtrarCotizaciones(lista, filtro) {
-            if (!filtro) return lista;
+        // Debounce (~150ms) del buscador único del historial: mientras el usuario sigue tecleando no
+        // se vuelve a filtrar/pintar en cada letra (con miles de filas eso sí se nota), solo cuando se
+        // queda quieto un instante. pintarResultadosHistorial() siempre relee el valor actual del
+        // input, así que retrasar la LLAMADA es suficiente — no hace falta pasar el texto a mano.
+        let historialBusquedaDebounceTimer = null;
+        function onBuscarHistorialInput() {
+            clearTimeout(historialBusquedaDebounceTimer);
+            historialBusquedaDebounceTimer = setTimeout(pintarResultadosHistorial, 150);
+        }
+
+        // Filtra por N° de OC, N° de despacho (con o sin sufijo, ej. "000501-B" o solo "501"),
+        // cliente, empresa, teléfono, vendedor o ciudad/destino (sucursal del despacho, o el
+        // "destino" del envío Shalom si ya está registrado) — ver textoBusquedaHistorial(). Ignora
+        // mayúsculas y tildes en ambos lados de la comparación.
+        function filtrarCotizaciones(lista, filtroNormalizado) {
+            if (!filtroNormalizado) return lista;
             return lista.filter(entry => {
-                const correlativoTxt = entry.correlativo ? String(entry.correlativo) : '';
+                const telefonoNorm = normalizarBusquedaHistorial(entry.telefono || '');
+                const vendedorNorm = normalizarBusquedaHistorial(entry.usuarioNombre || '');
                 return (
-                    correlativoTxt.includes(filtro) ||
-                    (entry.cliente || '').toLowerCase().includes(filtro) ||
-                    (entry.empresaCliente || '').toLowerCase().includes(filtro) ||
-                    (entry.telefono || '').toLowerCase().includes(filtro) ||
-                    (entry.usuarioNombre || '').toLowerCase().includes(filtro)
+                    textoBusquedaHistorial(entry).includes(filtroNormalizado) ||
+                    telefonoNorm.includes(filtroNormalizado) ||
+                    vendedorNorm.includes(filtroNormalizado)
                 );
             });
         }
@@ -1738,7 +1948,7 @@
         function pintarResultadosHistorial() {
             const resultsEl = document.getElementById('historialResultsArea');
             if (!resultsEl) return;
-            const filtro = (document.getElementById('historialSearchInput')?.value || '').toLowerCase().trim();
+            const filtro = (document.getElementById('historialSearchInput')?.value || '').trim();
 
             if (historialCache.length === 0) {
                 resultsEl.innerHTML = `<div class="historial-empty">No hay cotizaciones guardadas aún.<br><br>Arma una cotización y haz clic en <strong>"💾 Guardar"</strong>.</div>`;
@@ -1843,94 +2053,210 @@
         // Genera el HTML de una tarjeta individual del historial (una Cotización/OC/Despacho).
         // Extraído de renderListaCotizaciones para poder reutilizarlo también con resultados que
         // vienen de la búsqueda en vivo en la nube (ver buscarEnNubePorFiltro), no solo del caché local.
-        function renderTarjetaHistorialHTML(entry, mostrarVendedorPorTarjeta) {
-            const fecha = new Date(entry.createdAt).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-            const numProductos = entry.productos.length;
-            const totalUnid = entry.productos.reduce((a, p) => a + p.cantidad, 0);
-            // Antes cada tipo de documento tenía su propio color de fondo (naranja/verde/índigo).
-            // Ahora es solo texto — el color ya no distingue el tipo, así que puede reservarse
-            // para lo que sí necesita atención (despachado, pago pendiente).
-            const etiquetaTipoDoc = {
-                orden_compra: '📦 Orden de compra',
-                despacho:     '🚚 Despacho',
-                cotizacion:   '📋 Cotización',
-                // 🧪 MODO DESARROLLADOR: los documentos de prueba usan su propio tipoDocumento
-                // (ver guardarEnHistorial), así que quedan etiquetados aparte y bien visibles acá,
-                // para que nunca se confundan con un documento real aunque aparezcan mezclados
-                // mientras el modo prueba sigue activo.
-                orden_compra_prueba: '🧪📦 Orden de compra (PRUEBA)',
-                despacho_prueba:     '🧪🚚 Despacho (PRUEBA)',
-                cotizacion_prueba:   '🧪📋 Cotización (PRUEBA)'
-            }[entry.tipoDocumento] || '📋 Cotización';
-            const correlativoTexto = formatearCorrelativo(entry.correlativo, entry.tipoDocumento === 'despacho' ? entry.sufijoDespacho : null);
+        // Una Cotización "vence" a los 7 días — mismo criterio que ya usa prepararCotizacion() para
+        // el badge impreso "Válido 7 días" (js/cotizacion.js, printValidezBadge). Es puramente
+        // calculado a partir de createdAt: no hace falta ningún campo nuevo en Back4App.
+        const DIAS_VALIDEZ_COTIZACION = 7;
+        function cotizacionVencida(entry) {
+            const limite = new Date(entry.createdAt).getTime() + DIAS_VALIDEZ_COTIZACION * 24 * 60 * 60 * 1000;
+            return Date.now() > limite;
+        }
+
+        // Línea gris de contexto (vendedor / "editado por otro"), común a los 3 tipos de fila.
+        function renderInfoSecundariaHTML(entry, mostrarVendedorPorTarjeta) {
             const editadoPorOtro = entry.ultimaEdicionPor && entry.usuario && entry.ultimaEdicionPor !== entry.usuario;
-            // Si es un Despacho con OC de origen guardada, busca su correlativo en caché para
-            // mostrar el vínculo (si esa OC no está en la caché actual, igual se marca como
-            // vinculado, solo que sin poder mostrar su número).
-            const ocVinculada = entry.tipoDocumento === 'despacho' && entry.ordenCompraAsociada
-                ? historialCache.find(e => e.objectId === entry.ordenCompraAsociada)
-                : null;
-            const textoVinculo = entry.tipoDocumento === 'despacho' && entry.ordenCompraAsociada
-                ? `Vinculado a OC ${ocVinculada ? formatearCorrelativo(ocVinculada.correlativo, null) : ''}`
-                : '';
-            // Vendedor, vínculo y "editado por otro" ya no son 3 chips de color separados —
-            // se fusionan en una sola línea de texto gris, porque son datos de contexto, no
-            // alertas que requieran destacarse.
-            const infoSecundariaTexto = [
-                textoVinculo,
+            const texto = [
                 mostrarVendedorPorTarjeta ? `Vendedor: ${entry.usuarioNombre || entry.usuario || 'Desconocido'}` : '',
                 editadoPorOtro ? `Editado por ${entry.ultimaEdicionPorNombre || entry.ultimaEdicionPor}` : ''
             ].filter(Boolean).join(' · ');
-            // Barra de acciones rápidas — el corazón de este rediseño: en vez de tener que ir a un
-            // filtro/pestaña aparte para ubicar el despacho o el pago pendiente de una OC puntual,
-            // quedan como botones directos en su propia tarjeta.
-            let quickbarHTML = '';
-            if (entry.tipoDocumento === 'cotizacion') {
-                // Una Cotización todavía no tiene Despacho ni Pago (esos solo existen una vez que se
-                // confirma la venta como Orden de Compra) — su único botón rápido es el siguiente
-                // paso natural del flujo: pasarla a OC sin volver a tipear los datos.
-                quickbarHTML = `
-                    <div class="historial-card-quickbar">
-                        <button class="historial-quick-btn historial-quick-btn--oc" onclick="crearOCDesdeCotizacion('${entry.objectId}')">📦 Crear Orden de Compra</button>
-                    </div>`;
-            } else if (entry.tipoDocumento === 'orden_compra') {
-                // obtenerDespachosDeOC() ya viene ordenado por creación descendente (mismo orden que
-                // historialCache), así que el primero es siempre el despacho activo más reciente —
-                // el mismo que actualizaría crearDespachoDesdeOC().
-                const despachosDeEstaOC = obtenerDespachosDeOC(entry.objectId);
-                const tieneDespacho = despachosDeEstaOC.length > 0;
-                const estadoPago = calcularEstadoPago(entry);
-                quickbarHTML = `
-                    <div class="historial-card-quickbar">
-                        <button class="historial-quick-btn historial-quick-btn--oc" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">📦 Ver OC</button>
-                        <button class="historial-quick-btn${tieneDespacho ? ' historial-quick-btn--done' : ''}" onclick="crearDespachoDesdeOC('${entry.objectId}')">🚚 ${tieneDespacho ? `Despacho${despachosDeEstaOC.length > 1 ? ' ×' + despachosDeEstaOC.length : ''}` : 'Crear despacho'}</button>
-                        ${tieneDespacho ? `<button class="historial-quick-btn-icon" title="Ver despacho ${formatearCorrelativo(despachosDeEstaOC[0].correlativo, despachosDeEstaOC[0].sufijoDespacho)}" onclick="verCotizacionDesdeHistorial('${despachosDeEstaOC[0].objectId}')">👁️</button>` : ''}
-                        <button class="historial-quick-btn${estadoPago.pendiente ? ' historial-quick-btn--alert' : ' historial-quick-btn--done'}" onclick="abrirModalActualizarPago('${entry.objectId}')" title="Adelanto: S/ ${estadoPago.adelanto.toFixed(2)} de S/ ${estadoPago.total.toFixed(2)}">💰 ${estadoPago.pendiente ? `Falta S/ ${estadoPago.saldoPendiente.toFixed(2)}` : 'Pago completo'}</button>
-                    </div>`;
-            }
+            return texto ? `<div class="historial-card-info-secundaria">${escaparHtml(texto)}</div>` : '';
+        }
+
+        // Barra de avance de pago de una OC (reemplaza el chip de texto suelto de antes) — se calcula
+        // 100% con lo que la OC YA guarda (montoAdelanto/total vía calcularEstadoPago), sin agregar
+        // ningún módulo de abonos nuevo.
+        function renderBarraPagoHTML(estadoPago) {
+            const pct = estadoPago.total > 0 ? Math.min(100, Math.max(0, (estadoPago.adelanto / estadoPago.total) * 100)) : 100;
+            const clase = estadoPago.pendiente ? 'pendiente' : 'completo';
+            const etiqueta = estadoPago.pendiente
+                ? `Falta S/ ${estadoPago.saldoPendiente.toFixed(2)} de S/ ${estadoPago.total.toFixed(2)}`
+                : 'Pagado completo';
             return `
-                <div class="historial-card">
-                    <div class="historial-card-top">
-                        <span class="historial-card-doctype">${etiquetaTipoDoc}</span>
-                        <span class="historial-card-correlativo">${correlativoTexto}</span>
+                <div class="historial-pago-bar"><div class="historial-pago-bar-fill historial-pago-bar-fill--${clase}" style="width:${pct.toFixed(0)}%"></div></div>
+                <span class="historial-pago-label historial-pago-label--${clase}">${escaparHtml(etiqueta)}</span>`;
+        }
+
+        // Bloque "Destino Shalom" de la tarjeta de OC — los 3 estados que pide el rediseño, usando
+        // solo datos que YA existen (sucursal del despacho, o el envío Shalom vinculado). No agrega
+        // ningún campo/input nuevo: ver estadoEnvioShalomDeOC().
+        function renderDestinoShalomHTML(entry) {
+            const info = estadoEnvioShalomDeOC(entry);
+            if (info.estado === 'sin_despacho') {
+                return `<div class="historial-destino-bloque historial-destino-bloque--vacio">📍 Sin despacho aún</div>`;
+            }
+            if (info.estado === 'sin_guia') {
+                const sucursal = info.despachos[0]?.sucursal || null;
+                const ciudad = sucursal ? [sucursal.ciudad, sucursal.provincia].filter(Boolean).join(', ') : '';
+                return `<div class="historial-destino-bloque">📍 ${ciudad ? escaparHtml(ciudad) : 'Sin sucursal Shalom asignada'}</div>`;
+            }
+            const sucursalDespacho = info.despachos[0]?.sucursal || null;
+            const ciudadEnvio = info.envio.destino || (sucursalDespacho ? [sucursalDespacho.ciudad, sucursalDespacho.provincia].filter(Boolean).join(', ') : '');
+            return `
+                <div class="historial-destino-bloque">
+                    <div>📍 ${escaparHtml(ciudadEnvio || 'Destino registrado')}</div>
+                    ${renderMiniPasosEnvioHTML(info.envio)}
+                </div>`;
+        }
+
+        // IMPORTANTE: las 3 plantillas de fila de abajo mantienen la clase "historial-card" en su
+        // <div> raíz (además de "historial-fila"/"historial-fila--…") aunque el rediseño ya no use su
+        // CSS de tarjeta suelta. Dos cosas de fuera de este archivo dependen de ese nombre exacto y
+        // NO se tocan en este rediseño: (1) el paginador de historial en index.html, que busca
+        // ".historial-card" como hijo directo de ".historial-list" para mostrar de a 10 y dibujar
+        // "Página X de Y"; (2) js/envios/lima.js, que reutiliza ese mismo nombre de clase para sus
+        // propias tarjetas de envío Lima. Quitar la clase rompería el paginador (mostraría las miles
+        // de filas de golpe) sin que nada avise del error.
+        //
+        // Punto de entrada: reparte cada fila del historial según su tipo real (ignorando el sufijo
+        // "_prueba" del Modo Desarrollador solo para decidir la plantilla — el dato en sí no se toca).
+        // Los despachos "huérfanos" (sin OC vinculada) y CUALQUIER documento "_prueba" usan la fila
+        // genérica simple: no tiene sentido armarles el panel de despacho/barra de pago de una OC real,
+        // y así se evita que un documento de prueba quede invisible (antes de este rediseño ya
+        // aparecía como fila suelta con su propia etiqueta "🧪…(PRUEBA)"; con el filtro por apartado
+        // de dos secciones, un tipoDocumento como "cotizacion_prueba" no calzaba con ningún apartado y
+        // desaparecía del todo — se corrige acá, sin tocar guardarEnHistorial() ni el propio dato).
+        function renderTarjetaHistorialHTML(entry, mostrarVendedorPorTarjeta) {
+            const tipoBase = String(entry.tipoDocumento || '').replace(/_prueba$/, '');
+            if (tipoBase === 'cotizacion') return renderFilaCotizacionHTML(entry, mostrarVendedorPorTarjeta);
+            if (tipoBase === 'orden_compra') return renderFilaOrdenCompraHTML(entry, mostrarVendedorPorTarjeta);
+            return renderFilaGenericaHTML(entry, mostrarVendedorPorTarjeta);
+        }
+
+        // Fila de Cotización: N°, cliente, total, estado (Abierta/Vencida) y sus botones actuales
+        // (Ver, Cargar, Convertir en OC — este último ya existía como "Crear Orden de Compra").
+        function renderFilaCotizacionHTML(entry, mostrarVendedorPorTarjeta) {
+            const fecha = new Date(entry.createdAt).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            const numProductos = entry.productos.length;
+            const totalUnid = entry.productos.reduce((a, p) => a + p.cantidad, 0);
+            const correlativoTexto = formatearCorrelativo(entry.correlativo, null);
+            const vencida = cotizacionVencida(entry);
+            const estadoHTML = `<span class="historial-estado-chip historial-estado-chip--${vencida ? 'vencida' : 'abierta'}">${vencida ? 'Vencida' : 'Abierta'}</span>`;
+
+            return `
+                <div class="historial-card historial-fila historial-fila--cotizacion">
+                    <div class="historial-fila-principal">
+                        <div class="historial-fila-doc">
+                            <span class="historial-card-doctype">📋 Cotización</span>
+                            <span class="historial-card-correlativo">${escaparHtml(correlativoTexto)}</span>
+                            ${estadoHTML}
+                        </div>
+                        <p class="historial-card-title">${escaparHtml(entry.cliente)}</p>
+                        ${entry.empresaCliente ? `<p class="historial-card-subtitle">${escaparHtml(entry.empresaCliente)}</p>` : ''}
+                        <div class="historial-card-meta">
+                            <span>${escaparHtml(fecha)}</span>
+                            <span>${numProductos} producto${numProductos!==1?'s':''} · ${totalUnid} unid.</span>
+                        </div>
+                        ${renderInfoSecundariaHTML(entry, mostrarVendedorPorTarjeta)}
                     </div>
-                    <p class="historial-card-title">${entry.cliente}</p>
-                    ${entry.empresaCliente ? `<p class="historial-card-subtitle">${entry.empresaCliente}</p>` : ''}
-                    <div class="historial-card-meta">
-                        <span>${fecha}</span>
-                        <span>${numProductos} producto${numProductos!==1?'s':''} · ${totalUnid} unid.</span>
-                        ${entry.sucursal ? `<span>${entry.sucursal.nombre}</span>` : ''}
-                        ${entry.globalDescPct > 0 ? `<span>Desc. ${entry.globalDescPct}%</span>` : ''}
+                    <div class="historial-fila-lateral">
+                        <div class="historial-card-total">S/ ${entry.total.toFixed(2)}</div>
+                        <div class="historial-fila-acciones">
+                            <button class="btn-historial-ver" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">Ver</button>
+                            <button class="btn-historial-load" onclick="cargarDesdeHistorial('${entry.objectId}')">Cargar</button>
+                            <button class="historial-quick-btn historial-quick-btn--oc" onclick="crearOCDesdeCotizacion('${entry.objectId}')">📦 Convertir en OC</button>
+                            <button class="btn-historial-del" onclick="eliminarDeHistorial('${entry.objectId}')" aria-label="Eliminar">🗑️</button>
+                        </div>
                     </div>
-                    ${infoSecundariaTexto ? `<div class="historial-card-info-secundaria">${infoSecundariaTexto}</div>` : ''}
-                    ${quickbarHTML}
-                    <div class="historial-card-footer">
-                        <div class="historial-card-actions">
-                            ${entry.tipoDocumento === 'cotizacion' ? `<button class="btn-historial-ver" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">Ver</button>` : ''}
+                </div>`;
+        }
+
+        // Fila de Orden de Compra — el corazón de este rediseño: todo lo que antes obligaba a
+        // cambiar de filtro o de pestaña (pago pendiente, despacho, guía Shalom) queda visible y
+        // accionable en la misma fila, a todo el ancho en escritorio y apilada en móvil (ver
+        // css/cotizacion.css → .historial-fila--oc).
+        function renderFilaOrdenCompraHTML(entry, mostrarVendedorPorTarjeta) {
+            const fecha = new Date(entry.createdAt).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            const numProductos = entry.productos.length;
+            const totalUnid = entry.productos.reduce((a, p) => a + p.cantidad, 0);
+            const correlativoTexto = formatearCorrelativo(entry.correlativo, null);
+            const estadoPago = calcularEstadoPago(entry);
+            const despachosDeEstaOC = obtenerDespachosDeOC(entry.objectId);
+            const tieneDespacho = despachosDeEstaOC.length > 0;
+
+            return `
+                <div class="historial-card historial-fila historial-fila--oc" data-oc-id="${entry.objectId}">
+                    <div class="historial-fila-principal">
+                        <div class="historial-fila-doc">
+                            <span class="historial-card-doctype">📦 Orden de compra</span>
+                            <span class="historial-card-correlativo">${escaparHtml(correlativoTexto)}</span>
+                        </div>
+                        <p class="historial-card-title">${escaparHtml(entry.cliente)}</p>
+                        ${entry.empresaCliente ? `<p class="historial-card-subtitle">${escaparHtml(entry.empresaCliente)}</p>` : ''}
+                        <div class="historial-card-meta">
+                            <span>${escaparHtml(fecha)}</span>
+                            <span>${numProductos} producto${numProductos!==1?'s':''} · ${totalUnid} unid.</span>
+                        </div>
+                        ${renderInfoSecundariaHTML(entry, mostrarVendedorPorTarjeta)}
+                    </div>
+                    <div class="historial-fila-estado">
+                        <button type="button" class="historial-pago-btn" onclick="abrirModalActualizarPago('${entry.objectId}')" title="Adelanto: S/ ${estadoPago.adelanto.toFixed(2)} de S/ ${estadoPago.total.toFixed(2)} — clic para actualizar">
+                            ${renderBarraPagoHTML(estadoPago)}
+                        </button>
+                        ${renderDestinoShalomHTML(entry)}
+                    </div>
+                    <div class="historial-fila-lateral">
+                        <div class="historial-card-total">S/ ${entry.total.toFixed(2)}</div>
+                        <div class="historial-card-quickbar">
+                            <button class="historial-quick-btn historial-quick-btn--oc" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">📦 Ver OC</button>
+                            ${tieneDespacho
+                                ? `<button type="button" class="historial-quick-btn historial-quick-btn--done historial-btn-despacho-toggle" aria-expanded="false" aria-controls="despachoPanel-${entry.objectId}" onclick="toggleDespachoPanel('${entry.objectId}')">🚚 Ver / editar despacho${despachosDeEstaOC.length > 1 ? ' (' + despachosDeEstaOC.length + ')' : ''}</button>`
+                                : `<button type="button" class="historial-quick-btn" onclick="crearDespachoDesdeOC('${entry.objectId}')">🚚 Crear despacho</button>`}
+                        </div>
+                        <div class="historial-fila-acciones">
                             <button class="btn-historial-load" onclick="cargarDesdeHistorial('${entry.objectId}')">Cargar</button>
                             <button class="btn-historial-del" onclick="eliminarDeHistorial('${entry.objectId}')" aria-label="Eliminar">🗑️</button>
                         </div>
+                    </div>
+                    ${tieneDespacho ? `<div class="historial-despacho-panel" id="despachoPanel-${entry.objectId}" hidden></div>` : ''}
+                </div>`;
+        }
+
+        // Fila genérica simple — despachos huérfanos (sin OC vinculada) y documentos "_prueba" del
+        // Modo Desarrollador. Sin panel ni barra de pago: son casos fuera del flujo normal de una OC.
+        function renderFilaGenericaHTML(entry, mostrarVendedorPorTarjeta) {
+            const fecha = new Date(entry.createdAt).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+            const numProductos = entry.productos.length;
+            const totalUnid = entry.productos.reduce((a, p) => a + p.cantidad, 0);
+            const etiquetaTipoDoc = {
+                orden_compra_prueba: '🧪📦 Orden de compra (PRUEBA)',
+                despacho_prueba:     '🧪🚚 Despacho (PRUEBA)',
+                cotizacion_prueba:   '🧪📋 Cotización (PRUEBA)',
+                despacho:            '🚚 Despacho (sin OC vinculada)'
+            }[entry.tipoDocumento] || '📋 Documento';
+            const correlativoTexto = formatearCorrelativo(entry.correlativo, String(entry.tipoDocumento).startsWith('despacho') ? entry.sufijoDespacho : null);
+
+            return `
+                <div class="historial-card historial-fila historial-fila--generica">
+                    <div class="historial-fila-principal">
+                        <div class="historial-fila-doc">
+                            <span class="historial-card-doctype">${escaparHtml(etiquetaTipoDoc)}</span>
+                            <span class="historial-card-correlativo">${escaparHtml(correlativoTexto)}</span>
+                        </div>
+                        <p class="historial-card-title">${escaparHtml(entry.cliente)}</p>
+                        ${entry.empresaCliente ? `<p class="historial-card-subtitle">${escaparHtml(entry.empresaCliente)}</p>` : ''}
+                        <div class="historial-card-meta">
+                            <span>${escaparHtml(fecha)}</span>
+                            <span>${numProductos} producto${numProductos!==1?'s':''} · ${totalUnid} unid.</span>
+                        </div>
+                        ${renderInfoSecundariaHTML(entry, mostrarVendedorPorTarjeta)}
+                    </div>
+                    <div class="historial-fila-lateral">
                         <div class="historial-card-total">S/ ${entry.total.toFixed(2)}</div>
+                        <div class="historial-fila-acciones">
+                            <button class="btn-historial-ver" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">Ver</button>
+                            <button class="btn-historial-load" onclick="cargarDesdeHistorial('${entry.objectId}')">Cargar</button>
+                            <button class="btn-historial-del" onclick="eliminarDeHistorial('${entry.objectId}')" aria-label="Eliminar">🗑️</button>
+                        </div>
                     </div>
                 </div>`;
         }
@@ -1941,7 +2267,12 @@
         let tokenBusquedaNube = 0;
 
         function renderListaCotizaciones(container, listaCompleta, mostrandoTodas, filtro) {
-            const lista = filtrarCotizaciones(listaCompleta, filtro || '');
+            // "filtro" llega tal cual lo escribió el usuario (para mostrarlo de vuelta y para
+            // buscarEnNubePorFiltro, que arma su propio $regex contra el servidor); el filtrado local
+            // usa la versión normalizada (sin tildes, en minúsculas) para que "PERU" == "Perú".
+            const filtroNormalizado = normalizarBusquedaHistorial(filtro || '');
+            const filtroEscapado = escaparHtml(filtro || '');
+            const lista = filtrarCotizaciones(listaCompleta, filtroNormalizado);
             // Se invalida cualquier búsqueda en la nube que hubiera quedado pendiente de una llamada
             // anterior a esta función — así, si el usuario ya cambió lo que buscaba (o si esta vez sí
             // hubo resultados locales), un resultado tardío de una búsqueda vieja nunca sobrescribe
@@ -1972,7 +2303,7 @@
                 // directo "sin resultados" — aunque el documento SÍ existiera en la base de datos
                 // (por ejemplo, un correlativo viejo). Ahora se fuerza una búsqueda en vivo contra
                 // toda la base antes de darlo por perdido.
-                container.innerHTML = `${encabezado}<div class="historial-empty">🔎 Buscando "${filtro}" en toda la base de datos...</div>`;
+                container.innerHTML = `${encabezado}<div class="historial-empty">🔎 Buscando "${filtroEscapado}" en toda la base de datos...</div>`;
                 buscarEnNubePorFiltro(filtro).then(encontradosCrudo => {
                     if (miToken !== tokenBusquedaNube) return; // el usuario ya cambió la búsqueda; este resultado quedó viejo
                     // Se agregan al caché local (sin duplicar) para que "Ver", "Cargar" y "Eliminar"
@@ -1986,7 +2317,7 @@
                     // viceversa) — mantiene la separación de los 2 apartados también en este camino.
                     const encontrados = filtrarPorTipoDocumento(encontradosCrudo);
                     if (encontrados.length === 0) {
-                        container.innerHTML = `${encabezado}<div class="historial-empty">Sin resultados para "${filtro}" en ${etiquetaSeccionVacia} — se buscó también en toda la base de datos, no solo en los últimos 200 registros.</div>`;
+                        container.innerHTML = `${encabezado}<div class="historial-empty">Sin resultados para "${filtroEscapado}" en ${etiquetaSeccionVacia} — se buscó también en toda la base de datos, no solo en los últimos 200 registros.</div>`;
                         return;
                     }
                     const notaNube = `<div style="font-size:0.8em;color:#744210;background:#fefcbf;padding:6px 10px;border-radius:6px;margin-bottom:10px;">🔎 Encontrado buscando en toda la base de datos (no estaba entre los últimos 200 registros recientes)</div>`;
@@ -2153,6 +2484,229 @@
             mostrarNotificacion(despachoExistente
                 ? `Despacho ${formatearCorrelativo(despachoExistente.correlativo, despachoExistente.sufijoDespacho)} cargado con los datos actuales de la OC — presiona "Guardar" para actualizarlo`
                 : `Despacho ${formatearCorrelativo(oc.correlativo, '')} vinculado a OC ${correlativoTexto} — revisa y presiona "Guardar" cuando esté listo`, 'success');
+        }
+
+        // ============================================
+        // PANEL "VER / EDITAR DESPACHO" — inline dentro de la tarjeta de OC (sin modal)
+        // ============================================
+        // Qué pestaña de despacho está activa por cada OC (ocObjectId -> despachoObjectId), para que
+        // no se pierda la selección al reabrir el panel.
+        let despachoPanelTabActiva = {};
+
+        // Abre/cierra el panel de una OC. Construye su contenido recién al abrir (no en cada render
+        // de la lista) y lo VACÍA al cerrar — con miles de filas en pantalla, mantener 5000 paneles
+        // armados en el DOM (aunque estén "hidden") sería el desperdicio de memoria/tiempo que el
+        // test de estrés justamente vigila (punto 6: abrir/cerrar 500 veces sin dejar nada colgado).
+        function toggleDespachoPanel(ocObjectId) {
+            const panel = document.getElementById(`despachoPanel-${ocObjectId}`);
+            if (!panel) return;
+            const fila = document.querySelector(`.historial-fila--oc[data-oc-id="${CSS.escape(ocObjectId)}"]`);
+            const btn = fila ? fila.querySelector('.historial-btn-despacho-toggle') : null;
+
+            if (!panel.hidden) {
+                panel.hidden = true;
+                panel.innerHTML = '';
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+                return;
+            }
+
+            const oc = historialCache.find(e => e.objectId === ocObjectId);
+            const despachos = obtenerDespachosDeOC(ocObjectId);
+            if (!oc || despachos.length === 0) return;
+            if (!despachoPanelTabActiva[ocObjectId] || !despachos.some(d => d.objectId === despachoPanelTabActiva[ocObjectId])) {
+                despachoPanelTabActiva[ocObjectId] = despachos[0].objectId; // el más reciente por defecto
+            }
+            panel.innerHTML = renderDespachoPanelContenidoHTML(oc, despachos);
+            panel.hidden = false;
+            if (btn) btn.setAttribute('aria-expanded', 'true');
+        }
+
+        // Cambia de pestaña sin cerrar el panel — solo redibuja su contenido interno.
+        function seleccionarTabDespacho(ocObjectId, despachoObjectId) {
+            despachoPanelTabActiva[ocObjectId] = despachoObjectId;
+            const panel = document.getElementById(`despachoPanel-${ocObjectId}`);
+            const oc = historialCache.find(e => e.objectId === ocObjectId);
+            const despachos = obtenerDespachosDeOC(ocObjectId);
+            if (!panel || !oc || despachos.length === 0) return;
+            panel.innerHTML = renderDespachoPanelContenidoHTML(oc, despachos);
+        }
+
+        function formatearFechaHistorialCambios(iso) {
+            if (!iso) return '';
+            return new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Punto 6 del rediseño: un despacho sin historialCambios (todos los guardados desde antes de
+        // este cambio, campo opcional y aditivo) se muestra como "Versión 1 · creado desde la OC". Las
+        // versiones guardadas se listan de la más nueva a la más vieja, encima de esa v1 implícita.
+        function renderHistorialCambiosHTML(despacho) {
+            const cambios = Array.isArray(despacho.historialCambios) ? despacho.historialCambios : [];
+            const itemsPrevios = [...cambios].reverse().map(c => `
+                <div class="historial-cambios-item">
+                    <div class="historial-cambios-version">Versión ${escaparHtml(c.version)} · ${escaparHtml(formatearFechaHistorialCambios(c.fecha))}${c.usuario ? ' · ' + escaparHtml(c.usuario) : ''}</div>
+                    <ul class="historial-cambios-lista">${(Array.isArray(c.cambios) ? c.cambios : []).map(t => `<li>${escaparHtml(t)}</li>`).join('')}</ul>
+                </div>`).join('');
+            return `${itemsPrevios}<div class="historial-cambios-item historial-cambios-item--base">Versión 1 · creado desde la OC</div>`;
+        }
+
+        // Arma el contenido completo del panel para la OC dada: pestañas (si hay más de un despacho),
+        // destino/agencia/guía, tabla de productos despachados vs. cantidad de la OC, historial de
+        // cambios y los 3 botones de acción.
+        function renderDespachoPanelContenidoHTML(oc, despachos) {
+            const ordenados = [...despachos].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            const activoId = despachoPanelTabActiva[oc.objectId] || ordenados[0].objectId;
+            const activo = ordenados.find(d => d.objectId === activoId) || ordenados[0];
+
+            const tabsHTML = ordenados.length > 1 ? `
+                <div class="historial-despacho-tabs" role="tablist">
+                    ${ordenados.map(d => {
+                        const etiqueta = d.sufijoDespacho
+                            ? `N° ${formatearCorrelativo(d.correlativo, d.sufijoDespacho)} · Envío adicional`
+                            : `N° ${formatearCorrelativo(d.correlativo, null)} · Principal`;
+                        return `<button type="button" role="tab" class="historial-despacho-tab${d.objectId === activo.objectId ? ' active' : ''}" aria-selected="${d.objectId === activo.objectId}" onclick="seleccionarTabDespacho('${oc.objectId}', '${d.objectId}')">${escaparHtml(etiqueta)}</button>`;
+                    }).join('')}
+                </div>` : '';
+
+            // El seguimiento Shalom se registra por OC, no por despacho individual (así lo guarda hoy
+            // js/envios/shalom.js — numeroOrdenCompra/ordenCompraObjectId, sin distinguir sufijo). Si
+            // hay más de un despacho, se avisa para que no se lea como "cada uno tiene su propia guía".
+            const infoEnvio = estadoEnvioShalomDeOC(oc);
+            const destinoHTML = activo.sucursal
+                ? `<div class="historial-despacho-destino-linea"><strong>${escaparHtml(activo.sucursal.nombre || 'Agencia Shalom')}</strong></div>
+                   ${[activo.sucursal.direccion, [activo.sucursal.ciudad, activo.sucursal.provincia].filter(Boolean).join(', ')].filter(Boolean).map(t => `<div class="historial-despacho-destino-linea">${escaparHtml(t)}</div>`).join('')}`
+                : `<div class="historial-despacho-destino-linea">Sin sucursal Shalom asignada en este despacho.</div>`;
+            const etiquetaEstadoShalom = (infoEnvio.envio && typeof ETIQUETAS_ESTADO_SHALOM !== 'undefined' && ETIQUETAS_ESTADO_SHALOM[infoEnvio.envio.estado]) || null;
+            const guiaHTML = infoEnvio.envio
+                ? `<div class="historial-despacho-guia">🔖 Guía ${escaparHtml(infoEnvio.envio.guia || '—')}${infoEnvio.envio.codigo ? ' · Código ' + escaparHtml(infoEnvio.envio.codigo) : ''}${etiquetaEstadoShalom ? ' · ' + escaparHtml(etiquetaEstadoShalom.texto) : ''}${ordenados.length > 1 ? ' <span class="historial-despacho-nota">(seguimiento de la OC, compartido entre sus envíos)</span>' : ''}</div>`
+                : `<div class="historial-despacho-guia historial-despacho-guia--vacio">Sin guía Shalom registrada todavía — se registra desde "Seguimiento Shalom".</div>`;
+
+            // Productos despachados (del despacho activo) frente a la cantidad de la OC, por
+            // código+color — mismo criterio de agrupación que calcularDiferenciaProductos() (Kardex),
+            // sin usar esa función (es específica del Kardex y no debe tocarse ni reutilizarse fuera
+            // de su contexto).
+            const agrupar = lista => {
+                const mapa = {};
+                (lista || []).forEach(p => {
+                    const k = `${p.codigo}||${(p.color || '').toLowerCase()}`;
+                    mapa[k] = { nombre: p.nombre || p.codigo, codigo: p.codigo, color: p.color || '', cantidad: (mapa[k]?.cantidad || 0) + (parseFloat(p.cantidad) || 0) };
+                });
+                return mapa;
+            };
+            const mapaOC = agrupar(oc.productos);
+            const mapaDespacho = agrupar(activo.productos);
+            const claves = Array.from(new Set([...Object.keys(mapaOC), ...Object.keys(mapaDespacho)]));
+            const filasProductos = claves.map(k => {
+                const enOC = mapaOC[k], enDespacho = mapaDespacho[k];
+                const base = enDespacho || enOC;
+                const cantOC = enOC ? enOC.cantidad : 0;
+                const cantDespacho = enDespacho ? enDespacho.cantidad : 0;
+                return `<tr class="${cantOC !== cantDespacho ? 'historial-despacho-fila-distinta' : ''}">
+                    <td>${escaparHtml(base.nombre)}${base.color ? ` <span class="historial-despacho-color">● ${escaparHtml(base.color)}</span>` : ''}<div class="historial-despacho-codigo">${escaparHtml(base.codigo)}</div></td>
+                    <td class="historial-despacho-cant">${cantOC}</td>
+                    <td class="historial-despacho-cant">${cantDespacho}</td>
+                </tr>`;
+            }).join('');
+            const tablaProductosHTML = `
+                <table class="historial-despacho-tabla-productos">
+                    <thead><tr><th>Producto</th><th>En la OC</th><th>Despachado</th></tr></thead>
+                    <tbody>${filasProductos}</tbody>
+                </table>`;
+
+            const masReciente = despachos[0]; // obtenerDespachosDeOC() viene en orden -createdAt
+            const notaSiNoEsElVigente = activo.objectId !== masReciente.objectId
+                ? `<div class="historial-despacho-nota">"Editar despacho" e "Imprimir guía" siempre usan el despacho VIGENTE (el más reciente de la OC), no necesariamente esta pestaña.</div>`
+                : '';
+            // Preview local del próximo sufijo (B, C…) — el que de verdad se asigna al guardar sigue
+            // siendo calcularSufijoDespacho(), sin tocar esa función; esto es solo una vista previa.
+            const proximoSufijoPreview = String.fromCharCode(65 + ordenados.length);
+
+            return `
+                ${tabsHTML}
+                <div class="historial-despacho-panel-body">
+                    <div class="historial-despacho-seccion">
+                        <div class="historial-despacho-seccion-titulo">Destino</div>
+                        ${destinoHTML}
+                        ${guiaHTML}
+                    </div>
+                    <div class="historial-despacho-seccion">
+                        <div class="historial-despacho-seccion-titulo">Productos despachados frente a la OC</div>
+                        ${tablaProductosHTML}
+                    </div>
+                    <div class="historial-despacho-seccion">
+                        <div class="historial-despacho-seccion-titulo">Historial de cambios</div>
+                        ${renderHistorialCambiosHTML(activo)}
+                    </div>
+                    ${notaSiNoEsElVigente}
+                    <div class="historial-despacho-panel-acciones">
+                        <button type="button" class="btn-historial-load" onclick="crearDespachoDesdeOC('${oc.objectId}')">✏️ Editar despacho</button>
+                        <button type="button" class="btn-historial-ver" onclick="imprimirGuiaDespacho('${masReciente.objectId}')">🖨️ Imprimir guía</button>
+                        <button type="button" class="historial-despacho-link-adicional" onclick="crearEnvioAdicionalDesdeOC('${oc.objectId}')">+ Envío adicional (próximo N° ${escaparHtml(formatearCorrelativo(oc.correlativo, proximoSufijoPreview))})</button>
+                    </div>
+                </div>`;
+        }
+
+        // 🖨️ Imprime la guía de un despacho ya guardado: carga sus datos al cotizador EXACTAMENTE
+        // igual que "Cargar"/"Editar despacho" (cargarDesdeHistorial(), ya existente, sin tocar) y
+        // dispara el mismo generador de imagen que usa toda la app (generarImagen(), js/exportar.js)
+        // — no se crea ninguna plantilla de guía nueva. generarImagen() guarda el documento al
+        // terminar (efecto que ya tenía antes de este rediseño); como aquí no se edita nada,
+        // calcularCambiosDespacho() no encuentra diferencias y guardarEnHistorial() NO agrega una
+        // versión vacía al historial de cambios (ver ese archivo, más abajo).
+        async function imprimirGuiaDespacho(despachoObjectId) {
+            await cargarDesdeHistorial(despachoObjectId);
+            await generarImagen();
+        }
+
+        // 📦 Envío adicional: a diferencia de crearDespachoDesdeOC() (que SIEMPRE adopta/actualiza el
+        // despacho activo más reciente de la OC), esta función fuerza la creación de un despacho
+        // NUEVO e independiente para la misma OC — mismo N°, con el sufijo siguiente (B, C…) que
+        // calcula calcularSufijoDespacho() tal como ya existía (no se toca esa función ni
+        // guardarEnHistorial() para esto: simplemente se deja sufijoDespacho en "undefined" para que
+        // guardarEnHistorial lo calcule solo, igual que ya hacía en el flujo manual documentado ahí).
+        // Cubre el caso real de "se olvidó despachar algo y hay que mandarlo aparte".
+        async function crearEnvioAdicionalDesdeOC(objectId) {
+            const oc = historialCache.find(e => e.objectId === objectId);
+            if (!oc || oc.tipoDocumento !== 'orden_compra') { mostrarNotificacion('No se encontró la Orden de Compra', 'warning'); return; }
+
+            if (!await confirmarAccion({
+                titulo: 'Envío adicional',
+                mensaje: `¿Crear un envío adicional para la Orden de Compra ${formatearCorrelativo(oc.correlativo, null)} de "${oc.cliente}"?\n\nSe generará un despacho NUEVO e independiente del ya emitido (mismo N°, con su propio sufijo B/C…) y se reemplazará la cotización actual en pantalla — ajusta ahí los productos que corresponden a este envío antes de guardar.`,
+                confirmarTexto: 'Crear envío adicional'
+            })) return;
+
+            productosEnTabla = JSON.parse(JSON.stringify(oc.productos)).map(migrarProductoLegacy);
+            sucursalSeleccionada = oc.sucursal || null;
+            if (document.getElementById('globalDiscount')) document.getElementById('globalDiscount').value = oc.globalDescPct || '';
+            document.getElementById('clienteNombre').value = oc.cliente === 'Sin nombre' ? '' : oc.cliente;
+            document.getElementById('clienteEmpresa').value = oc.empresaCliente || '';
+            document.getElementById('clienteRUC').value = oc.ruc || '';
+            document.getElementById('clienteTelefono').value = oc.telefono || '';
+            document.getElementById('clienteEmail').value = oc.email || '';
+            document.getElementById('clienteDireccion').value = oc.direccion || '';
+            document.getElementById('clienteNotas').value = oc.notas || '';
+            olvidarAutocompletadoRUCDNI();
+            clienteDBObjectIdEnCurso = oc.clienteObjectId || null;
+
+            document.getElementById('tipoDocumento').value = 'DESPACHO';
+
+            registroEnCurso = { cotizacion: null, orden_compra: null, despacho: null };
+            registroEnCurso.despacho = {
+                objectId: null,
+                correlativo: oc.correlativo || null,
+                ordenCompraAsociada: oc.objectId,
+                sufijoDespacho: undefined // se calcula solo al guardar — ver guardarEnHistorial()
+            };
+            tipoContadorCargadoExplicitamente = 'despacho';
+
+            actualizarResumenCliente();
+            renderTable();
+            actualizarBloqueoSelectorTipoDocumento();
+            actualizarPanelCorrelativo();
+            guardarEstado();
+            if (sucursalSeleccionada) mostrarSucursalSeleccionada();
+            renderSucursales();
+            switchTabById('cotizar');
+            mostrarNotificacion(`Envío adicional vinculado a OC ${formatearCorrelativo(oc.correlativo, null)} — ajusta los productos que corresponden a este envío y presiona "Guardar"`, 'success');
         }
 
         // 📦 Crea una Orden de Compra NUEVA a partir de una Cotización ya guardada: carga sus
@@ -2439,6 +2993,10 @@
                 }
 
                 cerrarModalActualizarPago();
+                // El cambio de adelanto puede mover el contador del chip "💰 Pago pendiente" — se
+                // refresca junto con la lista para que no quede desactualizado hasta el próximo reload.
+                const filtrosEl = document.getElementById('historialFiltrosArea');
+                if (filtrosEl) filtrosEl.innerHTML = renderFiltrosTipoHistorial();
                 pintarResultadosHistorial();
                 mostrarNotificacion('Pago actualizado', 'success');
             } catch (e) {

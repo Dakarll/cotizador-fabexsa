@@ -1785,6 +1785,15 @@
          con tarjetas ".historial-card" como hijos directos, tanto en la
          vista normal como en la agrupada por usuario) y solo oculta/muestra
          tarjetas + dibuja el paginador al lado.
+
+         AJUSTE (rediseño de Historial, panel "Ver/editar despacho" inline):
+         abrir/cerrar ese panel también muta el DOM dentro de #historialList
+         (rellena/vacía ".historial-despacho-panel"), pero NO cambia cuántas
+         tarjetas ".historial-card" hay ni su orden. Sin el filtro de abajo,
+         cada apertura de un panel reseteaba la paginación a la página 1 —
+         se agrega esa única condición para ignorar mutaciones que ocurren
+         ÍNTEGRAMENTE dentro de un panel de despacho; todo lo demás sigue
+         igual que antes.
          ============================================ -->
     <script>
         (function () {
@@ -1866,7 +1875,14 @@
                 if (lista) lista.scrollIntoView({ block: 'nearest' });
             }
 
-            observer = new MutationObserver(function () { aplicar(true); });
+            observer = new MutationObserver(function (mutations) {
+                var soloDentroDePanelDespacho = mutations.length > 0 && mutations.every(function (m) {
+                    return m.target && m.target.nodeType === 1 && typeof m.target.closest === 'function'
+                        && m.target.closest('.historial-despacho-panel');
+                });
+                if (soloDentroDePanelDespacho) return;
+                aplicar(true);
+            });
             observer.observe(historialList, { childList: true, subtree: true });
             aplicar(true);
         })();
