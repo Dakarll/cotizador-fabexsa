@@ -2136,8 +2136,11 @@
         // (Ver, Cargar, Convertir en OC — este último ya existía como "Crear Orden de Compra").
         function renderFilaCotizacionHTML(entry, mostrarVendedorPorTarjeta) {
             const fecha = new Date(entry.createdAt).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-            const numProductos = entry.productos.length;
-            const totalUnid = entry.productos.reduce((a, p) => a + p.cantidad, 0);
+            // Defensivo ante datos incompletos (registros viejos o importados a mano sin algún
+            // campo): "productos" ausente se trata como lista vacía, y una cantidad faltante no
+            // convierte el total en NaN.
+            const numProductos = (entry.productos || []).length;
+            const totalUnid = (entry.productos || []).reduce((a, p) => a + (parseFloat(p.cantidad) || 0), 0);
             const correlativoTexto = formatearCorrelativo(entry.correlativo, null);
             const vencida = cotizacionVencida(entry);
             const estadoHTML = `<span class="historial-estado-chip historial-estado-chip--${vencida ? 'vencida' : 'abierta'}">${vencida ? 'Vencida' : 'Abierta'}</span>`;
@@ -2176,8 +2179,11 @@
         // css/cotizacion.css → .historial-fila--oc).
         function renderFilaOrdenCompraHTML(entry, mostrarVendedorPorTarjeta) {
             const fecha = new Date(entry.createdAt).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-            const numProductos = entry.productos.length;
-            const totalUnid = entry.productos.reduce((a, p) => a + p.cantidad, 0);
+            // Defensivo ante datos incompletos (registros viejos o importados a mano sin algún
+            // campo): "productos" ausente se trata como lista vacía, y una cantidad faltante no
+            // convierte el total en NaN.
+            const numProductos = (entry.productos || []).length;
+            const totalUnid = (entry.productos || []).reduce((a, p) => a + (parseFloat(p.cantidad) || 0), 0);
             const correlativoTexto = formatearCorrelativo(entry.correlativo, null);
             const estadoPago = calcularEstadoPago(entry);
             const despachosDeEstaOC = obtenerDespachosDeOC(entry.objectId);
@@ -2225,8 +2231,11 @@
         // Modo Desarrollador. Sin panel ni barra de pago: son casos fuera del flujo normal de una OC.
         function renderFilaGenericaHTML(entry, mostrarVendedorPorTarjeta) {
             const fecha = new Date(entry.createdAt).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-            const numProductos = entry.productos.length;
-            const totalUnid = entry.productos.reduce((a, p) => a + p.cantidad, 0);
+            // Defensivo ante datos incompletos (registros viejos o importados a mano sin algún
+            // campo): "productos" ausente se trata como lista vacía, y una cantidad faltante no
+            // convierte el total en NaN.
+            const numProductos = (entry.productos || []).length;
+            const totalUnid = (entry.productos || []).reduce((a, p) => a + (parseFloat(p.cantidad) || 0), 0);
             const etiquetaTipoDoc = {
                 orden_compra_prueba: '🧪📦 Orden de compra (PRUEBA)',
                 despacho_prueba:     '🧪🚚 Despacho (PRUEBA)',
@@ -2640,7 +2649,7 @@
                     <div class="historial-despacho-panel-acciones">
                         <button type="button" class="btn-historial-load" onclick="crearDespachoDesdeOC('${oc.objectId}')">✏️ Editar despacho</button>
                         <button type="button" class="btn-historial-ver" onclick="imprimirGuiaDespacho('${masReciente.objectId}')">🖨️ Imprimir guía</button>
-                        <button type="button" class="historial-despacho-link-adicional" onclick="crearEnvioAdicionalDesdeOC('${oc.objectId}')">+ Envío adicional (próximo N° ${escaparHtml(formatearCorrelativo(oc.correlativo, proximoSufijoPreview))})</button>
+                        <button type="button" class="historial-despacho-link-adicional" onclick="crearEnvioAdicionalDesdeOC('${oc.objectId}')">+ Envío adicional (próximo ${escaparHtml(formatearCorrelativo(oc.correlativo, proximoSufijoPreview))})</button>
                     </div>
                 </div>`;
         }
