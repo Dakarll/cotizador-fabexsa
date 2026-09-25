@@ -332,7 +332,6 @@
                             <span class="price-tag price-mayor">${producto.tipoMayor === 'paquete' ? 'Paquete' : 'Mayor'}: ${mostrarConIGV ? `S/ ${calcularPrecioConIGV(producto.precioMayor).toFixed(2)}` : `S/ ${producto.precioMayor.toFixed(2)}`}</span>
                             <span style="margin-left: 10px; color: #a0aec0;">${producto.codigo}</span>
                         </div>
-                        ${(coloresPorProducto[producto.codigo]?.length) ? `<div style="margin-top:5px;">${generarCirculosColor(producto.codigo, 14)}</div>` : ''}
                     </div>
                 `).join('');
                 autocompleteDropdown.style.display = 'block';
@@ -1507,18 +1506,38 @@
         }
 
         let usuarioSeleccionadoHistorial = null; // username filtrado dentro de la vista "Ver todas" (master)
-        let filtroTipoHistorial = 'todas'; // 'todas' | 'cotizacion' | 'orden_compra' | 'despacho' | 'pendientes'
 
-        // Chips de filtro por tipo de documento, arriba de la lista del historial.
-        // El filtro "pendientes" (Pendientes de despacho) quedó desactivado a pedido — se deja la
-        // lógica de filtrarPorTipoDocumento() intacta por si se reactiva más adelante, solo se quitó
-        // de esta lista para que no aparezca como opción.
+        // El historial se divide en 2 apartados fijos — separa las dos etapas del flujo comercial
+        // (la consulta vs. la venta confirmada) para que nunca se mezclen en una sola lista larga.
+        // Los Despachos ya NO tienen su propio apartado: al estar siempre atados a una OC (mismo N°),
+        // se muestran directamente DENTRO de la tarjeta de su Orden de Compra (ver
+        // renderTarjetaHistorialHTML) — así se elimina la necesidad de ir a buscarlos aparte.
+        let seccionHistorial = 'cotizacion'; // 'cotizacion' | 'orden_compra'
+        let filtroTipoHistorial = 'todas'; // 'todas' | 'pendientes' | 'pago_pendiente' — solo aplica dentro de la sección "orden_compra"
+
+        function cambiarSeccionHistorial(seccion) {
+            if (seccionHistorial === seccion) return;
+            seccionHistorial = seccion;
+            filtroTipoHistorial = 'todas'; // cada apartado arranca limpio de filtros secundarios
+            document.querySelectorAll('.historial-seccion-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.seccion === seccion);
+            });
+            const filtrosEl = document.getElementById('historialFiltrosArea');
+            if (filtrosEl) filtrosEl.innerHTML = renderFiltrosTipoHistorial();
+            const input = document.getElementById('historialSearchInput');
+            if (input) input.value = '';
+            pintarResultadosHistorial();
+        }
+
+        // Chips de filtro rápido, arriba de la lista — solo tienen sentido dentro del apartado
+        // "Órdenes de Compra" (son justamente los dos estados que antes costaba ubicar: qué falta
+        // despachar y qué falta cobrar). El apartado "Cotizaciones" no los necesita, así que no
+        // se dibuja ningún chip ahí.
         function renderFiltrosTipoHistorial() {
+            if (seccionHistorial !== 'orden_compra') return '';
             const filtros = [
                 { valor: 'todas', etiqueta: 'Todas' },
-                { valor: 'cotizacion', etiqueta: '📋 Cotizaciones' },
-                { valor: 'orden_compra', etiqueta: '📦 Órdenes de Compra' },
-                { valor: 'despacho', etiqueta: '🚚 Despachos' },
+                { valor: 'pendientes', etiqueta: '🚚 Pendientes de despachar' },
                 { valor: 'pago_pendiente', etiqueta: '💰 Pago pendiente' }
             ];
             return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
@@ -1533,22 +1552,32 @@
             pintarResultadosHistorial();
         }
 
-        // Aplica el filtro de tipo de documento sobre una lista. "pendientes" es especial: muestra
-        // solo Órdenes de Compra activas que NO tengan ningún Despacho activo vinculado todavía — es
-        // la lista de "qué me falta enviar". Se calcula sobre historialCache completo (no solo sobre
-        // la lista que se está mostrando) para que la detección de vínculo sea siempre correcta.
+        // Aplica primero el apartado activo (Cotizaciones / Órdenes de Compra) y luego, si corresponde,
+        // el chip secundario. "pendientes" muestra solo OC activas que NO tengan ningún Despacho activo
+        // vinculado todavía — la lista de "qué me falta enviar". "pago_pendiente" muestra solo OC con
+        // saldo por cobrar. Ambos se calculan sobre historialCache completo (no solo sobre la lista que
+        // se está mostrando) para que la detección de vínculo sea siempre correcta.
         function filtrarPorTipoDocumento(lista) {
-            if (filtroTipoHistorial === 'todas') return lista;
-            if (filtroTipoHistorial === 'pendientes') {
-                const idsConDespacho = new Set(
-                    historialCache.filter(e => e.tipoDocumento === 'despacho' && e.ordenCompraAsociada).map(e => e.ordenCompraAsociada)
-                );
-                return lista.filter(e => e.tipoDocumento === 'orden_compra' && !idsConDespacho.has(e.objectId));
+            const base = seccionHistorial === 'cotizacion'
+                ? lista.filter(e => e.tipoDocumento === 'cotizacion')
+                // Además de las OC, se incluyen los Despachos "huérfanos" (guardados sin vincular a
+                // ninguna OC) — caso raro pero posible — para que no queden sin ningún lugar donde
+                // mostrarse. Los Despachos SÍ vinculados no aparecen aquí como tarjeta propia: se
+                // muestran dentro de la tarjeta de su OC.
+                : lista.filter(e => e.tipoDocumento === 'orden_compra' || (e.tipoDocumento === 'despacho' && !e.ordenCompraAsociada));
+
+            if (seccionHistorial === 'orden_compra') {
+                if (filtroTipoHistorial === 'pendientes') {
+                    const idsConDespacho = new Set(
+                        historialCache.filter(e => e.tipoDocumento === 'despacho' && e.ordenCompraAsociada).map(e => e.ordenCompraAsociada)
+                    );
+                    return base.filter(e => e.tipoDocumento === 'orden_compra' && !idsConDespacho.has(e.objectId));
+                }
+                if (filtroTipoHistorial === 'pago_pendiente') {
+                    return base.filter(e => e.tipoDocumento === 'orden_compra' && calcularEstadoPago(e).pendiente);
+                }
             }
-            if (filtroTipoHistorial === 'pago_pendiente') {
-                return lista.filter(e => e.tipoDocumento === 'orden_compra' && calcularEstadoPago(e).pendiente);
-            }
-            return lista.filter(e => e.tipoDocumento === filtroTipoHistorial);
+            return base;
         }
 
         // Devuelve todos los despachos activos vinculados a una OC puntual (puede haber más de uno:
@@ -1591,6 +1620,19 @@
             return { pendiente, adelanto, saldoPendiente, total };
         }
 
+        // Actualiza los contadores de cada pestaña del selector de apartados (📋 Cotizaciones /
+        // 📦 Órdenes de Compra), para que se pueda ver de un vistazo cuánto hay en cada uno sin
+        // tener que entrar. Cuenta lo mismo que filtrarPorTipoDocumento() mostraría con el chip
+        // "Todas" activo (las OC incluyen los despachos huérfanos, ver esa función).
+        function actualizarContadoresSeccion() {
+            const totalCot = historialCache.filter(e => e.tipoDocumento === 'cotizacion').length;
+            const totalOC = historialCache.filter(e => e.tipoDocumento === 'orden_compra' || (e.tipoDocumento === 'despacho' && !e.ordenCompraAsociada)).length;
+            const elCot = document.getElementById('historialCountCotizaciones');
+            const elOC = document.getElementById('historialCountOrdenes');
+            if (elCot) elCot.textContent = totalCot;
+            if (elOC) elOC.textContent = totalOC;
+        }
+
         async function renderHistorial() {
             const listEl = document.getElementById('historialList');
             if (!listEl) return;
@@ -1614,6 +1656,7 @@
 
             const countEl = document.getElementById('historialCount');
             if (countEl) countEl.textContent = historialCache.length;
+            actualizarContadoresSeccion();
 
             // Estructura fija: el input de búsqueda se crea UNA sola vez aquí y nunca se vuelve a
             // recrear al escribir (si se recreara en cada tecla, el cursor perdería el foco).
@@ -1838,24 +1881,33 @@
                 mostrarVendedorPorTarjeta ? `Vendedor: ${entry.usuarioNombre || entry.usuario || 'Desconocido'}` : '',
                 editadoPorOtro ? `Editado por ${entry.ultimaEdicionPorNombre || entry.ultimaEdicionPor}` : ''
             ].filter(Boolean).join(' · ');
-            // Estado de despacho, solo para tarjetas de Orden de Compra: muestra si ya se generó
-            // uno o más despachos para esta OC puntual. El indicador "Pendiente de despacho"
-            // (para cuando no tiene ninguno) quedó desactivado a pedido — solo se muestra el
-            // chip "Despachado" cuando sí existe. Es el único color de "estado" que queda aquí.
-            const despachosDeEstaOC = entry.tipoDocumento === 'orden_compra' ? obtenerDespachosDeOC(entry.objectId) : [];
-            const estadoDespachoHTML = (entry.tipoDocumento === 'orden_compra' && despachosDeEstaOC.length > 0)
-                ? `<div class="historial-card-despacho-row">
-                     <span class="historial-card-chip-success">Despachado${despachosDeEstaOC.length > 1 ? ' ×' + despachosDeEstaOC.length : ''}</span>
-                     ${despachosDeEstaOC.map(d => `<button class="btn-historial-ver" onclick="verCotizacionDesdeHistorial('${d.objectId}')">${formatearCorrelativo(d.correlativo, d.sufijoDespacho)}</button>`).join('')}
-                   </div>`
-                : '';
-            // Estado de pago, solo para OC: si hay un adelanto registrado que no cubre el total,
-            // se resalta para dar seguimiento hasta cobrar el saldo completo. Es la única alerta
-            // ámbar de la tarjeta — el color se reserva para esto, no para decorar.
-            const estadoPago = entry.tipoDocumento === 'orden_compra' ? calcularEstadoPago(entry) : null;
-            const estadoPagoHTML = estadoPago && estadoPago.pendiente
-                ? `<div class="historial-card-alert" title="Adelanto: S/ ${estadoPago.adelanto.toFixed(2)} de S/ ${estadoPago.total.toFixed(2)}">Falta S/ ${estadoPago.saldoPendiente.toFixed(2)} por cobrar</div>`
-                : '';
+            // Barra de acciones rápidas — el corazón de este rediseño: en vez de tener que ir a un
+            // filtro/pestaña aparte para ubicar el despacho o el pago pendiente de una OC puntual,
+            // quedan como botones directos en su propia tarjeta.
+            let quickbarHTML = '';
+            if (entry.tipoDocumento === 'cotizacion') {
+                // Una Cotización todavía no tiene Despacho ni Pago (esos solo existen una vez que se
+                // confirma la venta como Orden de Compra) — su único botón rápido es el siguiente
+                // paso natural del flujo: pasarla a OC sin volver a tipear los datos.
+                quickbarHTML = `
+                    <div class="historial-card-quickbar">
+                        <button class="historial-quick-btn historial-quick-btn--oc" onclick="crearOCDesdeCotizacion('${entry.objectId}')">📦 Crear Orden de Compra</button>
+                    </div>`;
+            } else if (entry.tipoDocumento === 'orden_compra') {
+                // obtenerDespachosDeOC() ya viene ordenado por creación descendente (mismo orden que
+                // historialCache), así que el primero es siempre el despacho activo más reciente —
+                // el mismo que actualizaría crearDespachoDesdeOC().
+                const despachosDeEstaOC = obtenerDespachosDeOC(entry.objectId);
+                const tieneDespacho = despachosDeEstaOC.length > 0;
+                const estadoPago = calcularEstadoPago(entry);
+                quickbarHTML = `
+                    <div class="historial-card-quickbar">
+                        <button class="historial-quick-btn historial-quick-btn--oc" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">📦 Ver OC</button>
+                        <button class="historial-quick-btn${tieneDespacho ? ' historial-quick-btn--done' : ''}" onclick="crearDespachoDesdeOC('${entry.objectId}')">🚚 ${tieneDespacho ? `Despacho${despachosDeEstaOC.length > 1 ? ' ×' + despachosDeEstaOC.length : ''}` : 'Crear despacho'}</button>
+                        ${tieneDespacho ? `<button class="historial-quick-btn-icon" title="Ver despacho ${formatearCorrelativo(despachosDeEstaOC[0].correlativo, despachosDeEstaOC[0].sufijoDespacho)}" onclick="verCotizacionDesdeHistorial('${despachosDeEstaOC[0].objectId}')">👁️</button>` : ''}
+                        <button class="historial-quick-btn${estadoPago.pendiente ? ' historial-quick-btn--alert' : ' historial-quick-btn--done'}" onclick="abrirModalActualizarPago('${entry.objectId}')" title="Adelanto: S/ ${estadoPago.adelanto.toFixed(2)} de S/ ${estadoPago.total.toFixed(2)}">💰 ${estadoPago.pendiente ? `Falta S/ ${estadoPago.saldoPendiente.toFixed(2)}` : 'Pago completo'}</button>
+                    </div>`;
+            }
             return `
                 <div class="historial-card">
                     <div class="historial-card-top">
@@ -1871,16 +1923,10 @@
                         ${entry.globalDescPct > 0 ? `<span>Desc. ${entry.globalDescPct}%</span>` : ''}
                     </div>
                     ${infoSecundariaTexto ? `<div class="historial-card-info-secundaria">${infoSecundariaTexto}</div>` : ''}
-                    ${estadoDespachoHTML}
-                    ${estadoPagoHTML}
+                    ${quickbarHTML}
                     <div class="historial-card-footer">
                         <div class="historial-card-actions">
-                            <button class="btn-historial-ver" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">Ver</button>
-                            <!-- Los botones "Crear Despacho" y "Pago" quedaron desactivados a pedido:
-                                 ambas acciones se hacen ahora cargando la OC con "Cargar" y continuando
-                                 el flujo normal (cambiar a Despacho y Guardar, o actualizar el adelanto y
-                                 Guardar). Las funciones crearDespachoDesdeOC() y abrirModalActualizarPago()
-                                 se dejaron intactas en el código por si se quieren reactivar más adelante. -->
+                            ${entry.tipoDocumento === 'cotizacion' ? `<button class="btn-historial-ver" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">Ver</button>` : ''}
                             <button class="btn-historial-load" onclick="cargarDesdeHistorial('${entry.objectId}')">Cargar</button>
                             <button class="btn-historial-del" onclick="eliminarDeHistorial('${entry.objectId}')" aria-label="Eliminar">🗑️</button>
                         </div>
@@ -1915,9 +1961,11 @@
                    </div>`
                 : '';
 
+            const etiquetaSeccionVacia = seccionHistorial === 'cotizacion' ? 'cotizaciones' : 'Órdenes de Compra';
+
             if (lista.length === 0) {
                 if (!filtro) {
-                    container.innerHTML = `${encabezado}<div class="historial-empty">No hay cotizaciones visibles.</div>`;
+                    container.innerHTML = `${encabezado}<div class="historial-empty">No hay ${etiquetaSeccionVacia} visibles en este apartado.</div>`;
                     return;
                 }
                 // FIX: antes, si no aparecía nada en los últimos 200 registros cargados, se mostraba
@@ -1925,17 +1973,22 @@
                 // (por ejemplo, un correlativo viejo). Ahora se fuerza una búsqueda en vivo contra
                 // toda la base antes de darlo por perdido.
                 container.innerHTML = `${encabezado}<div class="historial-empty">🔎 Buscando "${filtro}" en toda la base de datos...</div>`;
-                buscarEnNubePorFiltro(filtro).then(encontrados => {
+                buscarEnNubePorFiltro(filtro).then(encontradosCrudo => {
                     if (miToken !== tokenBusquedaNube) return; // el usuario ya cambió la búsqueda; este resultado quedó viejo
-                    if (encontrados.length === 0) {
-                        container.innerHTML = `${encabezado}<div class="historial-empty">Sin resultados para "${filtro}" — se buscó también en toda la base de datos, no solo en los últimos 200 registros.</div>`;
-                        return;
-                    }
                     // Se agregan al caché local (sin duplicar) para que "Ver", "Cargar" y "Eliminar"
-                    // funcionen igual que con cualquier otro resultado del historial.
-                    encontrados.forEach(e => {
+                    // funcionen igual que con cualquier otro resultado del historial, y para que
+                    // filtrarPorTipoDocumento() pueda resolver correctamente los vínculos OC↔Despacho.
+                    encontradosCrudo.forEach(e => {
                         if (!historialCache.some(h => h.objectId === e.objectId)) historialCache.push(e);
                     });
+                    // La búsqueda en la nube no distingue apartado: se filtra aquí para que un
+                    // resultado de Orden de Compra no aparezca mientras se busca en "Cotizaciones" (y
+                    // viceversa) — mantiene la separación de los 2 apartados también en este camino.
+                    const encontrados = filtrarPorTipoDocumento(encontradosCrudo);
+                    if (encontrados.length === 0) {
+                        container.innerHTML = `${encabezado}<div class="historial-empty">Sin resultados para "${filtro}" en ${etiquetaSeccionVacia} — se buscó también en toda la base de datos, no solo en los últimos 200 registros.</div>`;
+                        return;
+                    }
                     const notaNube = `<div style="font-size:0.8em;color:#744210;background:#fefcbf;padding:6px 10px;border-radius:6px;margin-bottom:10px;">🔎 Encontrado buscando en toda la base de datos (no estaba entre los últimos 200 registros recientes)</div>`;
                     container.innerHTML = `${encabezado}${notaNube}<div class="historial-list">${encontrados.map(e => renderTarjetaHistorialHTML(e, mostrarVendedorPorTarjeta)).join('')}</div>`;
                 });
@@ -2100,6 +2153,61 @@
             mostrarNotificacion(despachoExistente
                 ? `Despacho ${formatearCorrelativo(despachoExistente.correlativo, despachoExistente.sufijoDespacho)} cargado con los datos actuales de la OC — presiona "Guardar" para actualizarlo`
                 : `Despacho ${formatearCorrelativo(oc.correlativo, '')} vinculado a OC ${correlativoTexto} — revisa y presiona "Guardar" cuando esté listo`, 'success');
+        }
+
+        // 📦 Crea una Orden de Compra NUEVA a partir de una Cotización ya guardada: carga sus
+        // productos, cliente y sucursal, y deja el tipo de documento en ORDEN DE COMPRA para que al
+        // presionar "Guardar" se genere una OC con su propio N° (correlativo independiente del de la
+        // Cotización). Es el botón rápido de la tarjeta de Cotización — el paso siguiente natural del
+        // flujo comercial — para no tener que volver a tipear todos los datos del cliente.
+        //
+        // A diferencia de crearDespachoDesdeOC(), aquí NO se guarda ningún vínculo hacia la
+        // Cotización de origen: no existe un campo equivalente a "ordenCompraAsociada" para
+        // Cotización→OC, ya que una misma cotización puede terminar en varias OC (o ninguna) sin que
+        // eso deba quedar registrado — es solo un atajo de captura de datos, no una relación real
+        // entre documentos como la que sí existe entre Despacho y OC.
+        async function crearOCDesdeCotizacion(objectId) {
+            const cot = historialCache.find(e => e.objectId === objectId);
+            if (!cot || cot.tipoDocumento !== 'cotizacion') { mostrarNotificacion('No se encontró la cotización', 'warning'); return; }
+
+            if (!await confirmarAccion({
+                titulo: 'Crear Orden de Compra',
+                mensaje: `¿Crear una Orden de Compra a partir de la cotización de "${cot.cliente}"?\n\nSe reemplazará la cotización actual en pantalla y se generará un N° de Orden de Compra nuevo al guardar.`,
+                confirmarTexto: 'Crear OC'
+            })) return;
+
+            productosEnTabla = JSON.parse(JSON.stringify(cot.productos)).map(migrarProductoLegacy);
+            sucursalSeleccionada = cot.sucursal || null;
+            if (document.getElementById('globalDiscount')) document.getElementById('globalDiscount').value = cot.globalDescPct || '';
+            document.getElementById('clienteNombre').value = cot.cliente === 'Sin nombre' ? '' : cot.cliente;
+            document.getElementById('clienteEmpresa').value = cot.empresaCliente || '';
+            document.getElementById('clienteRUC').value = cot.ruc || '';
+            document.getElementById('clienteTelefono').value = cot.telefono || '';
+            document.getElementById('clienteEmail').value = cot.email || '';
+            document.getElementById('clienteDireccion').value = cot.direccion || '';
+            document.getElementById('clienteNotas').value = cot.notas || '';
+            olvidarAutocompletadoRUCDNI();
+            clienteDBObjectIdEnCurso = cot.clienteObjectId || null;
+            document.getElementById('montoAdelanto').value = '';
+
+            document.getElementById('tipoDocumento').value = 'ORDEN DE COMPRA';
+
+            // Es un documento NUEVO (no una edición de la cotización de origen): se limpia
+            // registroEnCurso para que el próximo "Guardar" haga un POST con un correlativo de Orden
+            // de Compra recién asignado, sin arrastrar ningún objectId de los otros tipos.
+            registroEnCurso = { cotizacion: null, orden_compra: null, despacho: null };
+            tipoContadorCargadoExplicitamente = 'orden_compra';
+
+            actualizarResumenCliente();
+            renderTable();
+            actualizarPago();
+            actualizarBloqueoSelectorTipoDocumento();
+            actualizarPanelCorrelativo();
+            guardarEstado();
+            if (sucursalSeleccionada) mostrarSucursalSeleccionada();
+            renderSucursales();
+            switchTabById('cotizar');
+            mostrarNotificacion(`Cotización de "${cot.cliente}" cargada como nueva Orden de Compra — revisa y presiona "Guardar" cuando esté listo`, 'success');
         }
 
 
