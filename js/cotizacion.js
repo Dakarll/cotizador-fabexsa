@@ -2793,16 +2793,24 @@
                 </div>`;
         }
 
-        // 🖨️ Imprime la guía de un despacho ya guardado: carga sus datos al cotizador EXACTAMENTE
-        // igual que "Cargar"/"Editar despacho" (cargarDesdeHistorial(), ya existente, sin tocar) y
-        // dispara el mismo generador de imagen que usa toda la app (generarImagen(), js/exportar.js)
-        // — no se crea ninguna plantilla de guía nueva. generarImagen() guarda el documento al
-        // terminar (efecto que ya tenía antes de este rediseño); como aquí no se edita nada,
-        // calcularCambiosDespacho() no encuentra diferencias y guardarEnHistorial() NO agrega una
-        // versión vacía al historial de cambios (ver ese archivo, más abajo).
+        // 🖨️ Imprime la guía de un despacho ya guardado con el diálogo de impresión NATIVO del
+        // sistema (window.print(): Windows, Linux/CUPS, macOS, iOS/iPadOS) — ya no descarga una
+        // imagen. Reutiliza la guía que el sistema ya genera: carga el despacho como "Cargar"
+        // (cargarDesdeHistorial, sin tocar) y arma #cotizacionPrint con prepararCotizacion(); el CSS
+        // @media print (css/cotizacion.css) deja visible solo ese bloque. A diferencia de
+        // generarImagen(), imprimir NO guarda el documento, así que no toca historialCambios.
         async function imprimirGuiaDespacho(despachoObjectId) {
             await cargarDesdeHistorial(despachoObjectId);
-            await generarImagen();
+            if (typeof productosEnTabla === 'undefined' || productosEnTabla.length === 0) return;
+            try {
+                await prepararCotizacion();
+                const imgs = Array.from(document.querySelectorAll('#cotizacionPrint img'));
+                await Promise.all(imgs.map(img => img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
+                window.print();
+            } catch (e) {
+                console.error('Error al imprimir la guía:', e);
+                mostrarNotificacion(e.message || 'No se pudo abrir la impresión', 'error');
+            }
         }
 
         // 📦 Envío adicional: a diferencia de crearDespachoDesdeOC() (que SIEMPRE adopta/actualiza el

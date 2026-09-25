@@ -1596,8 +1596,31 @@
         .hx-generica-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
         .hx-generica-lateral { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 
-        /* ---- Móvil (< 900px, a pedido del mockup — el resto del sitio usa 768px) ---- */
-        @media (max-width: 899px) {
+        /* ---- Responsive por ANCHO DEL CONTENEDOR, no del viewport ----
+           Con el sidebar desplegado (264px) el área de contenido queda mucho más angosta que la
+           ventana, así que un @media (max-width) dejaba el grid de columnas fijas en modo "fila"
+           sin espacio y los textos se sobreponían. Con container queries el diseño reacciona al
+           ancho real disponible en #tab-historial (sidebar abierto o cerrado). */
+        #tab-historial { container-type: inline-size; container-name: hx; }
+
+        /* Tarjetas apiladas (formato móvil) cuando el contenido mide < 1240px: el grid de fila
+           necesita ~1240px para que quepan sus columnas fijas. */
+        @container hx (max-width: 1239px) {
+            .hx-oc-row { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+            .hx-oc-actions { grid-template-columns: 1fr 1fr; }
+            .hx-oc-head { display: flex; align-items: flex-start; gap: 10px; }
+            .hx-oc-main { flex: 1; }
+            .hx-oc-info { display: block; background: var(--gray-50); border-radius: 12px; }
+            .hx-oc-info .hx-info { background: transparent; border-radius: 0; }
+            .hx-oc-info .hx-info + .hx-info { border-top: 1px solid var(--border); }
+            .hx-bar { width: 64px; }
+            .hx-cot-card { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+            .hx-cot-actions { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* Pantallas realmente angostas (< 900px de contenido): pestañas en píldora, buscador en
+           columna, panel de despacho en 1 columna. */
+        @container hx (max-width: 899px) {
             .hx-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 4px; background: var(--gray-100); border-radius: 12px; border: 0; }
             .hx-tab { height: 40px; border-radius: 9px; justify-content: center; font-size: 13.5px; white-space: nowrap; padding: 0 8px; }
             .hx-tab[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(43,46,51,.14); }
@@ -1606,16 +1629,7 @@
             .hx-search input { font-size: 16px; }
             .hx-chips { overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; flex-wrap: nowrap; }
             .hx-chip { height: 38px; border-radius: 99px; flex-shrink: 0; }
-
-            .hx-oc-row { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
-            .hx-oc-actions { grid-template-columns: 1fr 1fr; }
             .hx-only-web { display: none; }
-            .hx-oc-head { display: flex; align-items: flex-start; gap: 10px; }
-            .hx-oc-main { flex: 1; }
-            .hx-oc-info { display: block; background: var(--gray-50); border-radius: 12px; }
-            .hx-oc-info .hx-info { background: transparent; border-radius: 0; }
-            .hx-oc-info .hx-info + .hx-info { border-top: 1px solid var(--border); }
-            .hx-bar { width: 64px; }
 
             .hx-desp-top { padding: 12px 14px; }
             .hx-desp-top h3 { width: 100%; }
@@ -1624,10 +1638,29 @@
             .hx-desp-foot .sp { display: none; }
             .hx-desp-foot .hx-btn-outline, .hx-desp-foot .hx-btn-primary { flex: 1 1 45%; }
             .hx-desp-foot .hx-btn-link { order: 3; width: 100%; }
-
-            .hx-cot-card { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
-            .hx-cot-actions { grid-template-columns: 1fr 1fr; }
             .hx-cot-actions .hx-only-web { display: none; }
+        }
+
+        /* Rango medio (900–1239px de contenido): el panel de despacho pasa a 2 columnas para no
+           apretar la tabla de productos. */
+        @container hx (min-width: 900px) and (max-width: 1239px) {
+            .hx-desp-grid { grid-template-columns: 280px minmax(0, 1fr); }
+            .hx-desp-grid > .hx-box:nth-child(3) { grid-column: 1 / -1; }
+        }
+
+        /* IMPRESIÓN NATIVA de la guía de despacho (window.print, ver imprimirGuiaDespacho en
+           js/cotizacion.js): solo se imprime #cotizacionPrint, que normalmente vive fuera de
+           pantalla para html2canvas. */
+        @media print {
+            body > *:not(#cotizacionPrint) { display: none !important; }
+            body { background: #fff !important; padding: 0 !important; }
+            #cotizacionPrint {
+                display: block !important;
+                position: static !important;
+                left: auto !important;
+                width: 100% !important;
+                padding: 0 !important;
+            }
         }
 
         /* MODO COMPACTO — pantallas de PC de poca altura (ver css/layout.css).
