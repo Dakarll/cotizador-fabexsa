@@ -1157,26 +1157,6 @@
             font-size: 1em;
         }
         .historial-list { display: flex; flex-direction: column; gap: 10px; }
-        .chip-filtro-historial {
-            background: var(--gray-100);
-            color: var(--gray-600);
-            border: 1.5px solid var(--gray-200);
-            border-radius: 20px;
-            padding: 6px 14px;
-            font-size: 0.8em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
-            white-space: nowrap;
-        }
-        @media (hover: hover) and (pointer: fine) {
-.chip-filtro-historial:hover { background: var(--gray-200); }
-}
-        .chip-filtro-historial.active {
-            background: var(--secondary);
-            color: white;
-            border-color: var(--secondary);
-        }
 
         .historial-card {
             border: 1px solid var(--border);
@@ -1373,107 +1353,6 @@
             font-weight: 700;
         }
 
-        /* Selector de 2 apartados: Cotizaciones / Órdenes de Compra. Separa las dos etapas del
-           flujo comercial para que no se mezclen en una sola lista larga — ver cambiarSeccionHistorial()
-           en cotizacion.js. */
-        .historial-secciones {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 14px;
-            border-bottom: 1.5px solid var(--border);
-        }
-        .historial-seccion-btn {
-            background: transparent;
-            border: none;
-            border-bottom: 2.5px solid transparent;
-            color: var(--gray-500);
-            padding: 9px 4px 10px;
-            font-size: 0.92em;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            transition: color 0.2s ease, border-color 0.2s ease;
-        }
-        @media (hover: hover) and (pointer: fine) {
-.historial-seccion-btn:hover { color: var(--primary); }
-}
-        .historial-seccion-btn.active {
-            color: var(--primary);
-            border-bottom-color: var(--secondary);
-        }
-        .historial-seccion-count {
-            background: var(--gray-100);
-            color: var(--gray-600);
-            padding: 1px 8px;
-            border-radius: 10px;
-            font-size: 0.82em;
-            font-weight: 700;
-        }
-        .historial-seccion-btn.active .historial-seccion-count {
-            background: var(--secondary);
-            color: white;
-        }
-
-        /* Barra de acciones rápidas dentro de cada tarjeta — evita tener que salir de la tarjeta
-           (o cambiar de filtro/pestaña) para ubicar el despacho o el estado de pago de una OC
-           puntual: ver renderTarjetaHistorialHTML() en cotizacion.js. */
-        .historial-card-quickbar {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-top: 8px;
-        }
-        .historial-quick-btn {
-            flex: 1 1 auto;
-            min-width: 118px;
-            text-align: center;
-            padding: 7px 10px;
-            border-radius: var(--radius-sm);
-            font-size: 0.8em;
-            font-weight: 700;
-            cursor: pointer;
-            border: 1.5px solid var(--gray-200);
-            background: var(--gray-100);
-            color: var(--gray-600);
-            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.16s var(--ease-out);
-        }
-        @media (hover: hover) and (pointer: fine) {
-.historial-quick-btn:hover { border-color: var(--gray-400); }
-}
-        .historial-quick-btn--oc {
-            border-color: var(--secondary);
-            color: var(--secondary);
-            background: transparent;
-        }
-        @media (hover: hover) and (pointer: fine) {
-.historial-quick-btn--oc:hover { background: var(--secondary); color: white; }
-}
-        .historial-quick-btn--alert {
-            border-color: var(--chip-warning-text);
-            background: var(--chip-warning-bg);
-            color: var(--chip-warning-text);
-        }
-        .historial-quick-btn--done {
-            border-color: var(--chip-success-text);
-            background: var(--chip-success-bg);
-            color: var(--chip-success-text);
-        }
-        .historial-quick-btn-icon {
-            flex: 0 0 auto;
-            padding: 6px 10px;
-            border-radius: var(--radius-sm);
-            border: 1.5px solid var(--gray-200);
-            background: transparent;
-            color: var(--gray-600);
-            cursor: pointer;
-            font-size: 0.85em;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-        @media (hover: hover) and (pointer: fine) {
-.historial-quick-btn-icon:hover { background: var(--gray-100); border-color: var(--gray-400); }
-}
 
         /* Selector de páginas del historial (10 tarjetas por página) */
         .historial-paginador {
@@ -1513,268 +1392,242 @@
         }
 
         /* ============================================
-           REDISEÑO DE HISTORIAL — fila por OC/Cotización (rama feature/historial-rediseno)
-           ============================================
-           Compone con .historial-card (que sigue aportando borde/sombra/radio/fondo — ver el
-           comentario en renderTarjetaHistorialHTML, js/cotizacion.js, sobre por qué esa clase se
-           mantiene). Estas reglas solo cambian el LAYOUT: fila a todo el ancho en escritorio,
-           apilada en móvil (@media max-width:768px, mismo breakpoint que ya usa el resto del sitio
-           — ver css/responsive.css). */
-        .historial-fila {
-            display: flex;
-            /* .historial-card (ver arriba) declara flex-direction:column para su propio uso —
-               como ambos selectores calzan en el mismo elemento con la misma especificidad, hay
-               que declararlo acá explícito (no basta con "omitirlo y que gane el default"). */
-            flex-direction: row;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-        .historial-fila-principal { flex: 1 1 260px; min-width: 0; }
-        .historial-fila-doc {
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 4px;
-        }
-        .historial-fila-estado {
-            flex: 0 0 210px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .historial-fila-lateral {
-            flex: 0 0 200px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 8px;
-        }
-        .historial-fila-acciones {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
+           REDISEÑO DE HISTORIAL — portado 1:1 de mockup-historial.html (referencia visual
+           obligatoria, en la raíz del proyecto). Todas las clases van con el prefijo "hx-" para no
+           chocar con nada existente. Los tokens de color son los mismos de css/variables.css (el
+           mockup los define igual en su propio :root, por eso el modo oscuro sale gratis acá — no
+           hace falta portar su bloque :root[data-theme="dark"]). Única sustitución: el mockup usa
+           --surface-sunken, que no existe en este proyecto; se usa var(--gray-50) en su lugar (el
+           tono más parecido ya disponible). Breakpoint móvil en 899px (no 768px, que es el que usa
+           el resto del sitio) porque así lo pide el mockup explícitamente. */
 
-        /* Todo botón de este rediseño cumple el mínimo de 44px de alto/ancho para uso táctil y de
-           teclado — se aplica de forma general en vez de repetirlo en cada clase de botón. Solo
-           afecta a lo que vive DENTRO de una fila o del panel de despacho, nunca a otras vistas que
-           reutilicen .btn-historial-* (ver js/envios/lima.js). */
-        .historial-fila button,
-        .historial-despacho-panel button {
-            min-height: 44px;
+        /* ---- Pestañas Cotizaciones / Órdenes de compra ---- */
+        .hx-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+        .hx-tab {
+            height: 46px;
+            padding: 0 16px;
+            border: 0;
+            background: transparent;
+            color: var(--gray-500);
+            font-size: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
         }
-        .historial-fila .btn-historial-del { min-width: 44px; }
-        .historial-fila button:focus-visible,
-        .historial-despacho-panel button:focus-visible,
-        .historial-seccion-btn:focus-visible,
-        .chip-filtro-historial:focus-visible {
+        .hx-tab .cnt { font-size: 12px; font-weight: 700; background: var(--gray-200); color: var(--gray-600); border-radius: 99px; padding: 2px 8px; }
+        .hx-tab[aria-selected="true"] { color: var(--primary); box-shadow: inset 0 -3px 0 var(--secondary); }
+        .hx-tab[aria-selected="true"] .cnt { background: var(--secondary); color: #fff; }
+
+        /* ---- Buscador + chips ---- */
+        .hx-toolbar { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+        .hx-search {
+            flex: 1;
+            min-width: 0;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            background: var(--surface);
+            color: var(--gray-500);
+        }
+        .hx-search:focus-within { border-color: var(--secondary); box-shadow: 0 0 0 3px var(--secondary-light); }
+        .hx-search input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 14px; color: var(--primary); outline: none; }
+        .hx-search .hx-clear { width: 28px; height: 28px; border: 0; border-radius: 99px; background: var(--gray-200); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .hx-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+        .hx-chip {
+            height: 44px;
+            padding: 0 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            color: var(--gray-700);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .hx-chip .dot { width: 8px; height: 8px; border-radius: 99px; flex-shrink: 0; }
+        .hx-chip b { color: var(--primary); }
+        .hx-chip[aria-pressed="true"] { border-color: var(--secondary); box-shadow: 0 0 0 1px var(--secondary); }
+
+        /* ---- Tarjeta de OC (fila en escritorio) ---- */
+        .hx-oc-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+        .hx-oc-card.is-open { border-color: var(--secondary); box-shadow: var(--shadow-md); }
+        .hx-oc-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 112px 244px 256px 340px;
+            column-gap: 18px;
+            align-items: center;
+            padding: 14px 18px;
+        }
+        .hx-oc-head, .hx-oc-info { display: contents; }
+        .hx-oc-main { min-width: 0; }
+        .hx-tag { font-size: 11px; font-weight: 700; letter-spacing: .06em; border-radius: 5px; padding: 2px 6px; }
+        .hx-tag-oc { color: var(--chip-info-text); background: var(--chip-info-bg); }
+        .hx-tag-cot { color: var(--gray-600); background: var(--gray-100); }
+        .hx-oc-num { display: flex; align-items: baseline; gap: 8px; }
+        .hx-oc-num strong { font-size: 17px; font-weight: 700; }
+        .hx-oc-cliente { font-size: 15px; font-weight: 600; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hx-oc-sub { font-size: 13px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hx-oc-total { font-size: 17px; font-weight: 700; white-space: nowrap; text-align: right; }
+
+        .hx-info { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--gray-50); border-radius: 12px; min-width: 0; }
+        .hx-info svg { color: var(--gray-500); }
+        .hx-info-txt { flex: 1; min-width: 0; }
+        .hx-info-lbl { font-size: 11.5px; color: var(--gray-500); }
+        .hx-info-val { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hx-info-btn { border: 0; background: transparent; text-align: left; cursor: pointer; width: 100%; padding: 0; font: inherit; }
+        .hx-bar { width: 48px; height: 6px; border-radius: 99px; background: var(--gray-200); overflow: hidden; flex-shrink: 0; }
+        .hx-bar i { display: block; height: 100%; border-radius: 99px; }
+        .hx-mini-steps { display: flex; gap: 3px; flex-shrink: 0; }
+        .hx-mini-steps i { width: 12px; height: 5px; border-radius: 99px; background: var(--gray-200); display: block; }
+
+        .hx-oc-actions { display: grid; grid-template-columns: 130px 1fr; gap: 8px; }
+
+        /* ---- Botones ---- */
+        .hx-btn { height: 46px; border-radius: 11px; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 0 12px; min-width: 44px; }
+        .hx-btn-outline { border: 1px solid var(--gray-300); background: var(--surface); color: inherit; }
+        @media (hover: hover) and (pointer: fine) {
+.hx-btn-outline:hover { background: var(--gray-100); }
+}
+        .hx-btn-primary { border: 0; background: var(--secondary); color: #fff; }
+        @media (hover: hover) and (pointer: fine) {
+.hx-btn-primary:hover { background: var(--secondary-hover); }
+}
+        .hx-btn-crear { border: 1px dashed var(--secondary-light-border); background: var(--secondary-light); color: var(--chip-info-text); }
+        .hx-btn-link { border: 0; background: transparent; color: var(--secondary); font-size: 13.5px; height: auto; min-height: 44px; }
+        .hx-btn-desp { border: 1px solid var(--secondary); background: var(--surface); justify-content: flex-start; text-align: left; color: inherit; }
+        .hx-btn-desp .t { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+        .hx-btn-desp .t b { font-size: 13.5px; }
+        .hx-btn-desp .t span { font-size: 11.5px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hx-btn-desp[aria-expanded="true"] { background: var(--secondary); color: #fff; }
+        .hx-btn-desp[aria-expanded="true"] .t span { color: #DCE6E8; }
+        .hx-btn:focus-visible,
+        .hx-tab:focus-visible,
+        .hx-chip:focus-visible,
+        .hx-desp-tab:focus-visible,
+        .hx-desp-close:focus-visible,
+        .hx-search .hx-clear:focus-visible {
             outline: 2px solid var(--secondary);
             outline-offset: 2px;
         }
 
-        /* Estado de Cotización: Abierta / Vencida (7 días, mismo criterio que el badge "Válido 7
-           días" del PDF — ver cotizacionVencida() en js/cotizacion.js). */
-        .historial-estado-chip {
-            font-size: 0.72em;
-            font-weight: 700;
-            padding: 2px 9px;
-            border-radius: 6px;
-            white-space: nowrap;
-        }
-        .historial-estado-chip--abierta { background: var(--chip-success-bg); color: var(--chip-success-text); }
-        .historial-estado-chip--vencida { background: var(--chip-danger-bg); color: var(--chip-danger-text); }
-
-        /* Barra de avance de pago — botón completo (min. 44px) para poder actualizar el adelanto
-           con un solo toque, sin ningún módulo de abonos nuevo: solo lee/escribe montoAdelanto. */
-        .historial-pago-btn {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            width: 100%;
-            justify-content: center;
-            background: transparent;
-            border: 1.5px solid var(--gray-200);
-            border-radius: var(--radius-sm);
-            padding: 8px 10px;
-            cursor: pointer;
-            text-align: left;
-            transition: border-color 0.2s ease, background-color 0.2s ease;
-        }
+        /* ---- Panel de despacho dentro de la tarjeta ---- */
+        .hx-desp { border-top: 1px solid var(--border); background: var(--gray-50); }
+        .hx-desp-top { padding: 12px 18px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--gray-100); flex-wrap: wrap; }
+        .hx-desp-top h3 { margin: 0 6px 0 0; font-size: 13px; color: var(--gray-700); font-weight: 600; }
+        .hx-desp-tab { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; display: flex; align-items: center; gap: 8px; color: inherit; }
+        .hx-desp-tab b { font-size: 13.5px; }
+        .hx-desp-tab span { font-size: 11px; font-weight: 600; color: var(--gray-500); }
+        .hx-desp-tab[aria-selected="true"] { border-color: var(--secondary); background: var(--secondary-light); }
+        .hx-desp-close { margin-left: auto; width: 36px; height: 36px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--gray-500); }
         @media (hover: hover) and (pointer: fine) {
-.historial-pago-btn:hover { border-color: var(--gray-400); background: var(--gray-50); }
+.hx-desp-close:hover { background: var(--gray-100); }
 }
-        .historial-pago-bar {
-            height: 8px;
-            border-radius: 4px;
-            background: var(--gray-200);
-            overflow: hidden;
-        }
-        .historial-pago-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-        .historial-pago-bar-fill--pendiente { background: var(--warning); }
-        .historial-pago-bar-fill--completo { background: var(--success); }
-        .historial-pago-label { font-size: 0.78em; font-weight: 700; }
-        .historial-pago-label--pendiente { color: var(--warning); }
-        .historial-pago-label--completo { color: var(--success); }
+        .hx-desp-grid { padding: 16px 18px; display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
+        .hx-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+        .hx-box-lbl { font-size: 12px; font-weight: 600; color: var(--gray-500); }
+        .hx-dest-city { font-size: 19px; font-weight: 700; margin-top: 4px; }
+        .hx-dest-sub { font-size: 13px; color: var(--gray-600); }
 
-        /* Bloque "Destino Shalom" — los 3 estados del punto 4 del rediseño (ver
-           renderDestinoShalomHTML/estadoEnvioShalomDeOC en js/cotizacion.js). */
-        .historial-destino-bloque {
-            font-size: 0.82em;
-            color: var(--gray-600);
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .historial-destino-bloque--vacio { color: var(--gray-400); font-style: italic; }
-        .historial-destino-paso { font-size: 0.78em; font-weight: 600; color: var(--gray-600); }
-        .historial-mini-steps { display: flex; align-items: center; gap: 3px; }
-        .historial-mini-step {
-            width: 16px;
-            height: 5px;
-            border-radius: 3px;
-            background: var(--gray-200);
-            display: inline-block;
-        }
-        .historial-mini-step.listo { background: var(--secondary); }
-        .historial-mini-step.actual { background: var(--secondary); box-shadow: 0 0 0 2px var(--secondary-light); }
+        .hx-steps { display: flex; align-items: flex-start; margin-top: 12px; }
+        .hx-steps .ln { flex: 1; height: 2px; margin-top: 10px; background: var(--gray-200); }
+        .hx-steps .ln.on { background: var(--secondary); }
+        .hx-steps .st { width: 62px; margin: 0 -15px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .hx-steps .dt { width: 22px; height: 22px; border-radius: 99px; border: 2px solid var(--gray-300); background: var(--surface); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; color: var(--gray-500); }
+        .hx-steps .st span { font-size: 10.5px; text-align: center; color: var(--gray-500); }
+        .hx-steps .done .dt { background: var(--secondary); border-color: var(--secondary); color: #fff; }
+        .hx-steps .cur .dt { background: var(--chip-warning-bg); border-color: var(--warning); color: var(--chip-warning-text); }
+        .hx-steps .now span { font-weight: 700; color: var(--primary); }
 
-        /* Botón "Ver / editar despacho" — el mismo .historial-quick-btn de siempre, con una
-           flechita que indica si el panel de abajo está abierto (aria-expanded). */
-        .historial-btn-despacho-toggle::after { content: ' ▾'; }
-        .historial-btn-despacho-toggle[aria-expanded="true"]::after { content: ' ▴'; }
+        .hx-tbl { padding: 0; overflow: hidden; }
+        .hx-tbl-h, .hx-tbl-r { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px; padding: 9px 14px; }
+        .hx-tbl-h { background: var(--gray-50); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-500); }
+        .hx-tbl-r { border-top: 1px solid var(--gray-100); font-size: 13.5px; }
+        .hx-tbl-r span:nth-child(n+2), .hx-tbl-h span:nth-child(n+2) { text-align: right; }
+        .hx-tbl-r span:nth-child(2) { color: var(--gray-500); }
+        .hx-tbl-r span:nth-child(3) { font-weight: 700; }
+        .hx-tbl-nota { padding: 9px 14px; border-top: 1px solid var(--gray-100); font-size: 12.5px; color: var(--gray-600); background: var(--gray-50); }
 
-        /* Panel inline "Ver / editar despacho" — al usar flex-basis:100% dentro de .historial-fila
-           (que tiene flex-wrap:wrap), cae a su propia línea de ancho completo debajo de las 3
-           columnas de la fila, sin necesitar una grilla aparte. */
-        .historial-despacho-panel {
-            flex-basis: 100%;
-            margin-top: 12px;
-            padding-top: 14px;
-            border-top: 1.5px dashed var(--gray-200);
-        }
-        .historial-despacho-panel[hidden] { display: none; }
-        .historial-despacho-tabs {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 14px;
-        }
-        .historial-despacho-tab {
-            background: var(--gray-100);
-            color: var(--gray-600);
-            border: 1.5px solid var(--gray-200);
-            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-            padding: 8px 12px;
-            font-size: 0.82em;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .historial-despacho-tab.active {
+        .hx-tl-item { display: flex; gap: 10px; }
+        .hx-tl-rail { display: flex; flex-direction: column; align-items: center; width: 10px; flex-shrink: 0; }
+        .hx-tl-rail i { width: 10px; height: 10px; border-radius: 99px; margin-top: 4px; background: var(--gray-300); display: block; }
+        .hx-tl-rail u { width: 2px; flex: 1; background: var(--border); margin: 3px 0; display: block; }
+        .hx-tl-item.last .hx-tl-rail i { background: var(--secondary); }
+        .hx-tl-body { padding-bottom: 12px; min-width: 0; }
+        .hx-tl-body b { font-size: 13px; }
+        .hx-tl-body small { display: block; font-size: 12px; color: var(--gray-500); }
+        .hx-tl-body p { margin: 2px 0 0; font-size: 12.5px; color: var(--chip-warning-text); }
+
+        .hx-desp-foot { padding: 12px 18px 16px; border-top: 1px solid var(--gray-100); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .hx-desp-foot .sp { flex: 1; }
+
+        /* ---- Tarjeta de Cotización (fila en escritorio) ---- */
+        .hx-cot-card {
             background: var(--surface);
-            color: var(--primary);
-            border-color: var(--secondary);
-        }
-        .historial-despacho-panel-body {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .historial-despacho-seccion-titulo {
-            font-size: 0.78em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--gray-500);
-            margin-bottom: 6px;
-        }
-        .historial-despacho-destino-linea { font-size: 0.85em; color: var(--gray-700); }
-        .historial-despacho-guia { font-size: 0.82em; color: var(--gray-600); margin-top: 4px; }
-        .historial-despacho-guia--vacio { color: var(--gray-400); font-style: italic; }
-        .historial-despacho-nota { font-size: 0.76em; color: var(--gray-400); font-style: italic; margin-top: 4px; }
-
-        .historial-despacho-tabla-productos { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-        .historial-despacho-tabla-productos th {
-            text-align: left;
-            color: var(--gray-500);
-            font-weight: 700;
-            font-size: 0.82em;
-            padding: 6px 8px;
-            border-bottom: 1.5px solid var(--border);
-        }
-        .historial-despacho-tabla-productos th:not(:first-child),
-        .historial-despacho-tabla-productos td:not(:first-child) { text-align: center; }
-        .historial-despacho-tabla-productos td { padding: 6px 8px; border-bottom: 0.5px solid var(--border); }
-        .historial-despacho-fila-distinta td { background: var(--chip-warning-bg); }
-        .historial-despacho-cant { font-weight: 700; }
-        .historial-despacho-color { font-size: 0.85em; color: var(--gray-500); }
-        .historial-despacho-codigo { font-size: 0.76em; color: var(--gray-400); font-family: monospace; }
-
-        .historial-cambios-item { padding: 8px 0; border-bottom: 0.5px solid var(--border); }
-        .historial-cambios-item:last-child { border-bottom: none; }
-        .historial-cambios-item--base { color: var(--gray-400); font-style: italic; font-size: 0.85em; }
-        .historial-cambios-version { font-size: 0.8em; font-weight: 700; color: var(--gray-600); margin-bottom: 4px; }
-        .historial-cambios-lista {
-            margin: 0;
-            padding-left: 18px;
-            font-size: 0.82em;
-            color: var(--gray-600);
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .historial-despacho-panel-acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
-        .historial-despacho-link-adicional {
-            background: transparent;
-            border: none;
-            color: var(--secondary);
-            font-size: 0.82em;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: underline;
-            padding: 10px 4px;
-            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 112px 490px 330px;
+            column-gap: 18px;
             align-items: center;
+            padding: 14px 18px;
         }
+        .hx-status-chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+        .hx-status-chip--ok { background: var(--chip-success-bg); color: var(--chip-success-text); }
+        .hx-status-chip--neu { background: var(--gray-100); color: var(--gray-600); }
+        .hx-status-chip--bad { background: var(--chip-danger-bg); color: var(--chip-danger-text); }
+        .hx-cot-estado { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+        .hx-cot-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 
-        /* Contador de cada chip de filtro rápido (Pago pendiente / Sin despacho / Sin guía Shalom) */
-        .chip-filtro-historial-count {
-            display: inline-block;
-            margin-left: 4px;
-            background: var(--gray-200);
-            color: var(--gray-700);
-            border-radius: 8px;
-            padding: 0 6px;
-            font-size: 0.85em;
-            font-weight: 800;
-        }
-        .chip-filtro-historial.active .chip-filtro-historial-count { background: rgba(255,255,255,0.3); color: #fff; }
+        .hx-only-web { display: inline; }
 
-        /* Fila apilada en móvil/tablet — mismo breakpoint que ya usa el resto del sitio. */
-        @media (max-width: 768px) {
-            .historial-fila { flex-direction: column; align-items: stretch; }
-            .historial-fila-estado,
-            .historial-fila-lateral {
-                flex: 1 1 auto;
-                width: 100%;
-                align-items: stretch;
-            }
-            .historial-fila-acciones,
-            .historial-card-quickbar {
-                justify-content: stretch;
-            }
-            .historial-fila-acciones button,
-            .historial-card-quickbar button {
-                flex: 1 1 auto;
-            }
-            .historial-fila-lateral .historial-card-total { align-self: flex-end; }
+        /* Fila genérica simple (despachos huérfanos / documentos "_prueba") — fuera del alcance del
+           mockup, reutiliza el look de tarjeta suelta de siempre (.historial-card-*, ver arriba) con
+           un layout mínimo propio en vez del grid de .hx-oc-row. */
+        .hx-generica-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+        .hx-generica-lateral { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+        /* ---- Móvil (< 900px, a pedido del mockup — el resto del sitio usa 768px) ---- */
+        @media (max-width: 899px) {
+            .hx-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 4px; background: var(--gray-100); border-radius: 12px; border: 0; }
+            .hx-tab { height: 40px; border-radius: 9px; justify-content: center; font-size: 13.5px; white-space: nowrap; padding: 0 8px; }
+            .hx-tab[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(43,46,51,.14); }
+            .hx-tab[aria-selected="true"] .cnt { background: transparent; color: var(--gray-500); }
+            .hx-toolbar { flex-direction: column; align-items: stretch; }
+            .hx-search input { font-size: 16px; }
+            .hx-chips { overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; flex-wrap: nowrap; }
+            .hx-chip { height: 38px; border-radius: 99px; flex-shrink: 0; }
+
+            .hx-oc-row { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+            .hx-oc-actions { grid-template-columns: 1fr 1fr; }
+            .hx-only-web { display: none; }
+            .hx-oc-head { display: flex; align-items: flex-start; gap: 10px; }
+            .hx-oc-main { flex: 1; }
+            .hx-oc-info { display: block; background: var(--gray-50); border-radius: 12px; }
+            .hx-oc-info .hx-info { background: transparent; border-radius: 0; }
+            .hx-oc-info .hx-info + .hx-info { border-top: 1px solid var(--border); }
+            .hx-bar { width: 64px; }
+
+            .hx-desp-top { padding: 12px 14px; }
+            .hx-desp-top h3 { width: 100%; }
+            .hx-desp-grid { grid-template-columns: 1fr; padding: 14px; }
+            .hx-desp-foot { flex-wrap: wrap; padding: 12px 14px 16px; }
+            .hx-desp-foot .sp { display: none; }
+            .hx-desp-foot .hx-btn-outline, .hx-desp-foot .hx-btn-primary { flex: 1 1 45%; }
+            .hx-desp-foot .hx-btn-link { order: 3; width: 100%; }
+
+            .hx-cot-card { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+            .hx-cot-actions { grid-template-columns: 1fr 1fr; }
+            .hx-cot-actions .hx-only-web { display: none; }
         }
 
         /* MODO COMPACTO — pantallas de PC de poca altura (ver css/layout.css).

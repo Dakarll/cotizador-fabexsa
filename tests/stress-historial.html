@@ -324,7 +324,7 @@
         renderListaCotizaciones(contenedor, lista, false, '');
         var t1 = ahora();
         var msPagina1 = t1 - t0;
-        var tarjetasPagina1 = document.querySelectorAll('#historialResultsArea .historial-card').length;
+        var tarjetasPagina1 = document.querySelectorAll('#historialResultsArea .hx-oc-card').length;
 
         // Página del medio y última página — para confirmar que el slice no se rompe en los bordes
         // (última página con menos de 10 elementos) y que sigue siendo O(tamaño de página), no
@@ -333,13 +333,13 @@
         irAPaginaHistorial(Math.ceil(totalPaginasEsperado / 2));
         var t3 = ahora();
         var msPaginaMedio = t3 - t2;
-        var tarjetasPaginaMedio = document.querySelectorAll('#historialResultsArea .historial-card').length;
+        var tarjetasPaginaMedio = document.querySelectorAll('#historialResultsArea .hx-oc-card').length;
 
         var t4 = ahora();
         irAPaginaHistorial(totalPaginasEsperado);
         var t5 = ahora();
         var msUltimaPagina = t5 - t4;
-        var tarjetasUltimaPagina = document.querySelectorAll('#historialResultsArea .historial-card').length;
+        var tarjetasUltimaPagina = document.querySelectorAll('#historialResultsArea .hx-oc-card').length;
         var restoEnUltima = lista.length % 10 || 10; // cuántas tarjetas debería tener la última página
 
         var peorTiempo = Math.max(msPagina1, msPaginaMedio, msUltimaPagina);
@@ -485,14 +485,14 @@
         ocsSinGuia.forEach(function (oc) {
             var info = estadoEnvioShalomDeOC(oc);
             if (info.estado !== 'sin_guia') errores.push(oc.objectId + ' esperaba sin_guia, dio ' + info.estado);
-            var html = renderDestinoShalomHTML(oc);
-            if (/historial-mini-steps/.test(html)) errores.push(oc.objectId + ' (sin_guia) no debería mostrar la mini barra de pasos');
+            var html = renderInfoDestinoHX(oc);
+            if (/hx-mini-steps/.test(html)) errores.push(oc.objectId + ' (sin_guia) no debería mostrar la mini barra de pasos');
         });
         ocsConGuia.forEach(function (oc) {
             var info = estadoEnvioShalomDeOC(oc);
             if (info.estado !== 'con_guia') errores.push(oc.objectId + ' esperaba con_guia, dio ' + info.estado);
-            var html = renderDestinoShalomHTML(oc);
-            if (!/historial-mini-steps/.test(html)) errores.push(oc.objectId + ' (con_guia) debería mostrar la mini barra de 4 pasos');
+            var html = renderInfoDestinoHX(oc);
+            if (!/hx-mini-steps/.test(html)) errores.push(oc.objectId + ' (con_guia) debería mostrar la mini barra de 4 pasos');
         });
         var t1 = ahora();
 
@@ -564,7 +564,7 @@
             muestra.push(ocsConDespacho[k % ocsConDespacho.length].objectId);
         }
 
-        // Renderiza las filas de esas OC (con su <div class="historial-despacho-panel"> vacío) para
+        // Renderiza las filas de esas OC (con su <div class="hx-desp"> vacío) para
         // poder ejercitar toggleDespachoPanel() de verdad, tal como lo haría un clic real.
         var contenedor = document.getElementById('historialResultsArea');
         contenedor.innerHTML = '<div class="historial-list">' + ocsConDespacho.slice(0, 200).map(function (e) { return renderTarjetaHistorialHTML(e, false); }).join('') + '</div>';
@@ -584,7 +584,7 @@
 
         // Verifica que TODOS los paneles quedaron cerrados y vacíos (sin contenido "colgado" en el DOM).
         var panelesConContenidoColgado = 0;
-        document.querySelectorAll('.historial-despacho-panel').forEach(function (p) {
+        document.querySelectorAll('.hx-desp').forEach(function (p) {
             if (!p.hidden || p.innerHTML.length > 0) panelesConContenidoColgado++;
         });
 

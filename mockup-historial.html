@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Historial FABEXSA (referencia para Claude Code)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  REFERENCIA VISUAL — Historial rediseñado (Cotizaciones / Órdenes de compra)
+  ---------------------------------------------------------------------------
+  - Archivo autónomo, JavaScript puro, sin dependencias. Los datos son de EJEMPLO.
+  - Usa los mismos tokens que css/variables.css del proyecto (--primary, --secondary, --gray-*, chips…).
+  - Responsive: >= 900px tarjetas en FILA (una OC por renglón); < 900px tarjetas apiladas (móvil).
+  - Los botones Crear / Editar / Envío adicional / Imprimir / Ver OC SOLO muestran un aviso:
+    en el sistema real deben llamar a los flujos existentes (crearDespachoDesdeOC, cotizador,
+    guía de despacho actual, vista previa de OC). No reimplementarlos.
+  - La barra superior "DEMO" (tema y ancho) es solo para revisar el mockup; no va en el sistema.
+-->
+<style>
+:root{
+  --primary:#2B2E33; --secondary:#405B64; --secondary-hover:#33484F; --secondary-light:#E4EEF0; --secondary-light-border:#C3D6DA;
+  --success:#16A34A; --warning:#D97706; --danger:#DC2626;
+  --gray-50:#F7F8F9; --gray-100:#EEF0F2; --gray-200:#DCDFE3; --gray-300:#C7CCD1; --gray-400:#9AA1A9; --gray-500:#5D6470; --gray-600:#454B54; --gray-700:#33383F; --gray-800:#2B2E33;
+  --surface:#FFFFFF; --surface-sunken:#FBFBFC; --bg-app:var(--gray-100); --border:var(--gray-200);
+  --chip-success-bg:#DCFCE7; --chip-success-text:#166534;
+  --chip-warning-bg:#FEF3C7; --chip-warning-text:#92400E;
+  --chip-danger-bg:#FEE2E2;  --chip-danger-text:#991B1B;
+  --chip-info-bg:#E4EEF0;    --chip-info-text:#2C4A52;
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
+  --shadow-md:0 6px 20px rgba(43,46,51,.10);
+}
+:root[data-theme="dark"]{
+  --primary:#E7E9EA; --surface:#26282C; --surface-sunken:#222428; --bg-app:#1E2023;
+  --gray-50:#2C2F33; --gray-100:#2C2F33; --gray-200:#3A3D42; --gray-300:#46494F; --gray-400:#5B5F66; --gray-500:#8B9096; --gray-600:#A7ACB2; --gray-700:#C7CBD0; --gray-800:#E7E9EA;
+  --border:#3A3D42; --secondary-light:#26343A; --secondary-light-border:#3A4C52; --chip-info-bg:#26343A; --chip-info-text:#B9D0D6;
+  --chip-success-bg:#163323; --chip-success-text:#86EFAC; --chip-warning-bg:#3A2A10; --chip-warning-text:#FCD34D; --chip-danger-bg:#3B1A1A; --chip-danger-text:#FCA5A5;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-sans);color:var(--primary);background:var(--bg-app);-webkit-font-smoothing:antialiased}
+button,input{font-family:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+svg{flex-shrink:0}
+button:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}
+
+/* ---------- Barra DEMO (solo para revisar el mockup) ---------- */
+.demo-bar{position:sticky;top:0;z-index:20;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:8px 12px;background:#111;color:#ddd;font-size:12px}
+.demo-bar button{background:#333;border:0;color:#fff;border-radius:6px;padding:6px 10px;cursor:pointer}
+.demo-bar button[aria-pressed="true"]{background:#405B64}
+.frame{margin:0 auto;transition:max-width .2s}
+.frame.movil{max-width:390px;box-shadow:0 0 0 1px var(--border)}
+
+/* ---------- Historial ---------- */
+.hist{padding:22px 32px 40px;display:flex;flex-direction:column;gap:14px;max-width:1440px;margin:0 auto}
+.hist-title small{display:block;font-size:13px;color:var(--gray-500)}
+.hist-title h1{margin:2px 0 0;font-size:26px;font-weight:700;letter-spacing:-.02em}
+
+.hist-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border)}
+.hist-tab{height:46px;padding:0 16px;border:0;background:transparent;color:var(--gray-500);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer}
+.hist-tab .cnt{font-size:12px;font-weight:700;background:var(--gray-200);color:var(--gray-600);border-radius:99px;padding:2px 8px}
+.hist-tab[aria-selected="true"]{color:var(--primary);box-shadow:inset 0 -3px 0 var(--secondary)}
+.hist-tab[aria-selected="true"] .cnt{background:var(--secondary);color:#fff}
+
+.hist-toolbar{display:flex;align-items:center;gap:10px}
+.hist-search{flex:1;min-width:0;height:44px;display:flex;align-items:center;gap:10px;padding:0 14px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--gray-500)}
+.hist-search:focus-within{border-color:var(--secondary);box-shadow:0 0 0 3px var(--secondary-light)}
+.hist-search input{flex:1;min-width:0;border:0;background:transparent;font-size:14px;color:var(--primary);outline:none}
+.hist-search .clear{width:28px;height:28px;border:0;border-radius:99px;background:var(--gray-200);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.hist-chips{display:flex;gap:8px}
+.hist-chip{height:44px;padding:0 14px;background:var(--surface);border:1px solid var(--border);border-radius:11px;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap;color:var(--gray-700);font-size:13px;font-weight:500}
+.hist-chip .dot{width:8px;height:8px;border-radius:99px}
+.hist-chip b{color:var(--primary)}
+.hist-chip[aria-pressed="true"]{border-color:var(--secondary);box-shadow:0 0 0 1px var(--secondary)}
+
+.hist-list{display:flex;flex-direction:column;gap:10px}
+
+/* Tarjeta de OC — en FILA en escritorio */
+.oc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.oc-card.is-open{border-color:var(--secondary);box-shadow:var(--shadow-md)}
+.oc-row{display:grid;grid-template-columns:minmax(0,1fr) 112px 244px 256px 340px;column-gap:18px;align-items:center;padding:14px 18px}
+.oc-head,.oc-info{display:contents}
+.oc-main{min-width:0}
+.tag{font-size:11px;font-weight:700;letter-spacing:.06em;border-radius:5px;padding:2px 6px}
+.tag-oc{color:var(--chip-info-text);background:var(--chip-info-bg)}
+.tag-cot{color:var(--gray-600);background:var(--gray-100)}
+.oc-num{display:flex;align-items:baseline;gap:8px}
+.oc-num strong{font-size:17px;font-weight:700}
+.oc-cliente{font-size:15px;font-weight:600;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-sub{font-size:13px;color:var(--gray-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-total{font-size:17px;font-weight:700;white-space:nowrap;text-align:right}
+.info{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gray-50);border-radius:12px;min-width:0}
+.info-txt{flex:1;min-width:0}
+.info-lbl{font-size:11.5px;color:var(--gray-500)}
+.info-val{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{width:48px;height:6px;border-radius:99px;background:var(--gray-200);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px}
+.mini-steps{display:flex;gap:3px}
+.mini-steps i{width:12px;height:5px;border-radius:99px;background:var(--gray-200)}
+.oc-actions{display:grid;grid-template-columns:130px 1fr;gap:8px}
+
+.btn{height:46px;border-radius:11px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;padding:0 12px}
+.btn-outline{border:1px solid var(--gray-300);background:var(--surface)}
+.btn-outline:hover{background:var(--gray-100)}
+.btn-primary{border:0;background:var(--secondary);color:#fff}
+.btn-primary:hover{background:var(--secondary-hover)}
+.btn-crear{border:1px dashed #7E9CA4;background:var(--secondary-light);color:var(--chip-info-text)}
+.btn-link{border:0;background:transparent;color:var(--secondary);font-size:13.5px}
+.btn-desp{border:1px solid var(--secondary);background:var(--surface);justify-content:flex-start;text-align:left}
+.btn-desp .t{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.btn-desp .t b{font-size:13.5px}
+.btn-desp .t span{font-size:11.5px;color:var(--gray-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-desp[aria-expanded="true"]{background:var(--secondary);color:#fff}
+.btn-desp[aria-expanded="true"] .t span{color:#DCE6E8}
+
+/* Panel de despacho dentro de la tarjeta */
+.desp{border-top:1px solid var(--border);background:var(--surface-sunken)}
+.desp-top{padding:12px 18px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--gray-100);flex-wrap:wrap}
+.desp-top h3{margin:0 6px 0 0;font-size:13px;color:var(--gray-700)}
+.desp-tab{height:36px;padding:0 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);cursor:pointer;display:flex;align-items:center;gap:8px}
+.desp-tab b{font-size:13.5px}.desp-tab span{font-size:11px;font-weight:600;color:var(--gray-500)}
+.desp-tab[aria-selected="true"]{border-color:var(--secondary);background:var(--secondary-light)}
+.desp-close{margin-left:auto;width:36px;height:36px;border:0;border-radius:9px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.desp-grid{padding:16px 18px;display:grid;grid-template-columns:300px minmax(0,1fr) 340px;gap:14px;align-items:start}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.box-lbl{font-size:12px;font-weight:600;color:var(--gray-500)}
+.dest-city{font-size:19px;font-weight:700;margin-top:4px}
+.dest-sub{font-size:13px;color:var(--gray-600)}
+.steps{display:flex;align-items:flex-start;margin-top:12px}
+.steps .ln{flex:1;height:2px;margin-top:10px;background:var(--gray-200)}
+.steps .st{width:62px;margin:0 -15px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.steps .dt{width:22px;height:22px;border-radius:99px;border:2px solid var(--gray-300);background:var(--surface);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;color:var(--gray-500)}
+.steps .st span{font-size:10.5px;text-align:center;color:var(--gray-500)}
+.steps .done .dt{background:var(--secondary);border-color:var(--secondary);color:#fff}
+.steps .cur .dt{background:var(--chip-warning-bg);border-color:var(--warning);color:var(--chip-warning-text)}
+.steps .now span{font-weight:700;color:var(--primary)}
+.steps .ln.on{background:var(--secondary)}
+.tbl{padding:0;overflow:hidden}
+.tbl-h,.tbl-r{display:grid;grid-template-columns:minmax(0,1fr) 90px 100px;padding:9px 14px}
+.tbl-h{background:var(--gray-50);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gray-500)}
+.tbl-r{border-top:1px solid var(--gray-100);font-size:13.5px}
+.tbl-r span:nth-child(n+2),.tbl-h span:nth-child(n+2){text-align:right}
+.tbl-r span:nth-child(2){color:var(--gray-500)}.tbl-r span:nth-child(3){font-weight:700}
+.tbl-nota{padding:9px 14px;border-top:1px solid var(--gray-100);font-size:12.5px;color:var(--gray-600);background:var(--gray-50)}
+.tl-item{display:flex;gap:10px}
+.tl-rail{display:flex;flex-direction:column;align-items:center;width:10px}
+.tl-rail i{width:10px;height:10px;border-radius:99px;margin-top:4px;background:var(--gray-300)}
+.tl-rail u{width:2px;flex:1;background:var(--border);margin:3px 0}
+.tl-item.last .tl-rail i{background:var(--secondary)}
+.tl-body{padding-bottom:12px;min-width:0}
+.tl-body b{font-size:13px}.tl-body small{display:block;font-size:12px;color:var(--gray-500)}
+.tl-body p{margin:2px 0 0;font-size:12.5px;color:var(--chip-warning-text)}
+.desp-foot{padding:12px 18px 16px;border-top:1px solid var(--gray-100);display:flex;align-items:center;gap:10px}
+.desp-foot .sp{flex:1}
+
+/* Tarjeta de cotización */
+.cot-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);display:grid;grid-template-columns:minmax(0,1fr) 112px 490px 330px;column-gap:18px;align-items:center;padding:14px 18px}
+.chip{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:99px;font-size:12px;font-weight:600}
+.chip-ok{background:var(--chip-success-bg);color:var(--chip-success-text)}
+.chip-neu{background:var(--gray-100);color:var(--gray-600)}
+.chip-bad{background:var(--chip-danger-bg);color:var(--chip-danger-text)}
+.cot-estado{display:flex;align-items:center;gap:10px;font-size:13px}
+.cot-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+
+.empty{padding:64px 24px;text-align:center;color:var(--gray-500)}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#2B2E33;color:#fff;border-radius:12px;padding:12px 16px;font-size:14px;box-shadow:0 10px 30px rgba(43,46,51,.3);display:none;max-width:calc(100% - 32px)}
+.toast.show{display:block}
+
+/* ---------- MÓVIL (< 900px) ---------- */
+@media (max-width: 899px){ .hist{padding:14px 16px 32px} }
+.frame.movil .hist,
+.m .hist{padding:14px 16px 32px}
+@media (max-width: 899px){
+  .hist-title h1{font-size:24px}
+  .hist-tabs{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:4px;background:var(--gray-100);border-radius:12px;border:0}
+  .hist-tab{height:40px;border-radius:9px;justify-content:center;font-size:13.5px;white-space:nowrap;padding:0 8px}
+  .hist-tab[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(43,46,51,.14)}
+  .hist-tab[aria-selected="true"] .cnt{background:transparent;color:var(--gray-500)}
+  .hist-toolbar{flex-direction:column;align-items:stretch}
+  .hist-search input{font-size:16px}
+  .hist-chips{overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:none}
+  .hist-chip{height:38px;border-radius:99px;flex-shrink:0}
+  .oc-row{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:14px}
+  .oc-actions{grid-template-columns:1fr 1fr}
+  .only-web{display:none}
+  .oc-head{display:flex;align-items:flex-start;gap:10px}
+  .oc-main{flex:1}
+  .oc-info{display:block;background:var(--gray-50);border-radius:12px}
+  .oc-info .info{background:transparent;border-radius:0}
+  .oc-info .info+.info{border-top:1px solid var(--border)}
+  .bar{width:64px}
+  .desp-top{padding:12px 14px}
+  .desp-top h3{width:100%}
+  .desp-grid{grid-template-columns:1fr;padding:14px}
+  .desp-foot{flex-wrap:wrap;padding:12px 14px 16px}
+  .desp-foot .sp{display:none}
+  .desp-foot .btn-outline,.desp-foot .btn-primary{flex:1 1 45%}
+  .desp-foot .btn-link{order:3;width:100%}
+  .cot-card{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:14px}
+  .cot-actions{grid-template-columns:1fr 1fr}
+  .cot-actions .only-web{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="demo-bar" role="toolbar" aria-label="Controles de la demo">
+  <span>DEMO:</span>
+  <button id="vWeb" aria-pressed="true">Escritorio</button>
+  <button id="vMovil" aria-pressed="false">Móvil (390px)</button>
+  <button id="vTema" aria-pressed="false">Modo oscuro</button>
+</div>
+
+<div class="frame" id="frame">
+  <section class="hist" id="historial" aria-label="Historial"></section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* =================== DATOS DE EJEMPLO =================== */
+const PASOS = ['En origen','En tránsito','En destino','Entregado'];
+const PASO_COLOR = ['var(--gray-700)','var(--chip-info-text)','var(--chip-warning-text)','var(--chip-success-text)'];
+const D = (num, tipo, destino, agencia, guia, clave, paso, q, hist, nota='') => ({num, tipo, destino, agencia, guia, clave, paso, q, hist, nota});
+const H = (titulo, fecha, cambios=[]) => ({titulo, fecha, usuario:'[Usuario]', cambios});
+const OCS = [
+  {id:'oc503', num:'000503', cliente:'Carlos Ruiz', empresa:'', fecha:'24 set.', hora:'10:00 p. m.', total:400, adelanto:400, prods:[{n:'[Producto B]',c:2},{n:'[Producto G]',c:1}],
+    desp:[D('000503','Principal','Trujillo','[Agencia B]','[N° de guía]','[clave]',2,[2,0],[
+      H('Versión 1 · creado desde la OC','24/09 10:20 p. m.'),
+      H('Versión 2 · corrección','24/09 11:05 p. m.',['[Producto G]: 1 → 0 unid.','Agencia: [Agencia A] → [Agencia B]'])],
+      '[Producto G] quedó pendiente: se puede mandar como envío adicional.')]},
+  {id:'oc502', num:'000502', cliente:'Maria Lopez', empresa:'ACME SAC', fecha:'24 set.', hora:'9:40 p. m.', total:900, adelanto:300, prods:[{n:'[Producto A]',c:3}], desp:[]},
+  {id:'oc498', num:'000498', cliente:'Jorge Salas', empresa:'Ferretería El Sol EIRL', fecha:'23 set.', hora:'11:20 a. m.', total:1250, adelanto:1000, prods:[{n:'[Producto B]',c:5}],
+    desp:[D('000498','Principal','Piura','','','',0,[5],[H('Versión 1 · creado desde la OC','23/09 3:10 p. m.')])]},
+  {id:'oc500', num:'000500', cliente:'Luis Torres', empresa:'', fecha:'22 set.', hora:'11:40 a. m.', total:650, adelanto:0, prods:[{n:'[Producto A]',c:2}], desp:[]},
+  {id:'oc501', num:'000501', cliente:'Rosa Díaz', empresa:'Constructora Andina SAC', fecha:'21 set.', hora:'10:15 a. m.', total:2480, adelanto:2480, prods:[{n:'[Producto C]',c:4},{n:'[Producto D]',c:2}],
+    desp:[D('000501','Principal','Arequipa','[Agencia de destino]','[N° de guía]','[clave]',4,[4,1],[H('Versión 1 · creado desde la OC','22/09 9:00 a. m.',['[Producto D]: 2 → 1 unid. (faltó stock)'])]),
+          D('000501-B','Envío adicional','Arequipa','[Agencia de destino]','','',0,[0,1],[H('Versión 1 · envío adicional','23/09 4:10 p. m.')],'Completa lo que faltó en el despacho N° 000501.')]},
+  {id:'oc499', num:'000499', cliente:'Ana Quispe', empresa:'Inversiones Q&A SAC', fecha:'20 set.', hora:'5:20 p. m.', total:1830, adelanto:1830, prods:[{n:'[Producto E]',c:6}],
+    desp:[D('000499','Principal','Cusco','[Agencia de destino]','[N° de guía]','[clave]',3,[6],[H('Versión 1 · creado desde la OC','21/09 8:50 a. m.')])]}
+];
+const COTS = [
+  {num:'000453', cliente:'Kevin Rojas', empresa:'', fecha:'24 set.', hora:'6:15 p. m.', total:780, estado:'abierta', validez:'Vence el 01 oct.'},
+  {num:'000451', cliente:'Maria Lopez', empresa:'ACME SAC', fecha:'23 set.', hora:'9:05 a. m.', total:900, estado:'convertida', a:'000502'},
+  {num:'000450', cliente:'Jorge Salas', empresa:'Ferretería El Sol EIRL', fecha:'22 set.', hora:'4:30 p. m.', total:1250, estado:'convertida', a:'000498'},
+  {num:'000452', cliente:'Pedro Huamán', empresa:'', fecha:'14 set.', hora:'9:30 a. m.', total:560, estado:'vencida', validez:'Venció el 21 set.'}
+];
+
+/* =================== UTILIDADES =================== */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => 'S/ ' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const ICON = {
+  search:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  wallet:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gray-500)"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14.5h2"/></svg>',
+  pin:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gray-500)"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>',
+  eye:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  plus:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  truck:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h12v10H2z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>',
+  edit:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  print:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>'
+};
+
+/* =================== DERIVADOS =================== */
+const OCX = OCS.map(o => {
+  const x = {...o};
+  x.saldo = o.total - o.adelanto;
+  x.pct = Math.round(o.adelanto / o.total * 100);
+  if (x.saldo <= 0)       { x.payTxt = 'Pagado completo';                  x.payColor = 'var(--chip-success-text)'; x.barColor = 'var(--success)'; }
+  else if (!o.adelanto)   { x.payTxt = 'Falta ' + money(x.saldo); x.payColor = 'var(--chip-danger-text)';  x.barColor = 'var(--danger)'; }
+  else                    { x.payTxt = 'Falta ' + money(x.saldo);          x.payColor = 'var(--chip-warning-text)'; x.barColor = 'var(--warning)'; }
+  // Destino: despacho activo (el primero no entregado; si todos entregados, el último)
+  const act = o.desp.find(d => d.paso < 4) || o.desp[o.desp.length - 1];
+  x.act = act;
+  if (!act)          { x.destTxt = 'Sin despacho aún'; x.destColor = 'var(--gray-500)'; }
+  else if (!act.guia){ x.destTxt = act.destino;        x.destColor = 'var(--primary)'; }            // sin guía/clave → SOLO destino
+  else               { x.destTxt = act.destino + ' · ' + PASOS[act.paso - 1]; x.destColor = PASO_COLOR[act.paso - 1]; }
+  x.despSub = o.desp.length > 1 ? '· ' + o.desp.length + ' envíos' : (act ? 'N° ' + act.num : '');
+  x.sigAdicional = o.num + '-' + String.fromCharCode(65 + o.desp.length);
+  x.hay = norm([o.num, o.cliente, o.empresa, ...o.desp.map(d => d.num + ' ' + d.destino)].join(' '));
+  return x;
+});
+const COTX = COTS.map(c => ({...c, hay: norm([c.num, c.cliente, c.empresa, c.a].join(' '))}));
+const QF = [
+  {k:'cobrar',  label:'Pago pendiente', dot:'var(--warning)',  fn:x => x.saldo > 0, val:() => money(OCX.filter(x => x.saldo > 0).reduce((a,x) => a + x.saldo, 0))},
+  {k:'sin',     label:'Sin despacho',   dot:'var(--gray-500)', fn:x => !x.desp.length},
+  {k:'sinGuia', label:'Sin guía Shalom',dot:'var(--gray-400)', fn:x => x.desp.some(d => !d.guia)}
+];
+
+/* =================== ESTADO =================== */
+const state = {tab:'oc', q:'', qf:null, open:'oc503', dsel:{}};
+
+/* =================== RENDER =================== */
+function stepsHtml(paso){
+  return PASOS.map((l,i) => {
+    const n = i + 1, done = n < paso || (n === 4 && paso === 4), cur = n === paso && paso < 4;
+    const cls = [done ? 'done' : cur ? 'cur' : '', n === paso ? 'now' : ''].join(' ');
+    return (i ? `<div class="ln ${n <= paso ? 'on' : ''}"></div>` : '') +
+      `<div class="st ${cls}"><span class="dt">${done ? '✓' : n}</span><span>${l}</span></div>`;
+  }).join('');
+}
+function panelHtml(x){
+  const di = Math.min(state.dsel[x.id] ?? 0, x.desp.length - 1);
+  const d = x.desp[di];
+  const tabs = x.desp.map((dd,i) => `<button class="desp-tab" role="tab" aria-selected="${i === di}" data-a="dsel" data-id="${x.id}" data-i="${i}"><b class="num">N° ${esc(dd.num)}</b><span>${esc(dd.tipo)}</span></button>`).join('');
+  const prods = x.prods.map((p,i) => ({...p, d:d.q[i]})).filter(p => p.d > 0)
+    .map(p => `<div class="tbl-r"><span>${esc(p.n)}</span><span class="num">${p.c}</span><span class="num">${p.d}</span></div>`).join('');
+  const hist = [...d.hist].reverse().map((h,i,arr) => `
+    <div class="tl-item ${i === 0 ? 'last' : ''}">
+      <div class="tl-rail"><i></i>${i < arr.length - 1 ? '<u></u>' : ''}</div>
+      <div class="tl-body"><b class="num">${esc(h.titulo)}</b><small class="num">${esc(h.fecha)} · ${esc(h.usuario)}</small>
+      ${h.cambios.map(c => `<p class="num">• ${esc(c)}</p>`).join('')}</div>
+    </div>`).join('');
+  return `
+  <div class="desp">
+    <div class="desp-top" role="tablist" aria-label="Despachos de esta OC">
+      <h3>Despachos de esta OC</h3>${tabs}
+      <button class="desp-close" data-a="toggle" data-id="${x.id}" aria-label="Cerrar despacho">${ICON.x}</button>
+    </div>
+    <div class="desp-grid">
+      <div class="box">
+        <div class="box-lbl">Destino Shalom</div>
+        <div class="dest-city">${esc(d.destino)}</div>
+        ${d.agencia ? `<div class="dest-sub">${esc(d.agencia)}</div>` : ''}
+        ${d.guia ? `<div class="dest-sub num" style="margin-top:8px">Guía ${esc(d.guia)} · Clave ${esc(d.clave)}</div><div class="steps">${stepsHtml(d.paso)}</div>` : ''}
+      </div>
+      <div class="box tbl">
+        <div class="tbl-h"><span>Productos despachados</span><span>En la OC</span><span>Despachado</span></div>
+        ${prods}
+        ${d.nota ? `<div class="tbl-nota">${esc(d.nota)}</div>` : ''}
+      </div>
+      <div class="box">
+        <div class="box-lbl" style="margin-bottom:10px">Historial de cambios</div>
+        ${hist}
+      </div>
+    </div>
+    <div class="desp-foot">
+      <button class="btn btn-link" data-a="adicional" data-id="${x.id}">${ICON.plus}Envío adicional (N° ${esc(x.sigAdicional)})</button>
+      <span class="sp"></span>
+      <button class="btn btn-outline" data-a="editar" data-id="${x.id}">${ICON.edit}Editar despacho</button>
+      <button class="btn btn-primary" data-a="imprimir" data-id="${x.id}">${ICON.print}Imprimir guía<span class="only-web num" style="margin-left:-4px">N° ${esc(d.num)}</span></button>
+    </div>
+  </div>`;
+}
+function ocHtml(x){
+  const open = state.open === x.id && x.desp.length > 0;
+  const bars = x.act && x.act.guia
+    ? `<div class="mini-steps">${[1,2,3,4].map(n => `<i style="${n <= x.act.paso ? 'background:' + (x.act.paso === 4 ? 'var(--success)' : 'var(--secondary)') : ''}"></i>`).join('')}</div>` : '';
+  const despBtn = x.desp.length
+    ? `<button class="btn btn-desp" aria-expanded="${open}" data-a="toggle" data-id="${x.id}">${ICON.truck}<span class="t"><b>${open ? 'Ocultar despacho' : 'Ver / editar'}</b><span class="num">Despacho ${esc(x.despSub)}</span></span></button>`
+    : `<button class="btn btn-crear" data-a="crear" data-id="${x.id}">${ICON.plus}Crear despacho</button>`;
+  return `
+  <article class="oc-card ${open ? 'is-open' : ''}">
+    <div class="oc-row">
+      <div class="oc-head">
+        <div class="oc-main">
+          <div class="oc-num"><span class="tag tag-oc">OC</span><strong class="num">N° ${esc(x.num)}</strong></div>
+          <div class="oc-cliente">${esc(x.cliente)}</div>
+          <div class="oc-sub">${esc(x.empresa || 'Cliente particular')} · ${esc(x.fecha)}, ${esc(x.hora)}</div>
+        </div>
+        <div class="oc-total num">${money(x.total)}</div>
+      </div>
+      <div class="oc-info">
+        <div class="info">${ICON.wallet}<div class="info-txt"><div class="info-lbl">Pago</div><div class="info-val num" style="color:${x.payColor}">${esc(x.payTxt)}</div></div>
+          <div class="bar"><i style="width:${x.pct}%;background:${x.barColor}"></i></div></div>
+        <div class="info">${ICON.pin}<div class="info-txt"><div class="info-lbl">Destino Shalom</div><div class="info-val" style="color:${x.destColor}">${esc(x.destTxt)}</div></div>${bars}</div>
+      </div>
+      <div class="oc-actions">
+        <button class="btn btn-outline" data-a="verOc" data-id="${x.id}">${ICON.eye}Ver OC</button>
+        ${despBtn}
+      </div>
+    </div>
+    ${open ? panelHtml(x) : ''}
+  </article>`;
+}
+function cotHtml(c){
+  const chip = c.estado === 'abierta' ? '<span class="chip chip-neu">Abierta</span>'
+    : c.estado === 'convertida' ? `<span class="chip chip-ok">Pasó a OC ${esc(c.a)}</span>` : '<span class="chip chip-bad">Vencida</span>';
+  const accion = c.estado === 'abierta' ? 'Convertir en OC' : c.estado === 'convertida' ? 'Ir a la OC' : 'Renovar';
+  return `
+  <article class="cot-card">
+    <div class="oc-main">
+      <div class="oc-num"><span class="tag tag-cot">COT</span><strong class="num">N° ${esc(c.num)}</strong></div>
+      <div class="oc-cliente">${esc(c.cliente)}</div>
+      <div class="oc-sub">${esc(c.empresa || 'Cliente particular')} · ${esc(c.fecha)}, ${esc(c.hora)}</div>
+    </div>
+    <div class="oc-total num">${money(c.total)}</div>
+    <div class="cot-estado">${chip}<span class="num" style="color:${c.estado === 'vencida' ? 'var(--chip-danger-text)' : 'var(--gray-600)'}">${esc(c.validez || '')}</span></div>
+    <div class="cot-actions">
+      <button class="btn btn-outline">Ver</button>
+      <button class="btn btn-outline only-web">Cargar</button>
+      <button class="btn btn-crear" style="border-style:solid;border-color:transparent">${accion}</button>
+    </div>
+  </article>`;
+}
+function render(){
+  const isOc = state.tab === 'oc';
+  const nq = norm(state.q.trim());
+  const f = QF.find(q => q.k === state.qf);
+  const ocs = OCX.filter(x => (!f || f.fn(x)) && (!nq || x.hay.includes(nq)));
+  const cots = COTX.filter(c => !nq || c.hay.includes(nq));
+  const list = isOc ? ocs.map(ocHtml).join('') : cots.map(cotHtml).join('');
+  const empty = (isOc ? ocs : cots).length === 0;
+  document.getElementById('historial').innerHTML = `
+    <div class="hist-title"><small>Ventas</small><h1>Historial</h1></div>
+    <div class="hist-tabs" role="tablist" aria-label="Tipo de documento">
+      <button class="hist-tab" role="tab" aria-selected="${!isOc}" data-a="tab" data-v="cot">Cotizaciones <span class="cnt num">${COTX.length}</span></button>
+      <button class="hist-tab" role="tab" aria-selected="${isOc}" data-a="tab" data-v="oc">Órdenes de compra <span class="cnt num">${OCX.length}</span></button>
+    </div>
+    <div class="hist-toolbar">
+      <label class="hist-search">${ICON.search}
+        <input id="q" aria-label="Buscar en el historial" value="${esc(state.q)}" placeholder="${isOc ? 'Buscar N° de OC o despacho (000501-B), cliente o destino' : 'Buscar N° de cotización, cliente o empresa'}">
+        ${state.q ? `<button class="clear" data-a="clearQ" aria-label="Borrar búsqueda">${ICON.x}</button>` : ''}
+      </label>
+      ${isOc ? `<div class="hist-chips">${QF.map(q => `<button class="hist-chip" aria-pressed="${state.qf === q.k}" data-a="qf" data-v="${q.k}"><span class="dot" style="background:${q.dot}"></span>${q.label} <b class="num">${q.val ? q.val() : OCX.filter(q.fn).length}</b></button>`).join('')}</div>` : ''}
+    </div>
+    <div class="hist-list">${list}</div>
+    ${empty ? '<div class="empty">No hay documentos con estos filtros. Prueba con el N° de la OC o del despacho (ej. 000501-B).</div>' : ''}`;
+}
+
+/* =================== EVENTOS (delegación) =================== */
+let toastT;
+function toast(t){ const el = document.getElementById('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 3500); }
+const host = document.getElementById('historial');
+host.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const x = OCX.find(o => o.id === b.dataset.id);
+  switch (b.dataset.a){
+    case 'tab':    state.tab = b.dataset.v; state.qf = null; break;
+    case 'qf':     state.qf = state.qf === b.dataset.v ? null : b.dataset.v; break;
+    case 'clearQ': state.q = ''; break;
+    case 'toggle': state.open = state.open === x.id ? null : x.id; break;
+    case 'dsel':   state.dsel[x.id] = +b.dataset.i; break;
+    // En el sistema real, estos llaman a los flujos EXISTENTES:
+    case 'verOc':     return toast('Vista previa de la OC N° ' + x.num + ' (la que ya genera el sistema)');
+    case 'crear':     return toast('crearDespachoDesdeOC(): se abre la OC N° ' + x.num + ' en el cotizador');
+    case 'editar':    return toast('Se abre el despacho en el cotizador · al guardar se agrega una versión a historialCambios');
+    case 'adicional': return toast('Flujo actual de sufijos: envío adicional N° ' + x.sigAdicional);
+    case 'imprimir':  return toast('Imprime la guía de despacho que YA genera el sistema');
+    default: return;
+  }
+  render();
+});
+let qT;
+host.addEventListener('input', e => {
+  if (e.target.id !== 'q') return;
+  state.q = e.target.value;
+  clearTimeout(qT);
+  qT = setTimeout(() => { const pos = e.target.selectionStart; render(); const i = document.getElementById('q'); i.focus(); i.setSelectionRange(pos, pos); }, 150);
+});
+
+/* =================== BARRA DEMO =================== */
+const frame = document.getElementById('frame');
+function setView(m){ frame.classList.toggle('movil', m); document.body.classList.toggle('m', m);
+  document.getElementById('vWeb').setAttribute('aria-pressed', !m); document.getElementById('vMovil').setAttribute('aria-pressed', m); applyMobile(); }
+function applyMobile(){ // en la demo, "Móvil" fuerza el layout de <900px aunque la ventana sea ancha
+  document.getElementById('mq-force')?.remove();
+  if (!frame.classList.contains('movil')) return;
+  const rules = [...document.querySelector('style').sheet.cssRules].filter(r => r.media && r.media.mediaText.includes('899'));
+  const st = document.createElement('style'); st.id = 'mq-force';
+  st.textContent = rules.map(r => [...r.cssRules].map(c => '.frame.movil ' + c.cssText.replace(/^([^{]+)/, s => s.split(',').join(', .frame.movil '))).join('\n')).join('\n');
+  document.head.appendChild(st);
+}
+document.getElementById('vWeb').onclick = () => setView(false);
+document.getElementById('vMovil').onclick = () => setView(true);
+document.getElementById('vTema').onclick = e => { const d = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = d ? 'light' : 'dark'; e.target.setAttribute('aria-pressed', !d); };
+
+render();
+</script>
+</body>
+</html>
