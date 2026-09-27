@@ -1611,8 +1611,15 @@
             const filtrosEl = document.getElementById('historialFiltrosArea');
             if (filtrosEl) filtrosEl.innerHTML = renderFiltrosTipoHistorial();
             const input = document.getElementById('historialSearchInput');
-            if (input) input.value = '';
+            if (input) { input.value = ''; input.placeholder = placeholderBusquedaHistorial(); }
+            actualizarClearBtnHistorial();
             pintarResultadosHistorial();
+        }
+
+        function placeholderBusquedaHistorial() {
+            return seccionHistorial === 'orden_compra'
+                ? 'Buscar N° de OC o despacho (000501-B), cliente o destino'
+                : 'Buscar N° de cotización, cliente o empresa';
         }
 
         // Cuenta, sobre TODAS las OC en memoria (no solo las visibles), cuántas caen en cada filtro
@@ -1934,9 +1941,7 @@
             // Solo el contenido de #historialResultsArea se redibuja en cada búsqueda. Estructura
             // ".hx-toolbar"/".hx-search" 1:1 con mockup-historial.html (buscador + chips en la misma
             // fila en escritorio).
-            const placeholder = seccionHistorial === 'orden_compra'
-                ? 'Buscar N° de OC o despacho (000501-B), cliente o destino'
-                : 'Buscar N° de cotización, cliente o empresa';
+            const placeholder = placeholderBusquedaHistorial();
 
             listEl.innerHTML = `
                 <div class="hx-toolbar">
@@ -2923,18 +2928,18 @@
 
         // Muestra en un modal de solo lectura el contenido completo de una cotización, orden de
         // compra o guía de despacho guardada en el historial, sin cargarla a la cotización activa
-        // ni tocar contadores/red. El diseño se adapta a pantallas de PC y de celular (grid de
-        // cliente/envío en 2 columnas en PC y apilado en móvil, tabla con scroll horizontal si
-        // no entra en pantallas angostas).
+        // ni tocar contadores/red. Maquetado con clases ".vd-*" (css/cotizacion.css): en PC la
+        // tabla de productos es una tabla normal; en celular cada producto pasa a ser una
+        // tarjeta (sin scroll horizontal). Colores por tokens, así respeta el modo oscuro.
         function verCotizacionDesdeHistorial(objectId) {
             const entry = historialCache.find(e => e.objectId === objectId);
             if (!entry) { mostrarNotificacion('No se encontró la cotización', 'warning'); return; }
 
             const infoTipoDoc = {
-                orden_compra: { color: '#9a3412', fondo: '#fed7aa', etiqueta: '📦 ORDEN DE COMPRA' },
-                despacho:     { color: '#276749', fondo: '#c6f6d5', etiqueta: '🚚 GUÍA DE DESPACHO' },
-                cotizacion:   { color: '#3730a3', fondo: '#e0e7ff', etiqueta: '📋 COTIZACIÓN' }
-            }[entry.tipoDocumento] || { color: '#3730a3', fondo: '#e0e7ff', etiqueta: '📋 COTIZACIÓN' };
+                orden_compra: { clase: 'vd-badge--oc', etiqueta: '📦 ORDEN DE COMPRA' },
+                despacho:     { clase: 'vd-badge--desp', etiqueta: '🚚 GUÍA DE DESPACHO' },
+                cotizacion:   { clase: 'vd-badge--cot', etiqueta: '📋 COTIZACIÓN' }
+            }[entry.tipoDocumento] || { clase: 'vd-badge--cot', etiqueta: '📋 COTIZACIÓN' };
 
             const esDespacho = entry.tipoDocumento === 'despacho';
             const correlativoTexto = formatearCorrelativo(entry.correlativo, esDespacho ? entry.sufijoDespacho : null);
@@ -2959,16 +2964,16 @@
                 const tipoPrecio = producto.precioOverride !== undefined ? 'Personalizado' : obtenerEtiquetaTipoPrecio(producto, cantidad);
                 const precioMostrar = entry.mostrarConIGV ? calcularPrecioConIGV(precioConDesc) : precioConDesc;
                 const subtotalMostrar = entry.mostrarConIGV ? calcularPrecioConIGV(subtotal) : subtotal;
-                const colorInfo = producto.color ? ` <span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;font-size:0.75em;font-weight:600;margin-left:3px;white-space:nowrap;display:inline-block;">● ${producto.color}</span>` : '';
-                const descInfo = descPct > 0 ? ` <span style="background:#fed7aa;color:#9a3412;padding:1px 5px;border-radius:4px;font-size:0.75em;">-${descPct}%</span>` : '';
+                const colorInfo = producto.color ? ` <span class="vd-color">● ${escaparHtml(producto.color)}</span>` : '';
+                const descInfo = descPct > 0 ? ` <span class="vd-desc">-${escaparHtml(descPct)}%</span>` : '';
 
                 return `
                     <tr>
-                        <td style="font-size:0.82em;color:#718096;font-family:monospace;">${producto.codigo}</td>
-                        <td style="font-size:0.88em;">${producto.nombre}${colorInfo}</td>
-                        <td style="text-align:center;font-size:0.88em;">${cantidad}</td>
-                        ${esDespacho ? '' : `<td style="text-align:right;font-size:0.85em;">S/ ${precioMostrar.toFixed(2)}${descInfo}<br><span style="font-size:0.8em;color:#a0aec0;">${tipoPrecio}</span></td>`}
-                        ${esDespacho ? '' : `<td style="text-align:right;font-weight:700;font-size:0.9em;">S/ ${subtotalMostrar.toFixed(2)}</td>`}
+                        <td class="vd-cod">${escaparHtml(producto.codigo)}</td>
+                        <td class="vd-prod">${escaparHtml(producto.nombre)}${colorInfo}</td>
+                        <td class="vd-cant" data-label="Cant.">${escaparHtml(cantidad)}</td>
+                        ${esDespacho ? '' : `<td class="vd-pu" data-label="P. Unit.">S/ ${precioMostrar.toFixed(2)}${descInfo}<small>${escaparHtml(tipoPrecio)}</small></td>`}
+                        ${esDespacho ? '' : `<td class="vd-sub" data-label="Subtotal">S/ ${subtotalMostrar.toFixed(2)}</td>`}
                     </tr>`;
             }).join('');
 
@@ -2982,40 +2987,39 @@
             if (entry.globalDescPct > 0) {
                 const subtotalDisp = entry.mostrarConIGV ? calcularPrecioConIGV(totalSinIGV) : totalSinIGV;
                 const descDisp = entry.mostrarConIGV ? calcularPrecioConIGV(descGlobalMonto) : descGlobalMonto;
-                detalleTotalesHTML += `<div style="display:flex;justify-content:space-between;"><span>Subtotal:</span><span>S/ ${subtotalDisp.toFixed(2)}</span></div>`;
-                detalleTotalesHTML += `<div style="display:flex;justify-content:space-between;"><span>Desc. global (${entry.globalDescPct}%):</span><span>-S/ ${descDisp.toFixed(2)}</span></div>`;
+                detalleTotalesHTML += `<div><span>Subtotal:</span><span>S/ ${subtotalDisp.toFixed(2)}</span></div>`;
+                detalleTotalesHTML += `<div><span>Desc. global (${escaparHtml(entry.globalDescPct)}%):</span><span>-S/ ${descDisp.toFixed(2)}</span></div>`;
             }
             if (entry.mostrarConIGV) {
                 const soloIGV = calcularIGV(totalFinalSinIGV);
-                detalleTotalesHTML += `<div style="display:flex;justify-content:space-between;"><span>Base imponible:</span><span>S/ ${totalFinalSinIGV.toFixed(2)}</span></div>`;
-                detalleTotalesHTML += `<div style="display:flex;justify-content:space-between;"><span>IGV (18%):</span><span>S/ ${soloIGV.toFixed(2)}</span></div>`;
+                detalleTotalesHTML += `<div><span>Base imponible:</span><span>S/ ${totalFinalSinIGV.toFixed(2)}</span></div>`;
+                detalleTotalesHTML += `<div><span>IGV (18%):</span><span>S/ ${soloIGV.toFixed(2)}</span></div>`;
             }
 
             let clienteHTML = '';
             if (entry.cliente || entry.empresaCliente) {
+                const linea = (icono, valor, extra = '') => valor ? `<div class="vd-line${extra}">${icono} ${escaparHtml(valor)}</div>` : '';
                 clienteHTML = `
-                    <div style="background:#f8faff;border:1.5px solid #c7d2fe;border-radius:7px;padding:11px 14px;">
-                        <div style="font-size:0.75em;font-weight:700;color:#5568d3;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:7px;">👤 Cliente</div>
-                        ${entry.cliente ? `<div style="font-weight:700;font-size:0.9em;color:#2d3748;">${entry.cliente}</div>` : ''}
-                        ${entry.empresaCliente ? `<div style="font-size:0.82em;color:#718096;">${entry.empresaCliente}</div>` : ''}
-                        ${entry.ruc ? `<div style="font-size:0.8em;color:#718096;margin-top:5px;">🪪 RUC/DNI: ${entry.ruc}</div>` : ''}
-                        ${entry.telefono ? `<div style="font-size:0.8em;color:#718096;margin-top:5px;">📞 ${entry.telefono}</div>` : ''}
-                        ${entry.email ? `<div style="font-size:0.8em;color:#718096;margin-top:5px;">✉️ ${entry.email}</div>` : ''}
-                        ${entry.direccion ? `<div style="font-size:0.8em;color:#718096;margin-top:5px;">📍 ${entry.direccion}</div>` : ''}
-                        ${entry.notas ? `<div style="font-size:0.8em;color:#718096;margin-top:5px;font-style:italic;">📝 ${entry.notas}</div>` : ''}
+                    <div class="vd-box vd-box--cliente">
+                        <div class="vd-box-lbl">👤 Cliente</div>
+                        ${entry.cliente ? `<div class="vd-box-title">${escaparHtml(entry.cliente)}</div>` : ''}
+                        ${entry.empresaCliente ? `<div class="vd-line">${escaparHtml(entry.empresaCliente)}</div>` : ''}
+                        ${linea('🪪 RUC/DNI:', entry.ruc)}
+                        ${linea('📞', entry.telefono)}
+                        ${linea('✉️', entry.email)}
+                        ${linea('📍', entry.direccion)}
+                        ${linea('📝', entry.notas, ' vd-line--nota')}
                     </div>`;
             }
 
             let envioHTML = '';
             if (entry.sucursal) {
                 envioHTML = `
-                    <div style="background:#e6fffa;border:1.5px solid #81e6d9;border-radius:7px;padding:11px 14px;">
-                        <div style="font-size:0.75em;font-weight:700;color:#234e52;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:7px;">📦 Envío Shalom</div>
-                        <div style="font-weight:700;font-size:0.9em;color:#2d3748;">${entry.sucursal.nombre || ''}</div>
-                        <div style="font-size:0.8em;color:#718096;line-height:1.6;margin-top:5px;">
-                            📍 ${entry.sucursal.direccion || ''}<br>
-                            🏙️ ${entry.sucursal.ciudad || ''}${entry.sucursal.provincia ? ', ' + entry.sucursal.provincia : ''}
-                        </div>
+                    <div class="vd-box vd-box--envio">
+                        <div class="vd-box-lbl">📦 Envío Shalom</div>
+                        <div class="vd-box-title">${escaparHtml(entry.sucursal.nombre || '')}</div>
+                        ${entry.sucursal.direccion ? `<div class="vd-line">📍 ${escaparHtml(entry.sucursal.direccion)}</div>` : ''}
+                        <div class="vd-line">🏙️ ${escaparHtml(entry.sucursal.ciudad || '')}${entry.sucursal.provincia ? ', ' + escaparHtml(entry.sucursal.provincia) : ''}</div>
                     </div>`;
             }
 
@@ -3030,7 +3034,7 @@
                 ? historialCache.find(e => e.objectId === entry.ordenCompraAsociada)
                 : null;
             const vinculoHTML = entry.tipoDocumento === 'despacho' && entry.ordenCompraAsociada
-                ? `<div style="font-size:0.8em;color:#9a3412;background:#fed7aa;display:inline-block;padding:3px 9px;border-radius:6px;margin-top:6px;font-weight:700;">🔗 Vinculado a OC ${ocVinculada ? formatearCorrelativo(ocVinculada.correlativo, null) : '(fuera de rango de historial cargado)'}</div>`
+                ? `<span class="vd-chip vd-chip--oc">🔗 Vinculado a OC ${ocVinculada ? escaparHtml(formatearCorrelativo(ocVinculada.correlativo, null)) : '(fuera de rango de historial cargado)'}</span>`
                 : '';
             // Si es una Orden de Compra, se listan aquí sus despachos generados, para poder saltar
             // directamente a verlos sin volver a la lista del historial. El indicador "⏳ Pendiente de
@@ -3038,48 +3042,45 @@
             // en ese caso, solo el badge "✅ Despachado" cuando sí existe.
             const despachosDeEstaOC = entry.tipoDocumento === 'orden_compra' ? obtenerDespachosDeOC(entry.objectId) : [];
             const despachosHTML = (entry.tipoDocumento === 'orden_compra' && despachosDeEstaOC.length > 0)
-                ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-                     <span style="font-size:0.8em;font-weight:700;padding:3px 9px;border-radius:6px;color:#276749;background:#c6f6d5;">✅ Despachado${despachosDeEstaOC.length > 1 ? ' ×' + despachosDeEstaOC.length : ''}</span>
-                     ${despachosDeEstaOC.map(d => `<button class="btn-historial-ver" style="padding:2px 9px;font-size:0.78em;" onclick="verCotizacionDesdeHistorial('${d.objectId}')">👁️ ${formatearCorrelativo(d.correlativo, d.sufijoDespacho)}</button>`).join('')}
-                   </div>`
+                ? `<span class="vd-chip vd-chip--desp">✅ Despachado${despachosDeEstaOC.length > 1 ? ' ×' + despachosDeEstaOC.length : ''}</span>
+                   ${despachosDeEstaOC.map(d => `<button type="button" class="vd-chip vd-chip-btn" onclick="verCotizacionDesdeHistorial('${d.objectId}')">👁️ ${escaparHtml(formatearCorrelativo(d.correlativo, d.sufijoDespacho))}</button>`).join('')}`
                 : '';
 
             document.getElementById('verCotizacionTitulo').textContent = `${infoTipoDoc.etiqueta} ${correlativoTexto}`;
             document.getElementById('verCotizacionBody').innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;border-bottom:2px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px;">
-                    <div>
-                        <span style="font-weight:800;font-size:1em;padding:3px 10px;border-radius:6px;background:${infoTipoDoc.fondo};color:${infoTipoDoc.color};">${correlativoTexto}</span>
-                        <div style="font-size:0.8em;color:#718096;margin-top:6px;">📅 ${fecha}</div>
-                        <div style="font-size:0.8em;color:#718096;">🧑‍💼 ${entry.usuarioNombre || entry.usuario || '—'}</div>
-                        ${vinculoHTML}
-                        ${despachosHTML}
+                <div class="vd-head">
+                    <div class="vd-head-main">
+                        <span class="vd-badge ${infoTipoDoc.clase}">${escaparHtml(correlativoTexto)}</span>
+                        <div class="vd-meta">📅 ${escaparHtml(fecha)}</div>
+                        <div class="vd-meta">🧑‍💼 ${escaparHtml(entry.usuarioNombre || entry.usuario || '—')}</div>
+                        ${(vinculoHTML || despachosHTML) ? `<div class="vd-chips">${vinculoHTML}${despachosHTML}</div>` : ''}
                     </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:0.78em;color:#718096;">${numProductos} producto${numProductos!==1?'s':''} · ${totalUnid} unid.</div>
-                        ${!esDespacho ? `<div style="font-size:1.3em;font-weight:800;color:var(--primary);margin-top:4px;">S/ ${totalMostrar.toFixed(2)}</div>` : ''}
+                    <div class="vd-head-total">
+                        <div class="vd-meta">${numProductos} producto${numProductos!==1?'s':''} · ${totalUnid} unid.</div>
+                        ${!esDespacho ? `<div class="vd-total">S/ ${totalMostrar.toFixed(2)}</div>` : ''}
                     </div>
                 </div>
                 ${bloqueInfoHTML}
                 <div class="ver-doc-table-wrap">
-                    <table class="print-table">
+                    <table class="print-table vd-table${esDespacho ? ' vd-table--desp' : ''}">
                         <thead>
                             <tr>
-                                <th style="width:80px;">Código</th>
-                                <th>Producto</th>
-                                <th style="width:60px;text-align:center;">Cant.</th>
-                                ${esDespacho ? '' : '<th style="text-align:right;">P. Unit.</th>'}
-                                ${esDespacho ? '' : '<th style="text-align:right;">Subtotal</th>'}
+                                <th class="vd-cod">Código</th>
+                                <th class="vd-prod">Producto</th>
+                                <th class="vd-cant">Cant.</th>
+                                ${esDespacho ? '' : '<th class="vd-pu">P. Unit.</th>'}
+                                ${esDespacho ? '' : '<th class="vd-sub">Subtotal</th>'}
                             </tr>
                         </thead>
                         <tbody>${filasHTML}</tbody>
                     </table>
                 </div>
                 ${!esDespacho ? `
-                <div style="margin-top:14px;padding-top:12px;border-top:2px solid #e2e8f0;">
-                    ${detalleTotalesHTML ? `<div style="font-size:0.85em;color:#4a5568;display:flex;flex-direction:column;gap:4px;margin-bottom:8px;">${detalleTotalesHTML}</div>` : ''}
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <strong style="color:var(--primary);">TOTAL</strong>
-                        <strong style="font-size:1.2em;color:var(--primary);">S/ ${totalMostrar.toFixed(2)}</strong>
+                <div class="vd-totales">
+                    ${detalleTotalesHTML ? `<div class="vd-totales-det">${detalleTotalesHTML}</div>` : ''}
+                    <div class="vd-totales-final">
+                        <strong>TOTAL</strong>
+                        <strong class="vd-total">S/ ${totalMostrar.toFixed(2)}</strong>
                     </div>
                 </div>` : ''}
             `;
