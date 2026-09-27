@@ -117,6 +117,7 @@
                 direccion: document.getElementById('editSucursalDireccion').value.trim(),
                 ciudad: document.getElementById('editSucursalCiudad').value.trim(),
                 provincia: document.getElementById('editSucursalProvincia').value.trim(),
+                departamento: anterior.departamento || undefined,
                 tipo: document.getElementById('editSucursalTipo').value,
                 telefono: anterior.telefono || '',
                 horario: anterior.horario || '',
