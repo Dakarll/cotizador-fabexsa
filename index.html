@@ -659,21 +659,21 @@
 
             <!-- TAB: SUCURSALES -->
             <div class="tab-content" id="tab-sucursales">
-                <!-- IMAGEN DE SUCURSALES POR DEPARTAMENTO → se copia al portapapeles
-                     (generarImagenSucursalesPorDepartamento en js/sucursales-nube.js) -->
-                <div class="add-product-section dep-img-section">
-                    <div class="add-product-title">📋 Copiar imagen de sucursales por departamento</div>
-                    <div class="dep-img-form">
-                        <label class="dep-img-field">
-                            <span class="form-label">Departamento</span>
-                            <input type="text" class="form-input" id="departamentoImagenInput" list="listaDepartamentos" placeholder="Ej: Arequipa, Cusco, Lima…" autocomplete="off">
-                            <datalist id="listaDepartamentos"></datalist>
-                        </label>
-                        <button type="button" class="btn btn-success dep-img-btn" id="btnImagenDepartamento">📋 Generar y copiar imagen</button>
+                <!-- IMAGEN DE SUCURSALES POR PROVINCIA → se copia al portapapeles
+                     (generarImagenSucursalesPorProvincia en js/sucursales-nube.js, portado de SIA) -->
+                <div class="add-product-section">
+                    <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar imagen de sucursales por provincia</div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                        <div style="flex:1; min-width:220px;">
+                            <label class="form-label">Provincia</label>
+                            <input type="text" class="form-input" id="provinciaImagenInput" list="listaProvincias" placeholder="Escribe o elige una provincia...">
+                            <datalist id="listaProvincias"></datalist>
+                        </div>
+                        <button type="button" class="btn btn-success" id="btnGenerarImagenSucursalesProvincia"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar y copiar imagen</button>
                     </div>
-                    <div id="depImagenStatus" class="dep-img-status" aria-live="polite"></div>
-                    <div id="depImagenResultado" class="dep-img-resultado" hidden></div>
+                    <div id="provinciaImagenStatus" style="margin-top:10px; font-size:0.85em;"></div>
                 </div>
+
                 <div class="add-product-section">
                     <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar Sucursal para Envío</div>
                     <div class="search-container">
@@ -1030,20 +1030,6 @@
                             </div>
                             <button type="submit" class="btn btn-success" style="width: 100%;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Agregar Sucursal</button>
                         </form>
-                    </div>
-
-                    <!-- GENERAR IMAGEN DE SUCURSALES POR PROVINCIA -->
-                    <div class="add-product-section">
-                        <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar imagen de sucursales por provincia</div>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                            <div style="flex:1; min-width:220px;">
-                                <label class="form-label">Provincia</label>
-                                <input type="text" class="form-input" id="provinciaImagenInput" list="listaProvincias" placeholder="Escribe o elige una provincia...">
-                                <datalist id="listaProvincias"></datalist>
-                            </div>
-                            <button type="button" class="btn btn-success" id="btnGenerarImagenSucursalesProvincia"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar imagen</button>
-                        </div>
-                        <div id="provinciaImagenStatus" style="margin-top:10px; font-size:0.85em;"></div>
                     </div>
 
                     <!-- LISTA DE SUCURSALES -->

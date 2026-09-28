@@ -131,7 +131,6 @@ async function cargarSucursalesDesdeNube() {
             // "ciudad" en el cotizador ≈ distrito de la agencia.
             ciudad: s.ciudad || s.distrito || '',
             provincia: s.provincia || '',
-            departamento: s.departamento || '',
             tipo: s.tipo || 'Micro',
             telefono: s.telefono || '',
             horario: s.horario || '',
@@ -295,118 +294,25 @@ function updateSucursalStats() {
     stats.innerHTML = `Mostrando ${filtradas} de ${total} sucursales`;
 }
 
-// ---------- Provincias y departamentos (datalist) ----------
+// ---------- Provincias (datalist) ----------
 
-// Departamento de una sucursal. Las sincronizadas por el bot lo traen desde Shalom; las
-// manuales y una caché vieja (anterior a este campo) no, así que se usa la provincia.
-function departamentoDeSucursal(s) {
-    return (s && (s.departamento || s.provincia)) || '';
+function poblarListaProvincias() {
+    const datalist = document.getElementById('listaProvincias');
+    if (!datalist) return;
+    const provincias = [...new Set((sucursalesDB || []).map(s => s.provincia).filter(Boolean))].sort();
+    datalist.innerHTML = provincias.map(p => `<option value="${p}"></option>`).join('');
 }
 
-function normalizarTextoSucursal(t) {
-    return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
-}
-
-// "Sucursales_<Lugar>_<AAAA-MM-DD>.png" — sin tildes ni espacios, para que el nombre no se
-// rompa al compartirlo o guardarlo en cualquier sistema.
-function nombreArchivoImagenSucursales(lugar) {
-    const limpio = String(lugar || 'Sucursales').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-    const hoy = new Date();
-    const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-    return `Sucursales_${limpio}_${fecha}.png`;
-}
+// ---------- Imagen de sucursales por provincia ----------
+// Portado de SIA (js/catalogo/sucursales-crud.js → generarImagenSucursalesPorProvincia):
+// genera la imagen de las sucursales de la provincia elegida y la COPIA al portapapeles
+// (antes aquí se descargaba). Adaptaciones al stack de este proyecto: variables globales
+// (sucursalesDB) en vez de state, copiarBlobImagenPortapapeles() de js/envios/papeleta.js
+// en vez del copiarImagenAlPortapapeles() de SIA, colores con los tokens de acá, y los
+// textos de la sucursal escapados antes de meterlos al HTML.
 
 function escaparHtmlSucursal(t) {
     return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-// Llena los datalist de provincias (Ajustes > Sucursales) y de departamentos (pestaña
-// Sucursales). Se llama cada vez que cambia el catálogo.
-function poblarListaProvincias() {
-    const opciones = valores => valores.map(v => `<option value="${escaparHtmlSucursal(v)}"></option>`).join('');
-    const datalist = document.getElementById('listaProvincias');
-    if (datalist) {
-        const provincias = [...new Set((sucursalesDB || []).map(s => s.provincia).filter(Boolean))].sort();
-        datalist.innerHTML = opciones(provincias);
-    }
-    const datalistDep = document.getElementById('listaDepartamentos');
-    if (datalistDep) {
-        const departamentos = [...new Set((sucursalesDB || []).map(departamentoDeSucursal).filter(Boolean))]
-            .sort((x, y) => x.localeCompare(y, 'es'));
-        datalistDep.innerHTML = opciones(departamentos);
-    }
-}
-
-// ---------- Imagen de sucursales (por provincia o por departamento) ----------
-
-const ICONOS_TIPO_SUCURSAL = {
-    'Grande / Co': '🏢', 'Mediana': '🏪', 'Pequeña': '🏠',
-    'Terminal': '🚌', 'Micro': '📦', 'Mini-micro': '📦', 'Micro E/r': '📦'
-};
-
-// Arma el nodo oculto #sucursalesProvinciaPrint con la lista y lo rasteriza a PNG.
-// Con agruparPorProvincia=true (imagen por departamento) las tarjetas van bajo un
-// subtítulo por provincia. Devuelve un Blob.
-async function generarBlobImagenSucursales(titulo, sucursales, agruparPorProvincia) {
-    const tarjeta = s => `
-        <div style="display:flex; gap:14px; align-items:flex-start; padding:14px 16px; background:#f7fafc; border-radius:10px; border:1px solid #e2e8f0;">
-            <div style="font-size:1.5em; line-height:1;">${ICONOS_TIPO_SUCURSAL[s.tipo] || '📍'}</div>
-            <div style="flex:1; min-width:0;">
-                <div style="font-weight:700; color:var(--primary); font-size:1.05em;">${escaparHtmlSucursal(s.nombre)}</div>
-                <div style="color:var(--gray-500); font-size:0.9em; margin-top:2px;">${escaparHtmlSucursal(s.direccion)}</div>
-                <div style="color:var(--gray-400); font-size:0.82em; margin-top:2px;">${escaparHtmlSucursal(s.ciudad)} · ${escaparHtmlSucursal(s.tipo)}${s.telefono ? ' · 📞 ' + escaparHtmlSucursal(s.telefono) : ''}</div>
-            </div>
-        </div>`;
-    const porCiudad = (x, y) => (x.ciudad || '').localeCompare(y.ciudad || '', 'es') || (x.nombre || '').localeCompare(y.nombre || '', 'es');
-
-    let html;
-    if (agruparPorProvincia) {
-        const grupos = new Map();
-        sucursales.forEach(s => {
-            const prov = s.provincia || 'Sin provincia';
-            if (!grupos.has(prov)) grupos.set(prov, []);
-            grupos.get(prov).push(s);
-        });
-        html = [...grupos.keys()].sort((x, y) => x.localeCompare(y, 'es')).map(prov => {
-            const lista = grupos.get(prov).slice().sort(porCiudad);
-            return `
-                <div style="grid-column:1/-1; display:flex; align-items:baseline; gap:10px; margin-top:8px; padding-bottom:6px; border-bottom:1px solid #e2e8f0;">
-                    <span style="font-weight:800; font-size:1.15em; color:var(--primary);">${escaparHtmlSucursal(prov)}</span>
-                    <span style="color:var(--gray-500); font-size:0.9em;">${lista.length} sucursal${lista.length !== 1 ? 'es' : ''}</span>
-                </div>
-                ${lista.map(tarjeta).join('')}`;
-        }).join('');
-    } else {
-        html = sucursales.slice().sort(porCiudad).map(tarjeta).join('');
-    }
-
-    const columnas = sucursales.length > 60 ? 4 : 3;
-    document.getElementById('spImgProvinciaNombre').textContent = titulo;
-    document.getElementById('spImgCantidad').textContent = sucursales.length;
-    document.getElementById('spImgFecha').textContent = new Date().toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' });
-    const listaEl = document.getElementById('spImgLista');
-    listaEl.style.gridTemplateColumns = `repeat(${columnas}, 1fr)`;
-    listaEl.innerHTML = html;
-
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    const elemento = document.getElementById('sucursalesProvinciaPrint');
-    const alto = elemento.scrollHeight;
-    // Los navegadores no dibujan canvas de más de ~16000px de alto: con muchas sucursales
-    // se baja la escala en vez de fallar.
-    const escala = Math.max(1, Math.min(2, 16000 / alto));
-    const canvas = await html2canvas(elemento, {
-        scale: escala,
-        backgroundColor: '#ffffff',
-        logging: false,
-        useCORS: true,
-        width: 1300,
-        height: alto
-    });
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('No se pudo crear la imagen');
-    return blob;
 }
 
 async function generarImagenSucursalesPorProvincia() {
@@ -416,169 +322,84 @@ async function generarImagenSucursalesPorProvincia() {
     const textoIngresado = input.value.trim();
 
     if (!textoIngresado) {
-        mostrarNotificacion('Escribe o elige una provincia', 'warning');
+        mostrarNotificacion('⚠️ Escribe o elige una provincia', 'warning');
         return;
     }
 
+    // Coincidencia exacta (sin distinguir mayúsculas/acentos simples)
+    // contra las provincias reales, para evitar generar una imagen
+    // vacía por un error de tipeo.
+    const sinTildes = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     const provinciasDisponibles = [...new Set((sucursalesDB || []).map(s => s.provincia).filter(Boolean))];
-    const provinciaReal = provinciasDisponibles.find(p => normalizarTextoSucursal(p) === normalizarTextoSucursal(textoIngresado));
+    const provinciaReal = provinciasDisponibles.find(p => sinTildes(p) === sinTildes(textoIngresado));
 
     if (!provinciaReal) {
-        if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);">No se encontró la provincia "${escaparHtmlSucursal(textoIngresado)}". Elige una de la lista.</span>`;
+        statusEl.innerHTML = `<span style="color:var(--danger);">No se encontró la provincia "${escaparHtmlSucursal(textoIngresado)}". Elige una de la lista.</span>`;
         return;
     }
 
     const sucursalesFiltradas = (sucursalesDB || []).filter(s => s.provincia === provinciaReal);
     if (sucursalesFiltradas.length === 0) {
-        if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);">No hay sucursales registradas en "${escaparHtmlSucursal(provinciaReal)}".</span>`;
+        statusEl.innerHTML = `<span style="color:var(--danger);">No hay sucursales registradas en "${escaparHtmlSucursal(provinciaReal)}".</span>`;
         return;
     }
 
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--gray-500);">Generando imagen…</span>';
-    if (typeof showLoading === 'function') showLoading(true);
+    statusEl.innerHTML = '<span style="color:var(--gray-500);">Generando imagen…</span>';
+    showLoading(true);
 
     try {
-        const blob = await generarBlobImagenSucursales(provinciaReal, sucursalesFiltradas, false);
-        await descargarArchivo(blob, nombreArchivoImagenSucursales(provinciaReal), 'image/png');
+        document.getElementById('spImgProvinciaNombre').textContent = provinciaReal;
+        document.getElementById('spImgCantidad').textContent = sucursalesFiltradas.length;
+        document.getElementById('spImgFecha').textContent = new Date().toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' });
 
-        if (statusEl) statusEl.innerHTML = `<span style="color:var(--success);">✅ Imagen generada: ${sucursalesFiltradas.length} sucursales en ${escaparHtmlSucursal(provinciaReal)}</span>`;
-        mostrarNotificacion('✅ Imagen de sucursales generada', 'success');
+        const iconosPorTipo = {
+            'Grande / Co': '🏢', 'Mediana': '🏪', 'Pequeña': '🏠',
+            'Terminal': '🚌', 'Micro': '📦', 'Mini-micro': '📦'
+        };
+
+        document.getElementById('spImgLista').innerHTML = sucursalesFiltradas
+            .slice()
+            .sort((a, b) => (a.ciudad || '').localeCompare(b.ciudad || '') || (a.nombre || '').localeCompare(b.nombre || ''))
+            .map(s => `
+                <div style="display:flex; gap:14px; align-items:flex-start; padding:14px 16px; background:#f7fafc; border-radius:10px; border:1px solid #e2e8f0;">
+                    <div style="font-size:1.5em; line-height:1;">${iconosPorTipo[s.tipo] || '📍'}</div>
+                    <div style="flex:1;">
+                        <div style="font-weight:700; color:var(--primary); font-size:1.05em;">${escaparHtmlSucursal(s.nombre)}</div>
+                        <div style="color:var(--gray-500); font-size:0.9em; margin-top:2px;">${escaparHtmlSucursal(s.direccion)}</div>
+                        <div style="color:var(--gray-400); font-size:0.82em; margin-top:2px;">${escaparHtmlSucursal(s.ciudad)} · ${escaparHtmlSucursal(s.tipo)}</div>
+                    </div>
+                </div>
+            `).join('');
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const elemento = document.getElementById('sucursalesProvinciaPrint');
+        const canvas = await html2canvas(elemento, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            logging: false,
+            useCORS: true,
+            width: 1300,
+            height: elemento.scrollHeight
+        });
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const copiada = await copiarBlobImagenPortapapeles(blob);
+
+        statusEl.innerHTML = copiada
+            ? `<span style="color:var(--success);">✅ Imagen copiada al portapapeles: ${sucursalesFiltradas.length} sucursales en ${escaparHtmlSucursal(provinciaReal)}</span>`
+            : `<span style="color:var(--danger);">⚠️ Tu navegador no permite copiar automáticamente la imagen</span>`;
+        mostrarNotificacion(
+            copiada ? '✅ Imagen de sucursales copiada al portapapeles' : '⚠️ Tu navegador no permite copiar automáticamente la imagen',
+            copiada ? 'success' : 'warning'
+        );
     } catch (err) {
         console.error(err);
-        if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);">❌ Error al generar la imagen: ${escaparHtmlSucursal(err.message)}</span>`;
+        statusEl.innerHTML = `<span style="color:var(--danger);">❌ Error al generar la imagen: ${escaparHtmlSucursal(err.message)}</span>`;
         mostrarNotificacion('❌ Error al generar la imagen', 'warning');
     } finally {
-        if (typeof showLoading === 'function') showLoading(false);
+        showLoading(false);
     }
-}
-
-// ---------- Imagen por departamento (pestaña Sucursales) → portapapeles ----------
-
-// Última imagen generada, para "Copiar de nuevo" / "Descargar" sin volver a rasterizar.
-let imagenDepartamentoActual = null; // { blob, url, departamento, cantidad }
-
-// Copia la imagen al portapapeles. Recibe la PROMESA del blob (no el blob ya hecho) para que
-// navigator.clipboard.write() se llame dentro del clic: Safari/iOS rechaza la escritura si
-// ocurre después de esperar a html2canvas. Chrome/Edge/Firefox aceptan ambas formas; si la
-// variante con promesa no está soportada se reintenta con el blob ya resuelto.
-async function copiarImagenSucursalesAlPortapapeles(blobPromise) {
-    if (!navigator.clipboard || !window.ClipboardItem || !window.isSecureContext) return false;
-    try {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
-        return true;
-    } catch (e) {
-        try {
-            const blob = await blobPromise;
-            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-            return true;
-        } catch (e2) {
-            console.warn('No se pudo copiar la imagen al portapapeles:', e2);
-            return false;
-        }
-    }
-}
-
-function pintarResultadoImagenDepartamento(copiada) {
-    const cont = document.getElementById('depImagenResultado');
-    const statusEl = document.getElementById('depImagenStatus');
-    const img = imagenDepartamentoActual;
-    if (!cont || !img) return;
-    if (statusEl) {
-        statusEl.innerHTML = copiada
-            ? `<span class="dep-img-ok">✅ Imagen copiada: ${img.cantidad} sucursal${img.cantidad !== 1 ? 'es' : ''} en ${escaparHtmlSucursal(img.departamento)}. Pégala con Ctrl+V (⌘+V en Mac) en WhatsApp u otra app.</span>`
-            : `<span class="dep-img-warn">⚠️ Imagen generada, pero este navegador no permitió copiarla. Usa "Descargar".</span>`;
-    }
-    cont.innerHTML = `
-        <img src="${img.url}" alt="Sucursales Shalom en ${escaparHtmlSucursal(img.departamento)}" class="dep-img-preview">
-        <div class="dep-img-acciones">
-            <button type="button" class="btn btn-small" onclick="copiarDeNuevoImagenDepartamento()">📋 Copiar de nuevo</button>
-            ${puedeCompartirImagenDepartamento() ? '<button type="button" class="btn btn-small" onclick="compartirImagenDepartamento()">📤 Compartir</button>' : ''}
-            <button type="button" class="btn btn-small" onclick="descargarImagenDepartamento()">⬇️ Descargar</button>
-        </div>`;
-    cont.hidden = false;
-}
-
-function generarImagenSucursalesPorDepartamento() {
-    const input = document.getElementById('departamentoImagenInput');
-    const statusEl = document.getElementById('depImagenStatus');
-    if (!input) return;
-    const texto = input.value.trim();
-    if (!texto) {
-        mostrarNotificacion('Escribe o elige un departamento', 'warning');
-        input.focus();
-        return;
-    }
-
-    const buscado = normalizarTextoSucursal(texto);
-    const departamentos = [...new Set((sucursalesDB || []).map(departamentoDeSucursal).filter(Boolean))];
-    const departamento = departamentos.find(d => normalizarTextoSucursal(d) === buscado);
-    if (!departamento) {
-        if (statusEl) statusEl.innerHTML = `<span class="dep-img-err">No se encontró el departamento "${escaparHtmlSucursal(texto)}". Elige uno de la lista.</span>`;
-        return;
-    }
-    const sucursales = (sucursalesDB || []).filter(s => departamentoDeSucursal(s) === departamento);
-
-    if (statusEl) statusEl.innerHTML = '<span class="dep-img-muted">Generando imagen…</span>';
-    if (typeof showLoading === 'function') showLoading(true);
-
-    const blobPromise = generarBlobImagenSucursales(departamento, sucursales, true);
-    // Se llama YA (dentro del clic), ver copiarImagenSucursalesAlPortapapeles().
-    const copiaPromise = copiarImagenSucursalesAlPortapapeles(blobPromise);
-
-    Promise.all([blobPromise, copiaPromise])
-        .then(([blob, copiada]) => {
-            if (imagenDepartamentoActual) URL.revokeObjectURL(imagenDepartamentoActual.url);
-            imagenDepartamentoActual = { blob, url: URL.createObjectURL(blob), departamento, cantidad: sucursales.length };
-            pintarResultadoImagenDepartamento(copiada);
-            mostrarNotificacion(copiada ? '📋 Imagen copiada al portapapeles' : 'Imagen generada (no se pudo copiar)', copiada ? 'success' : 'warning');
-        })
-        .catch(err => {
-            console.error(err);
-            if (statusEl) statusEl.innerHTML = `<span class="dep-img-err">❌ Error al generar la imagen: ${escaparHtmlSucursal(err.message)}</span>`;
-            mostrarNotificacion('❌ Error al generar la imagen', 'error');
-        })
-        .finally(() => {
-            if (typeof showLoading === 'function') showLoading(false);
-        });
-}
-
-async function copiarDeNuevoImagenDepartamento() {
-    if (!imagenDepartamentoActual) return;
-    const ok = await copiarImagenSucursalesAlPortapapeles(Promise.resolve(imagenDepartamentoActual.blob));
-    mostrarNotificacion(ok ? '📋 Imagen copiada al portapapeles' : 'Este navegador no permitió copiar la imagen', ok ? 'success' : 'warning');
-}
-
-function archivoImagenDepartamento() {
-    const img = imagenDepartamentoActual;
-    if (!img || typeof File === 'undefined') return null;
-    return new File([img.blob], nombreArchivoImagenSucursales(img.departamento), { type: 'image/png' });
-}
-
-// Menú nativo de compartir (celular, y Safari/Edge/Chrome en PC que lo soporten). Si el
-// navegador no puede compartir archivos, el botón ni se muestra.
-function puedeCompartirImagenDepartamento() {
-    try {
-        const file = archivoImagenDepartamento();
-        return !!(file && navigator.canShare && navigator.canShare({ files: [file] }));
-    } catch (e) { return false; }
-}
-
-async function compartirImagenDepartamento() {
-    const file = archivoImagenDepartamento();
-    if (!file) return;
-    try {
-        await navigator.share({ files: [file], title: `Sucursales Shalom — ${imagenDepartamentoActual.departamento}` });
-    } catch (e) {
-        if (e && e.name === 'AbortError') return; // el usuario cerró el menú
-        console.warn('No se pudo compartir la imagen:', e);
-        mostrarNotificacion('No se pudo compartir la imagen — usa "Descargar"', 'warning');
-    }
-}
-
-async function descargarImagenDepartamento() {
-    const img = imagenDepartamentoActual;
-    if (!img) return;
-    await descargarArchivo(img.blob, nombreArchivoImagenSucursales(img.departamento), 'image/png');
 }
 
 // ============================================
@@ -722,13 +543,6 @@ function initSucursalesNube() {
 
     const btnImg = document.getElementById('btnGenerarImagenSucursalesProvincia');
     if (btnImg) btnImg.addEventListener('click', generarImagenSucursalesPorProvincia);
-
-    const btnDep = document.getElementById('btnImagenDepartamento');
-    if (btnDep) btnDep.addEventListener('click', generarImagenSucursalesPorDepartamento);
-    const inputDep = document.getElementById('departamentoImagenInput');
-    if (inputDep) inputDep.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); generarImagenSucursalesPorDepartamento(); }
-    });
 
     document.querySelectorAll('.filter-btn[data-tipo]').forEach(btn => {
         btn.addEventListener('click', () => filterByTipo(btn.dataset.tipo));
