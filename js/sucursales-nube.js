@@ -307,6 +307,16 @@ function normalizarTextoSucursal(t) {
     return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 }
 
+// "Sucursales_<Lugar>_<AAAA-MM-DD>.png" — sin tildes ni espacios, para que el nombre no se
+// rompa al compartirlo o guardarlo en cualquier sistema.
+function nombreArchivoImagenSucursales(lugar) {
+    const limpio = String(lugar || 'Sucursales').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const hoy = new Date();
+    const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    return `Sucursales_${limpio}_${fecha}.png`;
+}
+
 function escaparHtmlSucursal(t) {
     return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
@@ -411,7 +421,7 @@ async function generarImagenSucursalesPorProvincia() {
     }
 
     const provinciasDisponibles = [...new Set((sucursalesDB || []).map(s => s.provincia).filter(Boolean))];
-    const provinciaReal = provinciasDisponibles.find(p => p.toLowerCase() === textoIngresado.toLowerCase());
+    const provinciaReal = provinciasDisponibles.find(p => normalizarTextoSucursal(p) === normalizarTextoSucursal(textoIngresado));
 
     if (!provinciaReal) {
         if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);">No se encontró la provincia "${escaparHtmlSucursal(textoIngresado)}". Elige una de la lista.</span>`;
@@ -429,8 +439,7 @@ async function generarImagenSucursalesPorProvincia() {
 
     try {
         const blob = await generarBlobImagenSucursales(provinciaReal, sucursalesFiltradas, false);
-        const nombreArchivo = `Sucursales_${provinciaReal.replace(/\s+/g, '_')}_${Date.now()}.png`;
-        await descargarArchivo(blob, nombreArchivo, 'image/png');
+        await descargarArchivo(blob, nombreArchivoImagenSucursales(provinciaReal), 'image/png');
 
         if (statusEl) statusEl.innerHTML = `<span style="color:var(--success);">✅ Imagen generada: ${sucursalesFiltradas.length} sucursales en ${escaparHtmlSucursal(provinciaReal)}</span>`;
         mostrarNotificacion('✅ Imagen de sucursales generada', 'success');
@@ -483,6 +492,7 @@ function pintarResultadoImagenDepartamento(copiada) {
         <img src="${img.url}" alt="Sucursales Shalom en ${escaparHtmlSucursal(img.departamento)}" class="dep-img-preview">
         <div class="dep-img-acciones">
             <button type="button" class="btn btn-small" onclick="copiarDeNuevoImagenDepartamento()">📋 Copiar de nuevo</button>
+            ${puedeCompartirImagenDepartamento() ? '<button type="button" class="btn btn-small" onclick="compartirImagenDepartamento()">📤 Compartir</button>' : ''}
             <button type="button" class="btn btn-small" onclick="descargarImagenDepartamento()">⬇️ Descargar</button>
         </div>`;
     cont.hidden = false;
@@ -538,10 +548,37 @@ async function copiarDeNuevoImagenDepartamento() {
     mostrarNotificacion(ok ? '📋 Imagen copiada al portapapeles' : 'Este navegador no permitió copiar la imagen', ok ? 'success' : 'warning');
 }
 
+function archivoImagenDepartamento() {
+    const img = imagenDepartamentoActual;
+    if (!img || typeof File === 'undefined') return null;
+    return new File([img.blob], nombreArchivoImagenSucursales(img.departamento), { type: 'image/png' });
+}
+
+// Menú nativo de compartir (celular, y Safari/Edge/Chrome en PC que lo soporten). Si el
+// navegador no puede compartir archivos, el botón ni se muestra.
+function puedeCompartirImagenDepartamento() {
+    try {
+        const file = archivoImagenDepartamento();
+        return !!(file && navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (e) { return false; }
+}
+
+async function compartirImagenDepartamento() {
+    const file = archivoImagenDepartamento();
+    if (!file) return;
+    try {
+        await navigator.share({ files: [file], title: `Sucursales Shalom — ${imagenDepartamentoActual.departamento}` });
+    } catch (e) {
+        if (e && e.name === 'AbortError') return; // el usuario cerró el menú
+        console.warn('No se pudo compartir la imagen:', e);
+        mostrarNotificacion('No se pudo compartir la imagen — usa "Descargar"', 'warning');
+    }
+}
+
 async function descargarImagenDepartamento() {
     const img = imagenDepartamentoActual;
     if (!img) return;
-    await descargarArchivo(img.blob, `Sucursales_${img.departamento.replace(/\s+/g, '_')}_${Date.now()}.png`, 'image/png');
+    await descargarArchivo(img.blob, nombreArchivoImagenSucursales(img.departamento), 'image/png');
 }
 
 // ============================================
