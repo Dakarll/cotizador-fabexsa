@@ -1544,7 +1544,7 @@
         .hx-oc-card.is-open { border-color: var(--secondary); box-shadow: var(--shadow-md); }
         .hx-oc-row {
             display: grid;
-            grid-template-columns: minmax(200px, 1fr) auto minmax(190px, 244px) minmax(190px, 256px) 320px;
+            grid-template-columns: minmax(200px, 1fr) auto minmax(180px, 244px) minmax(180px, 256px) 400px;
             column-gap: 18px;
             align-items: center;
             padding: 14px 18px;
@@ -1571,7 +1571,7 @@
         .hx-mini-steps { display: flex; gap: 3px; flex-shrink: 0; }
         .hx-mini-steps i { width: 12px; height: 5px; border-radius: 99px; background: var(--gray-200); display: block; }
 
-        .hx-oc-actions { display: grid; grid-template-columns: 130px 1fr; gap: 8px; }
+        .hx-oc-actions { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; }
 
         /* ---- Botones ---- */
         .hx-btn { height: 46px; border-radius: 11px; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 0 12px; min-width: 44px; }
@@ -1692,7 +1692,7 @@
              < 760px   apilado (formato móvil). */
         @container hx (max-width: 1359px) {
             .hx-oc-row {
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(280px, 320px);
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(360px, 400px);
                 grid-template-areas: "main main total" "pago dest acts";
                 row-gap: 12px;
             }
@@ -1744,6 +1744,7 @@
         @container hx (max-width: 759px) {
             .hx-oc-row { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
             .hx-oc-actions { grid-template-columns: 1fr 1fr; }
+            .hx-oc-actions > :nth-child(3) { grid-column: 1 / -1; }
             .hx-oc-head { display: flex; align-items: flex-start; gap: 10px; }
             .hx-oc-main { flex: 1; }
             .hx-oc-info { display: block; background: var(--gray-50); border-radius: 12px; }

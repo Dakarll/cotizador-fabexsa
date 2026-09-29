@@ -2348,6 +2348,7 @@
                         </div>
                         <div class="hx-oc-actions">
                             <button class="hx-btn hx-btn-outline" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">${HX_ICON.eye}Ver OC</button>
+                            <button class="hx-btn hx-btn-outline" onclick="cargarDesdeHistorial('${entry.objectId}')" title="Cargar la OC en Cotizar para editarla (mantiene su mismo N°)">${HX_ICON.edit}Editar</button>
                             ${despBtn}
                         </div>
                     </div>
