@@ -6,7 +6,7 @@
             // 'ULTIMA' = siempre usa la última hoja del Excel (la más reciente, ya que cada mes
             // agregan una hoja nueva). También puedes poner un número fijo (0, 1, 2...) o el
             // nombre exacto de una hoja puntual si alguna vez necesitas fijarla manualmente.
-            hoja: 'Jul´26',
+            hoja: 'ULTIMA',
             columnaCodigo: null,  // null = detección automática, o escribe el nombre exacto ej: 'ARTICULO'
             columnaStock: null,   // null = detección automática, o escribe el nombre exacto ej: 'SALDO'
             // Columna donde vive el color/variante de cada fila. A diferencia de código/stock, esta
@@ -17,6 +17,10 @@
 
         // Contraseña para desbloquear la edición manual del Kardex desde el propio sistema
         // (botón "🔒 Editar Kardex"). Cámbiala por la que quieras usar en tu equipo.
+        // El botón "🔒 Editar Kardex" está oculto a pedido (las salidas/ingresos se hacen con Carga masiva y Salida por
+        // tienda). Para volver a mostrarlo: pon esto en true y quita `hidden`/`display:none` de #btnEditarKardex en index.html.
+        const KARDEX_EDITAR_VISIBLE = false;
+
         const KARDEX_EDIT_CONFIG = {
             password: 'Fabexsa2026'
         };
@@ -61,7 +65,7 @@
         // Devuelve TODAS las filas de la hoja activa del Kardex ya identificadas con su clave
         // y su stock, listas para usarse en Control Diario, Exportar Stock, etc.
         function obtenerFilasKardexIdentificadas() {
-            const nombreHoja = resolverNombreHojaKardex(kardexNombresHojas);
+            const nombreHoja = resolverNombreHojaKardexLeida();
             const filas = kardexHojasData[nombreHoja];
             if (!filas || filas.length === 0) return [];
             const encabezados = Object.keys(filas[0]);
@@ -213,8 +217,7 @@
 
             for (let intento = 1; intento <= 5; intento++) {
                 const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
-                const nombresHojas = workbook.worksheets.map(ws => ws.name);
-                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const nombreHoja = resolverNombreHojaKardexWorkbook(workbook);
                 const hoja = workbook.getWorksheet(nombreHoja);
                 if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
 
@@ -250,8 +253,7 @@
 
             for (let intento = 1; intento <= 5; intento++) {
                 const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
-                const nombresHojas = workbook.worksheets.map(ws => ws.name);
-                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const nombreHoja = resolverNombreHojaKardexWorkbook(workbook);
                 const hoja = workbook.getWorksheet(nombreHoja);
                 if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
 
@@ -279,10 +281,52 @@
 
         // Resuelve el nombre real de la hoja a usar, soportando 'ULTIMA' (dinámico), un índice fijo,
         // o un nombre de hoja puntual — a partir de una lista de nombres de hoja ya conocida.
-        function resolverNombreHojaKardex(listaNombresHojas) {
-            if (KARDEX_CONFIG.hoja === 'ULTIMA') return listaNombresHojas[listaNombresHojas.length - 1];
+        // 'ULTIMA' = la última hoja CON DATOS: Excel a veces deja una "Hoja1" vacía al final del libro
+        // al guardar, y esa NO debe tomarse como la hoja del mes. `tieneDatos(nombre)` es opcional:
+        // sin ella se comporta como antes (última hoja de la lista).
+        function resolverNombreHojaKardex(listaNombresHojas, tieneDatos) {
+            if (KARDEX_CONFIG.hoja === 'ULTIMA') {
+                if (typeof tieneDatos === 'function') {
+                    for (let i = listaNombresHojas.length - 1; i >= 0; i--) {
+                        if (tieneDatos(listaNombresHojas[i])) return listaNombresHojas[i];
+                    }
+                }
+                return listaNombresHojas[listaNombresHojas.length - 1];
+            }
             if (typeof KARDEX_CONFIG.hoja === 'number') return listaNombresHojas[KARDEX_CONFIG.hoja];
             return KARDEX_CONFIG.hoja;
+        }
+
+        // ¿Esta lista de encabezados parece la de una hoja del Kardex? (código/artículo Y saldo/stock).
+        // Así una hoja suelta con datos pegados a mano ("Hoja1") no se toma por la hoja del mes.
+        function encabezadosParecenKardex(encabezados) {
+            const lista = (encabezados || []).map(h => String(h === null || h === undefined ? '' : h));
+            const hayCodigo = lista.some(h => /art[ií]culo|c[oó]digo|sku/i.test(h));
+            const haySaldo = lista.some(h => /stock|saldo|cantidad|existenc/i.test(h));
+            return hayCodigo && haySaldo;
+        }
+
+        // Igual, pero para un workbook de ExcelJS ya cargado (las funciones que escriben en el Kardex).
+        function resolverNombreHojaKardexWorkbook(workbook) {
+            return resolverNombreHojaKardex(workbook.worksheets.map(ws => ws.name), nombre => {
+                const ws = workbook.getWorksheet(nombre);
+                if (!ws || ws.actualRowCount < 2) return false;
+                const encabezados = [];
+                ws.getRow(1).eachCell({ includeEmpty: false }, cell => {
+                    let v = cell.value;
+                    if (v && typeof v === 'object') v = Array.isArray(v.richText) ? v.richText.map(t => t.text).join('') : (v.result !== undefined ? v.result : '');
+                    encabezados.push(v);
+                });
+                return encabezadosParecenKardex(encabezados);
+            });
+        }
+
+        // Igual, para los datos ya leídos con SheetJS (kardexHojasData).
+        function resolverNombreHojaKardexLeida() {
+            return resolverNombreHojaKardex(kardexNombresHojas, nombre => {
+                const filas = kardexHojasData[nombre] || [];
+                return filas.length > 0 && encabezadosParecenKardex(Object.keys(filas[0]));
+            });
         }
 
         let coloresPorProducto = {};   // { "7015": [ {color:"Verde Laurel", saldo:12}, ... ], ... } — construido desde el Kardex
@@ -665,7 +709,8 @@
         // Sube el Excel modificado a Dropbox, pero SOLO si nadie más lo modificó mientras tanto
         // (usa el "rev" de la descarga como candado). Si alguien más escribió primero, Dropbox
         // rechaza la subida (409) y hay que reintentar con datos frescos.
-        async function subirKardexConCandado(accessToken, workbook, revEsperada) {
+        async function subirKardexConCandado(accessToken, workbook, revEsperada, opciones) {
+            const prohibirAplanar = !!(opciones && opciones.prohibirAplanar);
             let wbout;
             try {
                 wbout = await workbook.xlsx.writeBuffer(); // conserva todo el formato y TODAS las fórmulas intactas
@@ -675,6 +720,8 @@
                     desconectarFormulasCompartidas(workbook);
                     wbout = await workbook.xlsx.writeBuffer();
                 } catch (segundoError) {
+                    // La carga masiva NUNCA convierte fórmulas en valores fijos: prefiere no guardar.
+                    if (prohibirAplanar) throw new Error('No se pudo guardar el Kardex conservando sus fórmulas; no se modificó nada. (' + segundoError.message + ')');
                     console.error('Tampoco se pudo guardar desconectando fórmulas compartidas; se aplanan a su valor calculado como último recurso:', segundoError.message);
                     aplanarFormulasWorkbook(workbook);
                     wbout = await workbook.xlsx.writeBuffer();
@@ -682,21 +729,33 @@
                 }
             }
             const ruta = await obtenerRutaArchivoKardex(accessToken);
-            const resp = await fetch('https://content.dropboxapi.com/2/files/upload', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Dropbox-API-Arg': JSON.stringify({
-                        path: ruta,
-                        mode: { '.tag': 'update', update: revEsperada },
-                        mute: true
-                    }),
-                    'Content-Type': 'application/octet-stream'
-                },
-                body: wbout
-            });
+            let resp;
+            try {
+                resp = await fetch('https://content.dropboxapi.com/2/files/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Dropbox-API-Arg': JSON.stringify({
+                            path: ruta,
+                            mode: { '.tag': 'update', update: revEsperada },
+                            mute: true
+                        }),
+                        'Content-Type': 'application/octet-stream'
+                    },
+                    body: wbout
+                });
+            } catch (errorRed) {
+                // Corte de red: no se sabe si Dropbox llegó a guardar el archivo. Se marca como
+                // "ambiguo" para que la carga masiva verifique antes de reintentar (no duplicar).
+                errorRed.ambiguo = true;
+                throw errorRed;
+            }
             if (resp.status === 409) return false; // alguien más escribió primero: hay que reintentar
-            if (!resp.ok) throw new Error('No se pudo subir el Kardex a Dropbox (HTTP ' + resp.status + ')');
+            if (!resp.ok) {
+                const errorSubida = new Error('No se pudo subir el Kardex a Dropbox (HTTP ' + resp.status + ')');
+                errorSubida.ambiguo = resp.status >= 500; // un 5xx puede haber guardado el archivo igual
+                throw errorSubida;
+            }
             return true;
         }
 
@@ -714,8 +773,7 @@
 
             for (let intento = 1; intento <= 5; intento++) {
                 const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
-                const nombresHojas = workbook.worksheets.map(ws => ws.name);
-                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const nombreHoja = resolverNombreHojaKardexWorkbook(workbook);
                 const hoja = workbook.getWorksheet(nombreHoja);
                 if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
 
@@ -827,8 +885,7 @@
 
             for (let intento = 1; intento <= 5; intento++) {
                 const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
-                const nombresHojas = workbook.worksheets.map(ws => ws.name);
-                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const nombreHoja = resolverNombreHojaKardexWorkbook(workbook);
                 const hoja = workbook.getWorksheet(nombreHoja);
                 if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
 
@@ -868,41 +925,158 @@
             throw new Error('No se pudo actualizar el Kardex después de varios intentos (mucha actividad simultánea)');
         }
 
-        // ██  DROPBOX — Edición manual del Kardex (valores absolutos, protegida por contraseña)  ██
+        // ██  DROPBOX — Edición manual del Kardex (saldo deseado, protegida por contraseña)  ██
         // ██████████████████████████████████████████████████████████████████████████
-        // cambiosPorClave = { clave: nuevoValorDeStock, ... }. A diferencia de las dos funciones
-        // de arriba (que RESTAN una cantidad), esta REEMPLAZA el valor de stock tal cual lo dejó
-        // la persona en el modo de edición del Kardex (botón "🔒 Editar Kardex").
+        // cambiosPorClave = { claveEdicion: saldoDeseado, ... } (ver claveEdicionKardex: código +
+        // descripción + orden de aparición, así cada COLOR/variante es una fila distinta aunque
+        // compartan código). El stock NO se escribe en SALDO (col D): SALDO conserva su fórmula
+        // (C - TOTAL EGRESO + INGRESOS) y el valor se carga en la columna C (Cant Inicial):
+        //     C = saldoDeseado + (suma de egresos de los días) - (INGRESO SJ + INGRESO BELLOTA)
+        // de modo que SALDO calcule exactamente el saldo que escribió la persona. Es idempotente:
+        // si un reintento la vuelve a aplicar, el resultado es el mismo (no se acumula nada).
+        // Si una fila no se encuentra o su fórmula de SALDO no tiene la forma estándar, se aborta TODO
+        // sin subir nada (no se adivina).
+
+        // Texto / número de una celda ExcelJS (número, texto, texto enriquecido o fórmula con resultado).
+        function textoCeldaKardex(celda) {
+            let v = celda.value;
+            if (v === null || v === undefined) return '';
+            if (typeof v === 'object' && !(v instanceof Date)) {
+                if (Array.isArray(v.richText)) v = v.richText.map(t => t.text).join('');
+                else if (v.formula !== undefined || v.sharedFormula !== undefined) v = (v.result === undefined || v.result === null) ? '' : v.result;
+                else if (v.text !== undefined) v = v.text;
+                else v = '';
+            }
+            if (v instanceof Date) return '';
+            return String(v).trim();
+        }
+
+        function numeroCeldaKardex(celda) {
+            const v = celda.value;
+            if (v === null || v === undefined || v === '') return 0;
+            if (typeof v === 'object' && (v.formula !== undefined || v.sharedFormula !== undefined)) return parseFloat(v.result) || 0;
+            return parseFloat(v) || 0;
+        }
+
+        // Clave estable de una fila para la edición manual: "codigo|descripcion|n" (n = 0 para la
+        // primera fila con ese mismo código+descripción, 1 para la segunda, etc.). Se calcula igual
+        // desde la vista (SheetJS) y desde el Excel al guardar (ExcelJS).
+        function claveBaseEdicionKardex(codigo, descripcion) {
+            const c = normalizarTexto(String(codigo === null || codigo === undefined ? '' : codigo)).replace(/\s+/g, ' ').trim();
+            const d = normalizarTexto(String(descripcion === null || descripcion === undefined ? '' : descripcion)).replace(/\s+/g, ' ').trim();
+            return (c || d) ? `${c}|${d}` : '';
+        }
+
+        // Cuenta las fórmulas de cada hoja (para comprobar que un guardado no pierde ninguna).
+        function contarFormulasPorHoja(workbook) {
+            const cuenta = {};
+            workbook.eachSheet(ws => {
+                let n = 0;
+                ws.eachRow({ includeEmpty: false }, fila => fila.eachCell({ includeEmpty: false }, celda => { if (celda.type === ExcelJS.ValueType.Formula) n++; }));
+                cuenta[ws.name] = n;
+            });
+            return cuenta;
+        }
+
+        // Las fórmulas D y AJ vienen como "compartidas" (un maestro y clones). Se convierten en fórmulas
+        // normales SOLO en la hoja a modificar (mismo texto efectivo) para que ExcelJS siempre pueda guardarlas.
+        function desconectarFormulasCompartidasHoja(hoja) {
+            hoja.eachRow({ includeEmpty: false }, fila => {
+                fila.eachCell({ includeEmpty: false }, celda => {
+                    if (celda.type === ExcelJS.ValueType.Formula) {
+                        const texto = celda.formula;
+                        if (texto) celda.value = { formula: texto, result: celda.result };
+                    }
+                });
+            });
+        }
+
         async function aplicarValoresAbsolutosKardex(cambiosPorClave) {
             const claves = Object.keys(cambiosPorClave);
             if (claves.length === 0) return;
             const accessToken = await obtenerAccessTokenDropbox();
+            let ultimoErrorRed = null;
 
             for (let intento = 1; intento <= 5; intento++) {
                 const { workbook, rev } = await descargarKardexParaEscritura(accessToken);
-                const nombresHojas = workbook.worksheets.map(ws => ws.name);
-                const nombreHoja = resolverNombreHojaKardex(nombresHojas);
+                const nombreHoja = resolverNombreHojaKardexWorkbook(workbook);
                 const hoja = workbook.getWorksheet(nombreHoja);
                 if (!hoja) throw new Error('No se encontró la hoja del Kardex configurada en KARDEX_CONFIG');
 
-                const { colArticulo, colDescripcion, colStock } = resolverColumnasHojaExcel(hoja);
-                if (colStock < 1) throw new Error('No se detectó la columna de stock del Kardex');
+                const cols = resolverColumnasMovimientoExcel(hoja);
+                if (cols.colStock < 2) throw new Error('No se detectó la columna SALDO del Kardex');
+                if (cols.colArticulo < 1 || cols.colDescripcion < 1) throw new Error('No se detectaron las columnas ARTICULO/DESCRIPCION del Kardex');
+                const colesDias = Object.values(cols.colesDias);
+                if (colesDias.length === 0) throw new Error('No se detectaron las columnas de días (1 al 31) del Kardex');
+                const colInicial = cols.colStock - 1; // C = Cant Inicial
+                const letra = n => hoja.getColumn(n).letter;
 
-                let huboCambios = false;
+                const formulasAntes = contarFormulasPorHoja(workbook);
+                desconectarFormulasCompartidasHoja(hoja);
+
+                // Índice clave -> número de fila, con el orden de aparición de repetidos.
+                const vistas = {};
+                const filaPorClave = {};
                 for (let f = 2; f <= hoja.rowCount; f++) {
                     const fila = hoja.getRow(f);
-                    const clave = claveDeFilaExcel(fila, colArticulo, colDescripcion);
-                    if (Object.prototype.hasOwnProperty.call(cambiosPorClave, clave)) {
-                        fila.getCell(colStock).value = cambiosPorClave[clave];
-                        huboCambios = true;
-                    }
+                    const base = claveBaseEdicionKardex(textoCeldaKardex(fila.getCell(cols.colArticulo)), textoCeldaKardex(fila.getCell(cols.colDescripcion)));
+                    if (!base) continue;
+                    const n = vistas[base] = (vistas[base] === undefined ? 0 : vistas[base] + 1);
+                    filaPorClave[`${base}|${n}`] = f;
                 }
-                if (!huboCambios) return;
 
-                const exito = await subirKardexConCandado(accessToken, workbook, rev);
-                if (exito) return;
+                const noEncontradas = [];
+                const formulaRara = [];
+                let cFormulasReemplazadas = 0;
+                claves.forEach(clave => {
+                    const f = filaPorClave[clave];
+                    if (!f) { noEncontradas.push(clave.split('|').slice(0, 2).join(' · ')); return; }
+                    const fila = hoja.getRow(f);
+                    const saldoDeseado = Number(cambiosPorClave[clave]);
+                    const celdaD = fila.getCell(cols.colStock);
+                    const celdaC = fila.getCell(colInicial);
+
+                    if (celdaD.type !== ExcelJS.ValueType.Formula) {
+                        // Fila sin fórmula de SALDO: no hay a qué columna C apoyarse; se deja el valor en SALDO.
+                        celdaD.value = saldoDeseado;
+                        return;
+                    }
+                    // La fórmula de SALDO debe ser la estándar C - AJ + AK + AL; si no, no se adivina.
+                    const esperada = `${letra(colInicial)}${f}-${letra(cols.colTotalEgreso)}${f}+${letra(cols.colIngresoSanJacinto)}${f}+${letra(cols.colIngresoBellota)}${f}`;
+                    if (String(celdaD.formula).replace(/\s+/g, '') !== esperada) { formulaRara.push(`fila ${f} (${celdaD.formula})`); return; }
+
+                    const egresos = colesDias.reduce((s, c) => s + numeroCeldaKardex(fila.getCell(c)), 0);
+                    const ingresos = numeroCeldaKardex(fila.getCell(cols.colIngresoSanJacinto)) + numeroCeldaKardex(fila.getCell(cols.colIngresoBellota));
+                    const nuevoInicial = Math.round((saldoDeseado + egresos - ingresos) * 1e6) / 1e6;
+                    if (celdaC.type === ExcelJS.ValueType.Formula) cFormulasReemplazadas++;
+                    celdaC.value = nuevoInicial;                                          // el stock va en C...
+                    celdaD.value = { formula: celdaD.formula, result: saldoDeseado };    // ...y SALDO conserva su fórmula
+                });
+
+                if (noEncontradas.length) throw new Error('No se encontraron en el Kardex actual estas filas (¿cambió el Excel?): ' + noEncontradas.slice(0, 5).join(', ') + '. No se guardó nada.');
+                if (formulaRara.length) throw new Error('La fórmula de SALDO no es la estándar (C-AJ+AK+AL) en: ' + formulaRara.slice(0, 3).join('; ') + '. Edítalo directo en Excel. No se guardó nada.');
+
+                // Red de seguridad: solo se puede perder el enlace de C que se reemplazó a propósito.
+                const formulasDespues = contarFormulasPorHoja(workbook);
+                Object.keys(formulasAntes).forEach(h => {
+                    const permitido = h === nombreHoja ? cFormulasReemplazadas : 0;
+                    if ((formulasDespues[h] || 0) < formulasAntes[h] - permitido) {
+                        throw new Error(`Control de seguridad: la hoja "${h}" habría perdido fórmulas (${formulasAntes[h]} -> ${formulasDespues[h] || 0}). No se guardó nada.`);
+                    }
+                });
+                workbook.calcProperties = Object.assign({}, workbook.calcProperties || {}, { fullCalcOnLoad: true });
+
+                try {
+                    const exito = await subirKardexConCandado(accessToken, workbook, rev, { prohibirAplanar: true });
+                    if (exito) return;
+                } catch (errorSubida) {
+                    // Corte de red/5xx: no se sabe si llegó a guardar. Como el valor de C se recalcula desde
+                    // el archivo fresco para dar el MISMO saldo, reintentar no acumula ni duplica nada.
+                    if (errorSubida && errorSubida.ambiguo) { ultimoErrorRed = errorSubida; continue; }
+                    throw errorSubida;
+                }
             }
-            throw new Error('No se pudo actualizar el Kardex después de varios intentos (mucha actividad simultánea)');
+            throw new Error('No se pudo actualizar el Kardex después de varios intentos' + (ultimoErrorRed ? ` (${ultimoErrorRed.message})` : ' (mucha actividad simultánea)'));
         }
 
         // Compara lo que ya se había descontado del Kardex la última vez (anteriores) contra lo que
@@ -966,12 +1140,7 @@
                 construirStockDesdeHojas();
 
                 kardexUltimaActualizacion = new Date();
-                localStorage.setItem('kardexCache', JSON.stringify({
-                    hojasData: kardexHojasData,
-                    nombresHojas: kardexNombresHojas,
-                    stock: stockKardex,
-                    fecha: kardexUltimaActualizacion.toISOString()
-                }));
+                guardarKardexCache();
 
                 renderProductList();
                 renderProductosVistaRapida();
@@ -988,9 +1157,39 @@
             }
         }
 
+        // Guarda el Kardex leído en localStorage para abrir rápido la próxima vez. El libro completo
+        // (todas las hojas, todas las columnas) pesa varios MB y puede pasar la cuota del navegador
+        // (~5 MB), lo que antes hacía fallar la actualización entera y además dejaba sin espacio a
+        // otros cachés (sucursales). Se intenta completo; si no cabe, se guardan solo las hojas más
+        // recientes con datos (las demás se vuelven a leer con "Actualizar desde Dropbox").
+        // NUNCA lanza: el caché es una comodidad, no puede romper la carga.
+        function guardarKardexCache() {
+            const construir = hojasIncluidas => {
+                const datos = {};
+                hojasIncluidas.forEach(n => { datos[n] = kardexHojasData[n]; });
+                return JSON.stringify({
+                    hojasData: datos,
+                    nombresHojas: kardexNombresHojas,
+                    stock: stockKardex,
+                    fecha: kardexUltimaActualizacion.toISOString()
+                });
+            };
+            const conDatos = kardexNombresHojas.filter(n => (kardexHojasData[n] || []).length > 0 && encabezadosParecenKardex(Object.keys(kardexHojasData[n][0])));
+            const intentos = [kardexNombresHojas, conDatos.slice(-6), conDatos.slice(-3), conDatos.slice(-1), []];
+            for (const hojas of intentos) {
+                try {
+                    localStorage.removeItem('kardexCache'); // libera lo viejo antes de escribir lo nuevo
+                    localStorage.setItem('kardexCache', construir(hojas));
+                    if (hojas.length < kardexNombresHojas.length) console.warn(`Kardex: el caché local solo guarda ${hojas.length} hoja(s) por límite de espacio del navegador.`);
+                    return;
+                } catch (e) { /* no cupo: se prueba con menos hojas */ }
+            }
+            console.warn('Kardex: no se pudo guardar el caché local (sin espacio); se leerá de Dropbox cada vez.');
+        }
+
         // Arma stockKardex (código -> cantidad) a partir de la hoja/columnas configuradas en KARDEX_CONFIG
         function construirStockDesdeHojas() {
-            const nombreHoja = resolverNombreHojaKardex(kardexNombresHojas);
+            const nombreHoja = resolverNombreHojaKardexLeida();
             const filas = kardexHojasData[nombreHoja];
             if (!filas || filas.length === 0) { stockKardex = {}; coloresPorProducto = {}; return; }
 
@@ -1100,7 +1299,7 @@
                 return;
             }
             const guardada = localStorage.getItem('kardexHojaSeleccionada');
-            const hojaActual = kardexNombresHojas.includes(guardada) ? guardada : kardexNombresHojas[0];
+            const hojaActual = kardexNombresHojas.includes(guardada) ? guardada : (resolverNombreHojaKardexLeida() || kardexNombresHojas[0]);
 
             select.innerHTML = kardexNombresHojas.map(h => `<option value="${h}" ${h === hojaActual ? 'selected' : ''}>${h}</option>`).join('');
         }
@@ -1192,6 +1391,89 @@
             fila.style.display = fila.style.display === 'none' ? '' : 'none';
         }
 
+        // ============================================
+        // DETALLE DIARIO: movimientos de OTRO MES con su fecha (día/mes)
+        // ============================================
+        // Las columnas 1-31 del Kardex solo guardan cantidades. Cuando se registra una salida con una fecha fuera
+        // del mes actual (o fuera del mes de la hoja) esa cantidad cae igual en la columna de ese día, así que en el
+        // "Detalle diario" se muestra aparte con su fecha ("30/09: 5") para no confundirla con el día 30 del mes.
+        // La fecha vive en el historial de movimientos (clase MovimientoKardex), no en el Excel.
+        let kardexDetalleForaneoCache = { hoja: null, datos: {}, cargado: 0, pidiendo: false };
+
+        function formatoDiaMes(fechaISO) {
+            const [, mes, dia] = String(fechaISO).split('-');
+            return `${dia}/${mes}`;
+        }
+
+        // Devuelve { [claveEdicion]: { [dia]: [{ fecha, cantidad }] } } de la hoja; dispara la carga si no está.
+        function obtenerDetalleForaneoKardex(hoja) {
+            const c = kardexDetalleForaneoCache;
+            const vencido = Date.now() - c.cargado > 60000;
+            if (hoja && (c.hoja !== hoja || vencido) && !c.pidiendo) cargarDetalleForaneoKardex(hoja);
+            return c.hoja === hoja ? c.datos : {};
+        }
+
+        function invalidarDetalleForaneoKardex() { kardexDetalleForaneoCache.cargado = 0; }
+
+        async function cargarDetalleForaneoKardex(hoja) {
+            const c = kardexDetalleForaneoCache;
+            c.pidiendo = true;
+            try {
+                if (typeof CLASE_MOVIMIENTO_KARDEX === 'undefined' || typeof BACK4APP_CONFIG === 'undefined') return;
+                const hoy = new Date();
+                const mesActualISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+                // Fuera de la hoja (fueraDeHoja) o de un mes anterior al actual.
+                const where = { activo: true, hoja, $or: [{ fueraDeHoja: true }, { fecha: { $lt: mesActualISO + '-01' } }] };
+                const registros = [];
+                for (let skip = 0; skip < 3000; skip += 1000) {
+                    const url = `${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_MOVIMIENTO_KARDEX}?where=${encodeURIComponent(JSON.stringify(where))}&limit=1000&skip=${skip}`;
+                    const resp = await fetch(url, { headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }) });
+                    if (!resp.ok) break;   // sin acceso o la clase aún no existe: se muestra el detalle normal
+                    const lote = (await resp.json()).results || [];
+                    registros.push(...lote);
+                    if (lote.length < 1000) break;
+                }
+                const datos = {};
+                registros.forEach(r => {
+                    if (!r.claveEdicion || !r.fecha || !r.dia) return;
+                    const porDia = datos[r.claveEdicion] = datos[r.claveEdicion] || {};
+                    const lista = porDia[r.dia] = porDia[r.dia] || [];
+                    const previo = lista.find(x => x.fecha === r.fecha);
+                    if (previo) previo.cantidad += Number(r.cantidad) || 0; else lista.push({ fecha: r.fecha, cantidad: Number(r.cantidad) || 0 });
+                });
+                const cambio = JSON.stringify(c.datos) !== JSON.stringify(datos) || c.hoja !== hoja;
+                c.hoja = hoja; c.datos = datos; c.cargado = Date.now();
+                if (cambio) renderKardexTabCompleta();
+            } catch (e) {
+                console.warn('No se pudo cargar el detalle de movimientos de otro mes:', e);
+                c.hoja = hoja; c.cargado = Date.now();
+            } finally {
+                c.pidiendo = false;
+            }
+        }
+
+        // Chips del "Detalle diario" de una fila. Cada día con movimiento da un chip "Día N: cantidad"; la parte de esa
+        // cantidad que corresponde a fechas de otro mes sale aparte como "dd/mm: cantidad" (y se descuenta del chip del día).
+        // Si no cuadra (p. ej. alguien editó la celda a mano) se muestra el total tal cual, sin dividir.
+        function armarChipsDetalleDiario(dias, fila, claveEdicion, foraneos) {
+            const chips = [];
+            dias.forEach(d => {
+                const total = parseFloat(fila[d.columna]) || 0;
+                const otros = (foraneos && claveEdicion && foraneos[claveEdicion] && foraneos[claveEdicion][d.dia] || [])
+                    .filter(x => Math.abs(x.cantidad) > 1e-9);
+                const sumaOtros = otros.reduce((s, x) => s + x.cantidad, 0);
+                const resto = Math.round((total - sumaOtros) * 1e6) / 1e6;
+                if (!otros.length || resto < -1e-9) {
+                    chips.push({ etiqueta: `Día ${d.dia}`, valor: fila[d.columna], fuera: false });
+                    return;
+                }
+                if (Math.abs(resto) > 1e-9) chips.push({ etiqueta: `Día ${d.dia}`, valor: resto, fuera: false });
+                otros.sort((a, b) => a.fecha.localeCompare(b.fecha))
+                    .forEach(x => chips.push({ etiqueta: formatoDiaMes(x.fecha), valor: Math.round(x.cantidad * 1e6) / 1e6, fuera: true }));
+            });
+            return chips;
+        }
+
         function renderKardexTabCompleta() {
             const thead = document.getElementById('kardexTableHead');
             const tbody = document.getElementById('kardexListBody');
@@ -1204,7 +1486,7 @@
             if (filas.length === 0) {
                 thead.innerHTML = '';
                 document.getElementById('kardexCount').textContent = 0;
-                tbody.innerHTML = `<tr><td style="text-align:center;color:#a0aec0;padding:20px;">${kardexNombresHojas.length === 0 ? 'Sin datos aún. Presiona "Actualizar desde Dropbox".' : 'Esta hoja no tiene filas de datos.'}</td></tr>`;
+                tbody.innerHTML = `<tr><td style="text-align:center;color:#a0aec0;padding:20px;">${kardexNombresHojas.length === 0 ? 'Sin datos aún. Presiona "Actualizar desde Dropbox".' : (hoja && kardexHojasData[hoja] === undefined ? 'Esta hoja no está guardada en este equipo. Presiona "Actualizar desde Dropbox" para verla.' : 'Esta hoja no tiene filas de datos.')}</td></tr>`;
                 renderIdentificacionSinCodigo();
                 return;
             }
@@ -1235,15 +1517,28 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             // de stock se pinta como un input editable en vez de texto plano.
             const { colArticulo, colDescripcion } = encontrarColumnasIdentificacion(columnas);
 
+            // Clave de edición por fila (código + descripción + orden de aparición): cada color es una fila
+            // distinta aunque comparta código. Se calcula sobre TODAS las filas de la hoja (no solo las filtradas).
+            const detalleForaneo = obtenerDetalleForaneoKardex(hoja);   // movimientos de otro mes (se carga en 2º plano)
+            const claveEdicionDeFila = new Map();
+            const vistasEdicion = {};
+            filas.forEach(fila => {
+                const base = claveBaseEdicionKardex(colArticulo ? fila[colArticulo] : '', colDescripcion ? fila[colDescripcion] : '');
+                if (!base) return;
+                const n = vistasEdicion[base] = (vistasEdicion[base] === undefined ? 0 : vistasEdicion[base] + 1);
+                claveEdicionDeFila.set(fila, `${base}|${n}`);
+            });
+
             tbody.innerHTML = filtradas.map((fila, i) => {
                 const id = identificarFilaKardex(fila, colArticulo, colDescripcion);
+                const claveEdicion = claveEdicionDeFila.get(fila) || '';
 
                 const celdasFijas = vista.fijasEnOrden.map(c => {
-                    if (kardexEdicionActiva && c.clave === vista.colStock) {
-                        const valorActual = Object.prototype.hasOwnProperty.call(kardexCambiosPendientes, id.clave)
-                            ? kardexCambiosPendientes[id.clave]
+                    if (kardexEdicionActiva && c.clave === vista.colStock && claveEdicion) {
+                        const valorActual = Object.prototype.hasOwnProperty.call(kardexCambiosPendientes, claveEdicion)
+                            ? kardexCambiosPendientes[claveEdicion]
                             : (fila[c.clave] === '' ? 0 : fila[c.clave]);
-                        return `<td><input type="number" step="0.01" class="kardex-edit-input" data-clave="${escaparAtributo(id.clave)}" value="${valorActual}" style="width:90px;padding:4px 6px;border:1.5px solid #805ad5;border-radius:6px;" onchange="marcarCambioKardex(this)"></td>`;
+                        return `<td><input type="number" step="0.01" class="kardex-edit-input" data-clave="${escaparAtributo(claveEdicion)}" value="${valorActual}" style="width:90px;padding:4px 6px;border:1.5px solid #805ad5;border-radius:6px;" onchange="marcarCambioKardex(this)"></td>`;
                     }
                     return `<td>${fila[c.clave] === '' ? '' : fila[c.clave]}</td>`;
                 }).join('');
@@ -1262,7 +1557,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
                     <tr class="kardex-detalle-row" id="kardexDetalleRow${i}" style="display:none;">
                         <td colspan="${totalColumnasVisibles}">
                             <div class="kardex-dias-grid">
-                                ${diasConMovimiento.map(d => `<span class="kardex-dia-chip">Día ${d.dia}: <strong>${fila[d.columna]}</strong></span>`).join('')}
+                                ${armarChipsDetalleDiario(diasConMovimiento, fila, claveEdicion, detalleForaneo).map(c => `<span class="kardex-dia-chip${c.fuera ? ' kardex-dia-chip-fuera' : ''}" ${c.fuera ? 'title="Movimiento de una fecha fuera del mes de esta hoja/del mes actual"' : ''}>${c.etiqueta}: <strong>${c.valor}</strong></span>`).join('')}
                             </div>
                         </td>
                     </tr>` : '';
@@ -1344,7 +1639,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             if (claves.length === 0) { mostrarNotificacion('No hay cambios para guardar', 'warning'); return; }
             if (!await confirmarAccion({
                 titulo: 'Guardar cambios en el Kardex',
-                mensaje: `¿Guardar ${claves.length} cambio(s) de stock directamente en el Kardex de Dropbox?`,
+                mensaje: `¿Guardar ${claves.length} cambio(s) de stock directamente en el Kardex de Dropbox?\n\nEl stock se carga en la columna C (Cant Inicial) y SALDO conserva su fórmula, así calcula el saldo que escribiste.`,
                 confirmarTexto: 'Guardar cambios'
             })) return;
 
@@ -1356,7 +1651,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
                 kardexEdicionActiva = false;
                 document.getElementById('btnGuardarEdicionKardex').style.display = 'none';
                 document.getElementById('btnCancelarEdicionKardex').style.display = 'none';
-                document.getElementById('btnEditarKardex').style.display = 'inline-block';
+                if (KARDEX_EDITAR_VISIBLE) document.getElementById('btnEditarKardex').style.display = 'inline-block';
                 document.getElementById('kardexEdicionAviso').style.display = 'none';
                 await cargarKardex(false);
                 mostrarNotificacion('Kardex actualizado en Dropbox', 'success');
@@ -1373,7 +1668,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             kardexEdicionActiva = false;
             document.getElementById('btnGuardarEdicionKardex').style.display = 'none';
             document.getElementById('btnCancelarEdicionKardex').style.display = 'none';
-            document.getElementById('btnEditarKardex').style.display = 'inline-block';
+            if (KARDEX_EDITAR_VISIBLE) document.getElementById('btnEditarKardex').style.display = 'inline-block';
             document.getElementById('kardexEdicionAviso').style.display = 'none';
             renderKardexTabCompleta();
         }
@@ -1420,7 +1715,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             }));
             const ws = XLSX.utils.json_to_sheet(datos);
             const wb = XLSX.utils.book_new();
-            const nombreHojaSanitizado = (resolverNombreHojaKardex(kardexNombresHojas) || 'Stock').replace(/[\\/*?:\[\]]/g, '_').substring(0, 31);
+            const nombreHojaSanitizado = (resolverNombreHojaKardexLeida() || 'Stock').replace(/[\\/*?:\[\]]/g, '_').substring(0, 31);
             XLSX.utils.book_append_sheet(wb, ws, nombreHojaSanitizado);
 
             const etiquetaGrupo = { todo: 'Todo', san_jacinto: 'San_Jacinto', la_bellota: 'La_Bellota', telas: 'Telas' }[grupo] || grupo;
@@ -1431,166 +1726,117 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
         }
 
         // ============================================
-        // CONTROL DIARIO (descarte directo de stock en el Kardex + consulta de movimientos)
+        // CONTROL DIARIO — SALIDA POR TIENDA / DESCARTES + HISTORIAL DE MOVIMIENTOS
         // ============================================
-        let cdMatchesActuales = [];
-        let cdProductoSeleccionado = null;
-
-        function buscarProductosControlDiario(query) {
-            const dropdown = document.getElementById('cdBuscarDropdown');
-            if (!dropdown) return;
-            const q = normalizarTexto(query || '').trim();
-            if (q.length < 2) { dropdown.classList.remove('visible'); return; }
-
-            cdMatchesActuales = obtenerFilasKardexIdentificadas().filter(f =>
-                normalizarTexto(f.codigo).includes(q) || normalizarTexto(f.descripcion).includes(q)
-            ).slice(0, 8);
-
-            if (cdMatchesActuales.length === 0) {
-                dropdown.innerHTML = '<div style="padding:10px;color:#a0aec0;">Sin resultados en la hoja actual del Kardex</div>';
-                dropdown.classList.add('visible');
-                return;
-            }
-
-            dropdown.innerHTML = cdMatchesActuales.map((m, i) => `
-                <div class="cliente-db-item" onclick="seleccionarProductoControlDiario(${i})">
-                    <div class="cliente-db-item-name">${m.codigo ? m.codigo + ' — ' : ''}${m.descripcion || '(sin descripción)'}</div>
-                    <div class="cliente-db-item-sub">Stock actual: ${m.stock}${m.tieneCodigo ? '' : ' · sin código (vinculado por descripción)'}</div>
-                </div>
-            `).join('');
-            dropdown.classList.add('visible');
-        }
-
-        function seleccionarProductoControlDiario(i) {
-            const m = cdMatchesActuales[i];
-            if (!m) return;
-            cdProductoSeleccionado = m;
-            document.getElementById('cdBuscarProducto').value = (m.codigo ? m.codigo + ' — ' : '') + (m.descripcion || '');
-            document.getElementById('cdBuscarDropdown').classList.remove('visible');
-            document.getElementById('cdProductoStockActual').textContent = `📦 Stock actual en Kardex: ${m.stock}${m.tieneCodigo ? '' : ' (producto sin código, vinculado por descripción)'}`;
-            document.getElementById('cdProductoInfo').style.display = 'block';
-        }
-
-        // Cerrar el dropdown de Control Diario al hacer click fuera
-        document.addEventListener('click', function(e) {
-            const dropdown = document.getElementById('cdBuscarDropdown');
-            const input = document.getElementById('cdBuscarProducto');
-            if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
-                dropdown.classList.remove('visible');
-            }
-        });
-
-        async function registrarControlDiario() {
-            if (!cdProductoSeleccionado) { mostrarNotificacion('Busca y selecciona un producto del Kardex primero', 'warning'); return; }
-            const cantidad = parseFloat(document.getElementById('cdCantidad').value);
-            if (!cantidad || cantidad <= 0) { mostrarNotificacion('Ingresa una cantidad válida a descartar', 'warning'); return; }
-            const motivo = document.getElementById('cdMotivo').value.trim();
-
-            const etiquetaProducto = cdProductoSeleccionado.descripcion || cdProductoSeleccionado.codigo;
-            if (!await confirmarAccion({
-                titulo: 'Descartar stock',
-                mensaje: `¿Descartar ${cantidad} und. de "${etiquetaProducto}"?\n\nEsto descuenta el stock directamente en el Kardex, igual que una Orden de Compra.`,
-                confirmarTexto: 'Descartar',
-                destructivo: true
-            })) return;
-
-            const btn = document.getElementById('btnRegistrarControlDiario');
-            try {
-                btn.disabled = true; btn.textContent = '⏳ Descontando en el Kardex...';
-
-                await ajustarStockKardexPorClave([{
-                    clave: cdProductoSeleccionado.clave,
-                    codigo: cdProductoSeleccionado.codigo,
-                    descripcion: cdProductoSeleccionado.descripcion,
-                    cantidad
-                }]);
-                cargarKardex(false); // refresca los badges de stock con el nuevo saldo
-
-                const resp = await fetch(`${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_CONTROL_DIARIO}`, {
-                    method: 'POST',
-                    headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }),
-                    body: JSON.stringify({
-                        clave: cdProductoSeleccionado.clave,
-                        codigo: cdProductoSeleccionado.codigo || '',
-                        descripcion: cdProductoSeleccionado.descripcion || '',
-                        cantidad,
-                        motivo: motivo || '',
-                        usuario: usuarioActual?.username || '',
-                        usuarioNombre: usuarioActual?.nombre || '',
-                        activo: true
-                    })
-                });
-                if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status); }
-
-                mostrarNotificacion('Descarte registrado y stock actualizado en el Kardex', 'success');
-                document.getElementById('cdCantidad').value = '';
-                document.getElementById('cdMotivo').value = '';
-                document.getElementById('cdBuscarProducto').value = '';
-                document.getElementById('cdProductoInfo').style.display = 'none';
-                cdProductoSeleccionado = null;
-                cargarMovimientosControlDiario();
-            } catch (e) {
-                console.error('Error al registrar Control Diario:', e);
-                mostrarAlerta({ titulo: 'No se pudo registrar el descarte', mensaje: 'Revisa el Kardex antes de reintentar, para no descontar dos veces.', tipo: 'error', detalle: e.message });
-            } finally {
-                btn.disabled = false; btn.textContent = '📉 Registrar Descarte';
-            }
-        }
-
+        // La salida por tienda (el cliente viene y compra) y los descartes se registran con la pantalla de
+        // js/kardex-carga-ui.js (abrirSalidaTienda): se anotan en la columna del día del Kardex y cada
+        // movimiento queda en la clase MovimientoKardex (también las órdenes de compra, ver kardex-salidas.js).
+        // Esta sección solo consulta ese historial. Se siguen mostrando los descartes antiguos (clase ControlDiario).
         let controlDiarioCache = [];
+        const ETIQUETA_TIPO_MOVIMIENTO = { tienda: 'Venta tienda', descarte: 'Descarte', oc: 'Orden de compra', oc_ajuste: 'Ajuste de OC', descarte_antiguo: 'Descarte (antiguo)' };
 
-        // Trae del Back4App los movimientos de Control Diario: los usuarios 'master' ven los de
-        // TODOS los usuarios; el resto (incluida la categoría 'control_diario') solo ve los suyos.
+        function kdFormatoMoneda(n) { return 'S/ ' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
+        function kdEscape(t) { return String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+        // Trae de Back4App los movimientos: los usuarios 'master' ven los de TODOS; el resto solo los suyos.
         async function cargarMovimientosControlDiario() {
             const tbody = document.getElementById('cdMovimientosBody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">⏳ Cargando movimientos...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:16px;">⏳ Cargando movimientos...</td></tr>`;
 
             try {
                 const desde = document.getElementById('cdFiltroDesde')?.value;
                 const hasta = document.getElementById('cdFiltroHasta')?.value;
-                const where = { activo: true };
-                if (usuarioActual?.nivel !== 'master') where.usuario = usuarioActual?.username || '';
-                if (desde) where.createdAt = Object.assign({}, where.createdAt, { $gte: { __type: 'Date', iso: new Date(desde + 'T00:00:00').toISOString() } });
-                if (hasta) where.createdAt = Object.assign({}, where.createdAt, { $lte: { __type: 'Date', iso: new Date(hasta + 'T23:59:59').toISOString() } });
+                const esMaster = usuarioActual?.nivel === 'master';
+                const headers = headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken });
 
-                const url = `${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_CONTROL_DIARIO}?where=${encodeURIComponent(JSON.stringify(where))}&order=-createdAt&limit=300`;
-                const resp = await fetch(url, { headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }) });
-                if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status); }
-                const data = await resp.json();
-                controlDiarioCache = data.results || [];
+                const whereNuevo = { activo: true };
+                if (!esMaster) whereNuevo.usuario = usuarioActual?.username || '';
+                if (desde || hasta) whereNuevo.fecha = Object.assign({}, desde ? { $gte: desde } : {}, hasta ? { $lte: hasta } : {});
+                const whereViejo = { activo: true };
+                if (!esMaster) whereViejo.usuario = usuarioActual?.username || '';
+                if (desde) whereViejo.createdAt = Object.assign({}, whereViejo.createdAt, { $gte: { __type: 'Date', iso: new Date(desde + 'T00:00:00').toISOString() } });
+                if (hasta) whereViejo.createdAt = Object.assign({}, whereViejo.createdAt, { $lte: { __type: 'Date', iso: new Date(hasta + 'T23:59:59').toISOString() } });
+
+                const pedir = async (clase, where) => {
+                    const url = `${BACK4APP_CONFIG.serverUrl}/classes/${clase}?where=${encodeURIComponent(JSON.stringify(where))}&order=-createdAt&limit=500`;
+                    const resp = await fetch(url, { headers });
+                    if (!resp.ok) {
+                        if (resp.status === 404) return [];   // la clase aún no existe (no hay movimientos todavía)
+                        const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status);
+                    }
+                    return (await resp.json()).results || [];
+                };
+                const [nuevos, viejos] = await Promise.all([pedir(CLASE_MOVIMIENTO_KARDEX, whereNuevo), pedir(CLASE_CONTROL_DIARIO, whereViejo)]);
+
+                const delViejo = viejos.map(m => ({
+                    tipo: 'descarte_antiguo', createdAt: m.createdAt, fecha: (m.createdAt || '').slice(0, 10), codigo: m.codigo || '', descripcion: m.descripcion || '',
+                    cantidad: m.cantidad, nota: m.motivo || '', usuario: m.usuario, usuarioNombre: m.usuarioNombre
+                }));
+                controlDiarioCache = nuevos.concat(delViejo).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
                 pintarMovimientosControlDiario();
+                pintarResumenHoyControlDiario();
             } catch (e) {
                 console.error('Error al cargar movimientos de Control Diario:', e);
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f56565;padding:16px;">⚠️ ${e.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#f56565;padding:16px;">⚠️ ${kdEscape(e.message)}</td></tr>`;
             }
+        }
+
+        function pintarResumenHoyControlDiario() {
+            const el = document.getElementById('cdResumenHoy');
+            if (!el) return;
+            const hoy = new Date();
+            const hoyISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+            const deHoy = controlDiarioCache.filter(m => m.fecha === hoyISO && m.tipo === 'tienda');
+            const unidades = deHoy.reduce((s, m) => s + (Number(m.cantidad) || 0), 0);
+            const total = deHoy.reduce((s, m) => s + (Number(m.total) || 0), 0);
+            el.innerHTML = deHoy.length
+                ? `Hoy en tienda: <strong>${unidades}</strong> unidades · <strong>${kdFormatoMoneda(total)}</strong>`
+                : 'Hoy aún no hay ventas en tienda registradas.';
         }
 
         function pintarMovimientosControlDiario() {
             const tbody = document.getElementById('cdMovimientosBody');
             if (!tbody) return;
             const filtro = normalizarTexto((document.getElementById('cdFiltroTexto')?.value || '').trim());
-            const lista = filtro
-                ? controlDiarioCache.filter(m =>
-                    normalizarTexto(m.codigo || '').includes(filtro) ||
-                    normalizarTexto(m.descripcion || '').includes(filtro) ||
-                    normalizarTexto(m.usuarioNombre || m.usuario || '').includes(filtro))
-                : controlDiarioCache;
+            const tipo = document.getElementById('cdFiltroTipo')?.value || '';
+            const lista = controlDiarioCache.filter(m => {
+                if (tipo && m.tipo !== tipo && !(tipo === 'descarte' && m.tipo === 'descarte_antiguo') && !(tipo === 'oc' && m.tipo === 'oc_ajuste')) return false;
+                if (!filtro) return true;
+                return normalizarTexto(m.codigo || '').includes(filtro) || normalizarTexto(m.descripcion || '').includes(filtro)
+                    || normalizarTexto(m.nota || '').includes(filtro) || normalizarTexto(m.referencia || '').includes(filtro)
+                    || normalizarTexto(m.usuarioNombre || m.usuario || '').includes(filtro);
+            });
 
+            const totales = document.getElementById('cdTotales');
             if (lista.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">Sin movimientos registrados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:16px;">Sin movimientos registrados.</td></tr>`;
+                if (totales) totales.innerHTML = '';
                 return;
             }
 
-            tbody.innerHTML = lista.map(m => `
-                <tr>
-                    <td>${new Date(m.createdAt).toLocaleString('es-PE')}</td>
-                    <td>${m.codigo ? m.codigo + ' — ' : ''}${m.descripcion || ''}</td>
-                    <td style="text-align:center;font-weight:700;color:#c53030;">-${m.cantidad}</td>
-                    <td>${m.motivo || '—'}</td>
-                    <td>${m.usuarioNombre || m.usuario || '—'}</td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = lista.map(m => {
+                const cant = Number(m.cantidad) || 0;
+                const hora = m.createdAt ? new Date(m.createdAt).toLocaleString('es-PE') : '';
+                const dia = m.fecha ? m.fecha.split('-').reverse().join('/') : '';
+                const colorCant = cant < 0 ? '#2f855a' : '#c53030';
+                return `<tr>
+                    <td>${kdEscape(dia)}<div style="font-size:0.75em;color:#a0aec0;">${kdEscape(hora)}</div></td>
+                    <td>${kdEscape(ETIQUETA_TIPO_MOVIMIENTO[m.tipo] || m.tipo || '')}</td>
+                    <td>${kdEscape(m.codigo ? m.codigo + ' — ' : '')}${kdEscape(m.descripcion || '')}</td>
+                    <td style="text-align:center;font-weight:700;color:${colorCant};">${cant < 0 ? '+' + Math.abs(cant) : '-' + cant}</td>
+                    <td style="text-align:right;">${m.precioUnit !== undefined ? kdFormatoMoneda(m.precioUnit) : '—'}</td>
+                    <td style="text-align:right;">${m.total !== undefined ? kdFormatoMoneda(m.total) : '—'}</td>
+                    <td>${kdEscape([m.referencia, m.nota].filter(Boolean).join(' · ') || '—')}</td>
+                    <td>${kdEscape(m.usuarioNombre || m.usuario || '—')}</td>
+                </tr>`;
+            }).join('');
+
+            if (totales) {
+                const salidas = lista.reduce((s, m) => s + (Number(m.cantidad) || 0), 0);
+                const importe = lista.reduce((s, m) => s + (Number(m.total) || 0), 0);
+                totales.innerHTML = `${lista.length} movimiento(s) · salidas netas: <strong>${salidas}</strong> unidades${importe ? ` · ventas en tienda: <strong>${kdFormatoMoneda(importe)}</strong>` : ''}`;
+            }
         }
 
         // ============================================
