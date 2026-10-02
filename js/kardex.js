@@ -17,6 +17,10 @@
 
         // Contraseña para desbloquear la edición manual del Kardex desde el propio sistema
         // (botón "🔒 Editar Kardex"). Cámbiala por la que quieras usar en tu equipo.
+        // El botón "🔒 Editar Kardex" está oculto a pedido (las salidas/ingresos se hacen con Carga masiva y Salida por
+        // tienda). Para volver a mostrarlo: pon esto en true y quita `hidden`/`display:none` de #btnEditarKardex en index.html.
+        const KARDEX_EDITAR_VISIBLE = false;
+
         const KARDEX_EDIT_CONFIG = {
             password: 'Fabexsa2026'
         };
@@ -1387,6 +1391,89 @@
             fila.style.display = fila.style.display === 'none' ? '' : 'none';
         }
 
+        // ============================================
+        // DETALLE DIARIO: movimientos de OTRO MES con su fecha (día/mes)
+        // ============================================
+        // Las columnas 1-31 del Kardex solo guardan cantidades. Cuando se registra una salida con una fecha fuera
+        // del mes actual (o fuera del mes de la hoja) esa cantidad cae igual en la columna de ese día, así que en el
+        // "Detalle diario" se muestra aparte con su fecha ("30/09: 5") para no confundirla con el día 30 del mes.
+        // La fecha vive en el historial de movimientos (clase MovimientoKardex), no en el Excel.
+        let kardexDetalleForaneoCache = { hoja: null, datos: {}, cargado: 0, pidiendo: false };
+
+        function formatoDiaMes(fechaISO) {
+            const [, mes, dia] = String(fechaISO).split('-');
+            return `${dia}/${mes}`;
+        }
+
+        // Devuelve { [claveEdicion]: { [dia]: [{ fecha, cantidad }] } } de la hoja; dispara la carga si no está.
+        function obtenerDetalleForaneoKardex(hoja) {
+            const c = kardexDetalleForaneoCache;
+            const vencido = Date.now() - c.cargado > 60000;
+            if (hoja && (c.hoja !== hoja || vencido) && !c.pidiendo) cargarDetalleForaneoKardex(hoja);
+            return c.hoja === hoja ? c.datos : {};
+        }
+
+        function invalidarDetalleForaneoKardex() { kardexDetalleForaneoCache.cargado = 0; }
+
+        async function cargarDetalleForaneoKardex(hoja) {
+            const c = kardexDetalleForaneoCache;
+            c.pidiendo = true;
+            try {
+                if (typeof CLASE_MOVIMIENTO_KARDEX === 'undefined' || typeof BACK4APP_CONFIG === 'undefined') return;
+                const hoy = new Date();
+                const mesActualISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+                // Fuera de la hoja (fueraDeHoja) o de un mes anterior al actual.
+                const where = { activo: true, hoja, $or: [{ fueraDeHoja: true }, { fecha: { $lt: mesActualISO + '-01' } }] };
+                const registros = [];
+                for (let skip = 0; skip < 3000; skip += 1000) {
+                    const url = `${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_MOVIMIENTO_KARDEX}?where=${encodeURIComponent(JSON.stringify(where))}&limit=1000&skip=${skip}`;
+                    const resp = await fetch(url, { headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }) });
+                    if (!resp.ok) break;   // sin acceso o la clase aún no existe: se muestra el detalle normal
+                    const lote = (await resp.json()).results || [];
+                    registros.push(...lote);
+                    if (lote.length < 1000) break;
+                }
+                const datos = {};
+                registros.forEach(r => {
+                    if (!r.claveEdicion || !r.fecha || !r.dia) return;
+                    const porDia = datos[r.claveEdicion] = datos[r.claveEdicion] || {};
+                    const lista = porDia[r.dia] = porDia[r.dia] || [];
+                    const previo = lista.find(x => x.fecha === r.fecha);
+                    if (previo) previo.cantidad += Number(r.cantidad) || 0; else lista.push({ fecha: r.fecha, cantidad: Number(r.cantidad) || 0 });
+                });
+                const cambio = JSON.stringify(c.datos) !== JSON.stringify(datos) || c.hoja !== hoja;
+                c.hoja = hoja; c.datos = datos; c.cargado = Date.now();
+                if (cambio) renderKardexTabCompleta();
+            } catch (e) {
+                console.warn('No se pudo cargar el detalle de movimientos de otro mes:', e);
+                c.hoja = hoja; c.cargado = Date.now();
+            } finally {
+                c.pidiendo = false;
+            }
+        }
+
+        // Chips del "Detalle diario" de una fila. Cada día con movimiento da un chip "Día N: cantidad"; la parte de esa
+        // cantidad que corresponde a fechas de otro mes sale aparte como "dd/mm: cantidad" (y se descuenta del chip del día).
+        // Si no cuadra (p. ej. alguien editó la celda a mano) se muestra el total tal cual, sin dividir.
+        function armarChipsDetalleDiario(dias, fila, claveEdicion, foraneos) {
+            const chips = [];
+            dias.forEach(d => {
+                const total = parseFloat(fila[d.columna]) || 0;
+                const otros = (foraneos && claveEdicion && foraneos[claveEdicion] && foraneos[claveEdicion][d.dia] || [])
+                    .filter(x => Math.abs(x.cantidad) > 1e-9);
+                const sumaOtros = otros.reduce((s, x) => s + x.cantidad, 0);
+                const resto = Math.round((total - sumaOtros) * 1e6) / 1e6;
+                if (!otros.length || resto < -1e-9) {
+                    chips.push({ etiqueta: `Día ${d.dia}`, valor: fila[d.columna], fuera: false });
+                    return;
+                }
+                if (Math.abs(resto) > 1e-9) chips.push({ etiqueta: `Día ${d.dia}`, valor: resto, fuera: false });
+                otros.sort((a, b) => a.fecha.localeCompare(b.fecha))
+                    .forEach(x => chips.push({ etiqueta: formatoDiaMes(x.fecha), valor: Math.round(x.cantidad * 1e6) / 1e6, fuera: true }));
+            });
+            return chips;
+        }
+
         function renderKardexTabCompleta() {
             const thead = document.getElementById('kardexTableHead');
             const tbody = document.getElementById('kardexListBody');
@@ -1432,6 +1519,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
 
             // Clave de edición por fila (código + descripción + orden de aparición): cada color es una fila
             // distinta aunque comparta código. Se calcula sobre TODAS las filas de la hoja (no solo las filtradas).
+            const detalleForaneo = obtenerDetalleForaneoKardex(hoja);   // movimientos de otro mes (se carga en 2º plano)
             const claveEdicionDeFila = new Map();
             const vistasEdicion = {};
             filas.forEach(fila => {
@@ -1469,7 +1557,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
                     <tr class="kardex-detalle-row" id="kardexDetalleRow${i}" style="display:none;">
                         <td colspan="${totalColumnasVisibles}">
                             <div class="kardex-dias-grid">
-                                ${diasConMovimiento.map(d => `<span class="kardex-dia-chip">Día ${d.dia}: <strong>${fila[d.columna]}</strong></span>`).join('')}
+                                ${armarChipsDetalleDiario(diasConMovimiento, fila, claveEdicion, detalleForaneo).map(c => `<span class="kardex-dia-chip${c.fuera ? ' kardex-dia-chip-fuera' : ''}" ${c.fuera ? 'title="Movimiento de una fecha fuera del mes de esta hoja/del mes actual"' : ''}>${c.etiqueta}: <strong>${c.valor}</strong></span>`).join('')}
                             </div>
                         </td>
                     </tr>` : '';
@@ -1563,7 +1651,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
                 kardexEdicionActiva = false;
                 document.getElementById('btnGuardarEdicionKardex').style.display = 'none';
                 document.getElementById('btnCancelarEdicionKardex').style.display = 'none';
-                document.getElementById('btnEditarKardex').style.display = 'inline-block';
+                if (KARDEX_EDITAR_VISIBLE) document.getElementById('btnEditarKardex').style.display = 'inline-block';
                 document.getElementById('kardexEdicionAviso').style.display = 'none';
                 await cargarKardex(false);
                 mostrarNotificacion('Kardex actualizado en Dropbox', 'success');
@@ -1580,7 +1668,7 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
             kardexEdicionActiva = false;
             document.getElementById('btnGuardarEdicionKardex').style.display = 'none';
             document.getElementById('btnCancelarEdicionKardex').style.display = 'none';
-            document.getElementById('btnEditarKardex').style.display = 'inline-block';
+            if (KARDEX_EDITAR_VISIBLE) document.getElementById('btnEditarKardex').style.display = 'inline-block';
             document.getElementById('kardexEdicionAviso').style.display = 'none';
             renderKardexTabCompleta();
         }
@@ -1638,166 +1726,117 @@ const filtradas = palabras.length === 0 ? filas : filas.filter(fila =>
         }
 
         // ============================================
-        // CONTROL DIARIO (descarte directo de stock en el Kardex + consulta de movimientos)
+        // CONTROL DIARIO — SALIDA POR TIENDA / DESCARTES + HISTORIAL DE MOVIMIENTOS
         // ============================================
-        let cdMatchesActuales = [];
-        let cdProductoSeleccionado = null;
-
-        function buscarProductosControlDiario(query) {
-            const dropdown = document.getElementById('cdBuscarDropdown');
-            if (!dropdown) return;
-            const q = normalizarTexto(query || '').trim();
-            if (q.length < 2) { dropdown.classList.remove('visible'); return; }
-
-            cdMatchesActuales = obtenerFilasKardexIdentificadas().filter(f =>
-                normalizarTexto(f.codigo).includes(q) || normalizarTexto(f.descripcion).includes(q)
-            ).slice(0, 8);
-
-            if (cdMatchesActuales.length === 0) {
-                dropdown.innerHTML = '<div style="padding:10px;color:#a0aec0;">Sin resultados en la hoja actual del Kardex</div>';
-                dropdown.classList.add('visible');
-                return;
-            }
-
-            dropdown.innerHTML = cdMatchesActuales.map((m, i) => `
-                <div class="cliente-db-item" onclick="seleccionarProductoControlDiario(${i})">
-                    <div class="cliente-db-item-name">${m.codigo ? m.codigo + ' — ' : ''}${m.descripcion || '(sin descripción)'}</div>
-                    <div class="cliente-db-item-sub">Stock actual: ${m.stock}${m.tieneCodigo ? '' : ' · sin código (vinculado por descripción)'}</div>
-                </div>
-            `).join('');
-            dropdown.classList.add('visible');
-        }
-
-        function seleccionarProductoControlDiario(i) {
-            const m = cdMatchesActuales[i];
-            if (!m) return;
-            cdProductoSeleccionado = m;
-            document.getElementById('cdBuscarProducto').value = (m.codigo ? m.codigo + ' — ' : '') + (m.descripcion || '');
-            document.getElementById('cdBuscarDropdown').classList.remove('visible');
-            document.getElementById('cdProductoStockActual').textContent = `📦 Stock actual en Kardex: ${m.stock}${m.tieneCodigo ? '' : ' (producto sin código, vinculado por descripción)'}`;
-            document.getElementById('cdProductoInfo').style.display = 'block';
-        }
-
-        // Cerrar el dropdown de Control Diario al hacer click fuera
-        document.addEventListener('click', function(e) {
-            const dropdown = document.getElementById('cdBuscarDropdown');
-            const input = document.getElementById('cdBuscarProducto');
-            if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
-                dropdown.classList.remove('visible');
-            }
-        });
-
-        async function registrarControlDiario() {
-            if (!cdProductoSeleccionado) { mostrarNotificacion('Busca y selecciona un producto del Kardex primero', 'warning'); return; }
-            const cantidad = parseFloat(document.getElementById('cdCantidad').value);
-            if (!cantidad || cantidad <= 0) { mostrarNotificacion('Ingresa una cantidad válida a descartar', 'warning'); return; }
-            const motivo = document.getElementById('cdMotivo').value.trim();
-
-            const etiquetaProducto = cdProductoSeleccionado.descripcion || cdProductoSeleccionado.codigo;
-            if (!await confirmarAccion({
-                titulo: 'Descartar stock',
-                mensaje: `¿Descartar ${cantidad} und. de "${etiquetaProducto}"?\n\nEsto descuenta el stock directamente en el Kardex, igual que una Orden de Compra.`,
-                confirmarTexto: 'Descartar',
-                destructivo: true
-            })) return;
-
-            const btn = document.getElementById('btnRegistrarControlDiario');
-            try {
-                btn.disabled = true; btn.textContent = '⏳ Descontando en el Kardex...';
-
-                await ajustarStockKardexPorClave([{
-                    clave: cdProductoSeleccionado.clave,
-                    codigo: cdProductoSeleccionado.codigo,
-                    descripcion: cdProductoSeleccionado.descripcion,
-                    cantidad
-                }]);
-                cargarKardex(false); // refresca los badges de stock con el nuevo saldo
-
-                const resp = await fetch(`${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_CONTROL_DIARIO}`, {
-                    method: 'POST',
-                    headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }),
-                    body: JSON.stringify({
-                        clave: cdProductoSeleccionado.clave,
-                        codigo: cdProductoSeleccionado.codigo || '',
-                        descripcion: cdProductoSeleccionado.descripcion || '',
-                        cantidad,
-                        motivo: motivo || '',
-                        usuario: usuarioActual?.username || '',
-                        usuarioNombre: usuarioActual?.nombre || '',
-                        activo: true
-                    })
-                });
-                if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status); }
-
-                mostrarNotificacion('Descarte registrado y stock actualizado en el Kardex', 'success');
-                document.getElementById('cdCantidad').value = '';
-                document.getElementById('cdMotivo').value = '';
-                document.getElementById('cdBuscarProducto').value = '';
-                document.getElementById('cdProductoInfo').style.display = 'none';
-                cdProductoSeleccionado = null;
-                cargarMovimientosControlDiario();
-            } catch (e) {
-                console.error('Error al registrar Control Diario:', e);
-                mostrarAlerta({ titulo: 'No se pudo registrar el descarte', mensaje: 'Revisa el Kardex antes de reintentar, para no descontar dos veces.', tipo: 'error', detalle: e.message });
-            } finally {
-                btn.disabled = false; btn.textContent = '📉 Registrar Descarte';
-            }
-        }
-
+        // La salida por tienda (el cliente viene y compra) y los descartes se registran con la pantalla de
+        // js/kardex-carga-ui.js (abrirSalidaTienda): se anotan en la columna del día del Kardex y cada
+        // movimiento queda en la clase MovimientoKardex (también las órdenes de compra, ver kardex-salidas.js).
+        // Esta sección solo consulta ese historial. Se siguen mostrando los descartes antiguos (clase ControlDiario).
         let controlDiarioCache = [];
+        const ETIQUETA_TIPO_MOVIMIENTO = { tienda: 'Venta tienda', descarte: 'Descarte', oc: 'Orden de compra', oc_ajuste: 'Ajuste de OC', descarte_antiguo: 'Descarte (antiguo)' };
 
-        // Trae del Back4App los movimientos de Control Diario: los usuarios 'master' ven los de
-        // TODOS los usuarios; el resto (incluida la categoría 'control_diario') solo ve los suyos.
+        function kdFormatoMoneda(n) { return 'S/ ' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
+        function kdEscape(t) { return String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+        // Trae de Back4App los movimientos: los usuarios 'master' ven los de TODOS; el resto solo los suyos.
         async function cargarMovimientosControlDiario() {
             const tbody = document.getElementById('cdMovimientosBody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">⏳ Cargando movimientos...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:16px;">⏳ Cargando movimientos...</td></tr>`;
 
             try {
                 const desde = document.getElementById('cdFiltroDesde')?.value;
                 const hasta = document.getElementById('cdFiltroHasta')?.value;
-                const where = { activo: true };
-                if (usuarioActual?.nivel !== 'master') where.usuario = usuarioActual?.username || '';
-                if (desde) where.createdAt = Object.assign({}, where.createdAt, { $gte: { __type: 'Date', iso: new Date(desde + 'T00:00:00').toISOString() } });
-                if (hasta) where.createdAt = Object.assign({}, where.createdAt, { $lte: { __type: 'Date', iso: new Date(hasta + 'T23:59:59').toISOString() } });
+                const esMaster = usuarioActual?.nivel === 'master';
+                const headers = headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken });
 
-                const url = `${BACK4APP_CONFIG.serverUrl}/classes/${CLASE_CONTROL_DIARIO}?where=${encodeURIComponent(JSON.stringify(where))}&order=-createdAt&limit=300`;
-                const resp = await fetch(url, { headers: headersBack4App({ 'X-Parse-Session-Token': usuarioActual?.sessionToken }) });
-                if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status); }
-                const data = await resp.json();
-                controlDiarioCache = data.results || [];
+                const whereNuevo = { activo: true };
+                if (!esMaster) whereNuevo.usuario = usuarioActual?.username || '';
+                if (desde || hasta) whereNuevo.fecha = Object.assign({}, desde ? { $gte: desde } : {}, hasta ? { $lte: hasta } : {});
+                const whereViejo = { activo: true };
+                if (!esMaster) whereViejo.usuario = usuarioActual?.username || '';
+                if (desde) whereViejo.createdAt = Object.assign({}, whereViejo.createdAt, { $gte: { __type: 'Date', iso: new Date(desde + 'T00:00:00').toISOString() } });
+                if (hasta) whereViejo.createdAt = Object.assign({}, whereViejo.createdAt, { $lte: { __type: 'Date', iso: new Date(hasta + 'T23:59:59').toISOString() } });
+
+                const pedir = async (clase, where) => {
+                    const url = `${BACK4APP_CONFIG.serverUrl}/classes/${clase}?where=${encodeURIComponent(JSON.stringify(where))}&order=-createdAt&limit=500`;
+                    const resp = await fetch(url, { headers });
+                    if (!resp.ok) {
+                        if (resp.status === 404) return [];   // la clase aún no existe (no hay movimientos todavía)
+                        const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'HTTP ' + resp.status);
+                    }
+                    return (await resp.json()).results || [];
+                };
+                const [nuevos, viejos] = await Promise.all([pedir(CLASE_MOVIMIENTO_KARDEX, whereNuevo), pedir(CLASE_CONTROL_DIARIO, whereViejo)]);
+
+                const delViejo = viejos.map(m => ({
+                    tipo: 'descarte_antiguo', createdAt: m.createdAt, fecha: (m.createdAt || '').slice(0, 10), codigo: m.codigo || '', descripcion: m.descripcion || '',
+                    cantidad: m.cantidad, nota: m.motivo || '', usuario: m.usuario, usuarioNombre: m.usuarioNombre
+                }));
+                controlDiarioCache = nuevos.concat(delViejo).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
                 pintarMovimientosControlDiario();
+                pintarResumenHoyControlDiario();
             } catch (e) {
                 console.error('Error al cargar movimientos de Control Diario:', e);
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f56565;padding:16px;">⚠️ ${e.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#f56565;padding:16px;">⚠️ ${kdEscape(e.message)}</td></tr>`;
             }
+        }
+
+        function pintarResumenHoyControlDiario() {
+            const el = document.getElementById('cdResumenHoy');
+            if (!el) return;
+            const hoy = new Date();
+            const hoyISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+            const deHoy = controlDiarioCache.filter(m => m.fecha === hoyISO && m.tipo === 'tienda');
+            const unidades = deHoy.reduce((s, m) => s + (Number(m.cantidad) || 0), 0);
+            const total = deHoy.reduce((s, m) => s + (Number(m.total) || 0), 0);
+            el.innerHTML = deHoy.length
+                ? `Hoy en tienda: <strong>${unidades}</strong> unidades · <strong>${kdFormatoMoneda(total)}</strong>`
+                : 'Hoy aún no hay ventas en tienda registradas.';
         }
 
         function pintarMovimientosControlDiario() {
             const tbody = document.getElementById('cdMovimientosBody');
             if (!tbody) return;
             const filtro = normalizarTexto((document.getElementById('cdFiltroTexto')?.value || '').trim());
-            const lista = filtro
-                ? controlDiarioCache.filter(m =>
-                    normalizarTexto(m.codigo || '').includes(filtro) ||
-                    normalizarTexto(m.descripcion || '').includes(filtro) ||
-                    normalizarTexto(m.usuarioNombre || m.usuario || '').includes(filtro))
-                : controlDiarioCache;
+            const tipo = document.getElementById('cdFiltroTipo')?.value || '';
+            const lista = controlDiarioCache.filter(m => {
+                if (tipo && m.tipo !== tipo && !(tipo === 'descarte' && m.tipo === 'descarte_antiguo') && !(tipo === 'oc' && m.tipo === 'oc_ajuste')) return false;
+                if (!filtro) return true;
+                return normalizarTexto(m.codigo || '').includes(filtro) || normalizarTexto(m.descripcion || '').includes(filtro)
+                    || normalizarTexto(m.nota || '').includes(filtro) || normalizarTexto(m.referencia || '').includes(filtro)
+                    || normalizarTexto(m.usuarioNombre || m.usuario || '').includes(filtro);
+            });
 
+            const totales = document.getElementById('cdTotales');
             if (lista.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:16px;">Sin movimientos registrados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:16px;">Sin movimientos registrados.</td></tr>`;
+                if (totales) totales.innerHTML = '';
                 return;
             }
 
-            tbody.innerHTML = lista.map(m => `
-                <tr>
-                    <td>${new Date(m.createdAt).toLocaleString('es-PE')}</td>
-                    <td>${m.codigo ? m.codigo + ' — ' : ''}${m.descripcion || ''}</td>
-                    <td style="text-align:center;font-weight:700;color:#c53030;">-${m.cantidad}</td>
-                    <td>${m.motivo || '—'}</td>
-                    <td>${m.usuarioNombre || m.usuario || '—'}</td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = lista.map(m => {
+                const cant = Number(m.cantidad) || 0;
+                const hora = m.createdAt ? new Date(m.createdAt).toLocaleString('es-PE') : '';
+                const dia = m.fecha ? m.fecha.split('-').reverse().join('/') : '';
+                const colorCant = cant < 0 ? '#2f855a' : '#c53030';
+                return `<tr>
+                    <td>${kdEscape(dia)}<div style="font-size:0.75em;color:#a0aec0;">${kdEscape(hora)}</div></td>
+                    <td>${kdEscape(ETIQUETA_TIPO_MOVIMIENTO[m.tipo] || m.tipo || '')}</td>
+                    <td>${kdEscape(m.codigo ? m.codigo + ' — ' : '')}${kdEscape(m.descripcion || '')}</td>
+                    <td style="text-align:center;font-weight:700;color:${colorCant};">${cant < 0 ? '+' + Math.abs(cant) : '-' + cant}</td>
+                    <td style="text-align:right;">${m.precioUnit !== undefined ? kdFormatoMoneda(m.precioUnit) : '—'}</td>
+                    <td style="text-align:right;">${m.total !== undefined ? kdFormatoMoneda(m.total) : '—'}</td>
+                    <td>${kdEscape([m.referencia, m.nota].filter(Boolean).join(' · ') || '—')}</td>
+                    <td>${kdEscape(m.usuarioNombre || m.usuario || '—')}</td>
+                </tr>`;
+            }).join('');
+
+            if (totales) {
+                const salidas = lista.reduce((s, m) => s + (Number(m.cantidad) || 0), 0);
+                const importe = lista.reduce((s, m) => s + (Number(m.total) || 0), 0);
+                totales.innerHTML = `${lista.length} movimiento(s) · salidas netas: <strong>${salidas}</strong> unidades${importe ? ` · ventas en tienda: <strong>${kdFormatoMoneda(importe)}</strong>` : ''}`;
+            }
         }
 
         // ============================================

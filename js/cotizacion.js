@@ -1539,7 +1539,13 @@
                         const deltas = calcularDiferenciaProductos(productosAnteriores, productosActuales);
 
                         if (deltas.length > 0) {
-                            await ajustarStockKardexDropbox(deltas);
+                            // Las salidas quedan anotadas en la columna del DÍA del Kardex (varias OC el mismo día se
+                            // suman como términos) y registradas en el historial de movimientos.
+                            const resKardex = await registrarSalidasOCKardex(deltas, { referencia: formatearCorrelativo(correlativo), ocObjectId: objectId });
+                            if (resKardex.noAplicadas.length) {
+                                mostrarNotificacion(`No se pudo ajustar en el Kardex: ${resKardex.noAplicadas.map(n => `${n.item.descripcion || n.item.codigo} (${n.motivo})`).join('; ')}`, 'warning');
+                            }
+                            if (resKardex.advertenciaMes) mostrarNotificacion(resKardex.advertenciaMes, 'warning');
                             const huboAumentos = deltas.some(d => d.cantidad > 0);
                             const huboDevoluciones = deltas.some(d => d.cantidad < 0);
                             let msg = '📉 Stock descontado en el Kardex';
@@ -3198,7 +3204,11 @@
                             color: p.color || '',
                             cantidad: -(parseFloat(p.cantidad) || 0) // negativo = se SUMA al stock
                         }));
-                        await ajustarStockKardexDropbox(devolucion);
+                        const resKardex = await registrarSalidasOCKardex(devolucion, { referencia: entry && entry.correlativo != null ? formatearCorrelativo(entry.correlativo) : '', ocObjectId: objectId });
+                        if (resKardex.noAplicadas.length) {
+                            mostrarNotificacion(`No se pudo devolver en el Kardex: ${resKardex.noAplicadas.map(n => `${n.item.descripcion || n.item.codigo} (${n.motivo})`).join('; ')}`, 'warning');
+                        }
+                        if (resKardex.advertenciaMes) mostrarNotificacion(resKardex.advertenciaMes, 'warning');
                         cargarKardex(false);
                     } catch (eKardex) {
                         console.error('Error al devolver stock del Kardex:', eKardex);

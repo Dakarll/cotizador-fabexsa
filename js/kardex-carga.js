@@ -387,6 +387,211 @@
 
         function kcLetraColumna(hoja, n) { return hoja.getColumn(n).letter; }
 
+        // ---------- Ubicación de una variante nueva dentro de su bloque ----------
+        const KC_FORMULA_ENLACE = /^'?([^'!]+)'?!\$?([A-Z]+)\$?(\d+)$/;
+
+        // Hoja del mes anterior (la que enlaza la columna C: `Jul´26!D2`), buscando una fila con ese enlace.
+        function kcHojaPrevia(workbook, hoja, cols) {
+            const colC = cols.colStock - 1;
+            for (let r = hoja.rowCount; r >= 2; r--) {
+                const f = kcFormulaTexto(hoja.getRow(r).getCell(colC));
+                const m = f && f.match(KC_FORMULA_ENLACE);
+                if (m && Number(m[3]) === r) return workbook.getWorksheet(m[1]) || null;
+            }
+            return null;
+        }
+
+        function kcFormulaEstandarSaldo(hoja, cols, r) {
+            const L = n => kcLetraColumna(hoja, n);
+            return `${L(cols.colStock - 1)}${r}-${L(cols.colTotalEgreso)}${r}+${L(cols.colIngresoSanJacinto)}${r}+${L(cols.colIngresoBellota)}${r}`;
+        }
+        function kcFormulaEstandarEgreso(hoja, cols, r) {
+            const dias = Object.values(cols.colesDias);
+            return `SUM(${kcLetraColumna(hoja, Math.min(...dias))}${r}:${kcLetraColumna(hoja, Math.max(...dias))}${r})`;
+        }
+
+        // ¿La fila r es una fila RESERVADA del producto que se puede usar? (código en A, descripción y datos vacíos;
+        // SALDO/TOTAL EGRESO, si tienen fórmula, estándar; y en la hoja anterior esa fila también está vacía y en 0)
+        function kcFilaReservadaUsable(hoja, cols, r, prodClave, hojaPrevia) {
+            const fila = hoja.getRow(r);
+            if (kcNormalizar(kcTextoCelda(fila.getCell(cols.colArticulo))) !== prodClave) return false;
+            if (kcTextoCelda(fila.getCell(cols.colDescripcion))) return false;
+            const total = Math.max(hoja.columnCount, cols.colTotalEgreso, cols.colIngresoBellota, cols.colIngresoSanJacinto);
+            const colC = cols.colStock - 1;
+            for (let c = 1; c <= total; c++) {
+                if (c === cols.colArticulo) continue;
+                const celda = fila.getCell(c);
+                if (kcEsVacio(celda)) continue;
+                const esFormula = celda.type === ExcelJS.ValueType.Formula;
+                if ((c === colC || c === cols.colStock || c === cols.colTotalEgreso) && esFormula) continue;
+                return false;
+            }
+            const d = fila.getCell(cols.colStock), aj = fila.getCell(cols.colTotalEgreso);
+            const norm = x => String(x.formula || '').replace(/\s+/g, '');
+            if (d.type === ExcelJS.ValueType.Formula && norm(d) !== kcFormulaEstandarSaldo(hoja, cols, r)) return false;
+            if (aj.type === ExcelJS.ValueType.Formula && norm(aj) !== kcFormulaEstandarEgreso(hoja, cols, r)) return false;
+            if (hojaPrevia) {
+                const prev = hojaPrevia.getRow(r);
+                if (kcTextoCelda(prev.getCell(cols.colDescripcion))) return false;
+                const aPrev = kcNormalizar(kcTextoCelda(prev.getCell(cols.colArticulo)));
+                if (aPrev && aPrev !== prodClave) return false;
+                if (kcNumeroCelda(prev.getCell(cols.colStock)) !== 0) return false;
+            }
+            return true;
+        }
+
+        // Motivo por el que NO es seguro insertar una fila en la posición `pos` (o null si se puede).
+        // Insertar corre las filas de abajo: solo se hace si todo lo que depende del número de fila se puede ajustar.
+        function kcRiesgoDeInsertar(workbook, hoja, pos) {
+            if (hoja.model && hoja.model.merges && hoja.model.merges.length) return 'la hoja tiene celdas combinadas';
+            if (hoja.dataValidations && hoja.dataValidations.model && Object.keys(hoja.dataValidations.model).length) return 'la hoja tiene validaciones de datos';
+            if ((hoja.tables && Object.keys(hoja.tables).length) || (hoja.getImages && hoja.getImages().length)) return 'la hoja tiene tablas o imágenes';
+            const escapado = hoja.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const referencia = new RegExp(`(^|[^A-Za-z0-9_])'?${escapado}'?!`);
+            let motivo = null;
+            workbook.eachSheet(ws => {
+                if (motivo) return;
+                ws.eachRow({ includeEmpty: false }, fila => fila.eachCell({ includeEmpty: false }, celda => {
+                    if (motivo || celda.type !== ExcelJS.ValueType.Formula) return;
+                    const f = String(celda.formula || '');
+                    if (ws !== hoja && referencia.test(f)) motivo = `la hoja "${ws.name}" ya enlaza con esta hoja por número de fila`;
+                    else if (ws === hoja && /INDIRECT|OFFSET|INDEX|ROW\(|ADDRESS/i.test(f)) motivo = `la fórmula ${celda.address} usa referencias dinámicas`;
+                    if (!motivo && ws === hoja && celda.row >= pos && celda.note) motivo = 'hay comentarios en celdas de la hoja';
+                }));
+            });
+            if (motivo) return motivo;
+            const nombreDefinido = JSON.stringify((workbook.definedNames && workbook.definedNames.model) || []);
+            if (nombreDefinido.includes(`${hoja.name}'!`) || nombreDefinido.includes(`${hoja.name}!`)) return 'hay rangos con nombre que apuntan a esta hoja';
+            return null;
+        }
+
+        // Inserta una fila vacía en la posición `pos` corriendo todo lo de abajo una fila: valores, estilos, alturas,
+        // fórmulas de la misma fila (se re-numeran) y los rangos del formato condicional y del autofiltro.
+        // Los enlaces a la hoja anterior (columna C) conservan su texto: siguen apuntando al producto correcto.
+        // Re-numera las referencias de la MISMA hoja de una fórmula al insertar una fila en `pos` (como hace Excel):
+        // toda referencia a una fila >= pos pasa a la siguiente; un rango que atraviesa pos se estira. No toca fórmulas
+        // que enlazan con otras hojas ("Jul´26!D2"): ese texto sigue apuntando al producto correcto de la hoja anterior.
+        function kcAjustarReferenciasPorInsercion(formula, pos) {
+            if (/!/.test(formula)) return formula;
+            return formula.replace(/(?<![A-Za-z0-9_.'"$])(\$?[A-Z]{1,3})(\$?)(\d+)(?![\d(A-Za-z])/g,
+                (m, col, dol, num) => Number(num) >= pos ? `${col}${dol}${Number(num) + 1}` : m);
+        }
+
+        function kcInsertarFila(hoja, cols, pos) {
+            const ultima = hoja.rowCount;
+            const total = Math.max(hoja.columnCount, cols.colTotalEgreso, cols.colIngresoBellota, cols.colIngresoSanJacinto);
+            for (let r = ultima; r >= pos; r--) {
+                const origen = hoja.getRow(r), destino = hoja.getRow(r + 1);
+                for (let c = 1; c <= total; c++) {
+                    const oc = origen.getCell(c), dc = destino.getCell(c);
+                    dc.value = oc.type === ExcelJS.ValueType.Formula ? { formula: String(oc.formula || ''), result: oc.result } : oc.value;
+                    dc.style = Object.assign({}, oc.style);
+                }
+                destino.height = origen.height;
+                destino.hidden = origen.hidden;
+                destino.outlineLevel = origen.outlineLevel;
+            }
+            const vacia = hoja.getRow(pos);
+            for (let c = 1; c <= total; c++) vacia.getCell(c).value = null;
+            // Re-numerar las referencias de todas las fórmulas de la hoja (las de las filas corridas y las que apuntan hacia abajo).
+            hoja.eachRow({ includeEmpty: false }, fila => fila.eachCell({ includeEmpty: false }, celda => {
+                if (celda.type !== ExcelJS.ValueType.Formula) return;
+                const f = String(celda.formula || '');
+                const nuevo = kcAjustarReferenciasPorInsercion(f, pos);
+                if (nuevo !== f) celda.value = { formula: nuevo, result: celda.result };
+            }));
+            // Rangos que dependen de filas
+            (hoja.conditionalFormattings || []).forEach(cf => {
+                const m = String(cf.ref || '').match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+                if (!m) return;
+                const ini = Number(m[2]) >= pos ? Number(m[2]) + 1 : Number(m[2]);
+                const fin = Number(m[4]) >= pos ? Number(m[4]) + 1 : Number(m[4]);
+                cf.ref = `${m[1]}${ini}:${m[3]}${fin}`;
+            });
+            const af = hoja.autoFilter;
+            if (typeof af === 'string') {
+                const m = af.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+                if (m && Number(m[4]) >= pos) hoja.autoFilter = `${m[1]}${m[2]}:${m[3]}${Number(m[4]) + 1}`;
+            } else if (af && af.to && typeof af.to.row === 'number' && af.to.row >= pos) {
+                af.to.row += 1;
+            }
+        }
+
+        // Decide dónde va una variante nueva y deja ESA fila escrita (A, B, C, D, AJ y formato).
+        // Devuelve { fila, insertada, ubicacion:'reservada'|'insertada'|'final', aviso }.
+        function kcColocarVarianteNueva(workbook, hoja, cols, n) {
+            const indice = kcConstruirIndice(hoja, cols);
+            const hojaPrevia = kcHojaPrevia(workbook, hoja, cols);
+            const colC = cols.colStock - 1;
+            const delProducto = indice.filas.filter(f => f.productoClave === n.prodClave);
+            let fila = 0, insertada = false, ubicacion = 'final', aviso = '', plantillaFila = 0;
+
+            if (delProducto.length) {
+                const delGrupo = delProducto.filter(f => f.medidaClave === n.mk);
+                const ancla = Math.max(...(delGrupo.length ? delGrupo : delProducto).map(f => f.fila));
+                if (kcFilaReservadaUsable(hoja, cols, ancla + 1, n.prodClave, hojaPrevia)) {
+                    fila = ancla + 1; ubicacion = 'reservada'; plantillaFila = ancla;
+                } else {
+                    const motivo = kcRiesgoDeInsertar(workbook, hoja, ancla + 1);
+                    if (!motivo) {
+                        kcInsertarFila(hoja, cols, ancla + 1);
+                        fila = ancla + 1; insertada = true; ubicacion = 'insertada'; plantillaFila = ancla;
+                    } else {
+                        aviso = `No se pudo insertar la variante "${kcDescripcionNueva(n.medida, n.color)}" dentro de ${n.producto} (${motivo}); se agregó al final del Kardex.`;
+                    }
+                }
+            }
+            if (!fila) {   // al final de la hoja (respaldo)
+                let siguiente = indice.ultimaFilaConDatos + 1;
+                const tope = siguiente + 60;
+                while (siguiente < tope && !kcFilaLibre(hoja, siguiente, cols, hojaPrevia)) siguiente++;
+                if (siguiente >= tope) throw new Error('No se encontró una fila libre para crear la variante nueva');
+                fila = siguiente; plantillaFila = indice.ultimaFilaConDatos;
+            }
+
+            const r = fila;
+            const filaX = hoja.getRow(r);
+            const plantilla = hoja.getRow(plantillaFila);
+            const total = Math.max(hoja.columnCount, cols.colTotalEgreso);
+            if (ubicacion !== 'reservada') {
+                // Mismo formato (bordes, colores, formatos de número) que la fila de referencia del bloque.
+                for (let c = 1; c <= total; c++) filaX.getCell(c).style = Object.assign({}, plantilla.getCell(c).style);
+                if (plantilla.height) filaX.height = plantilla.height;
+            }
+            // A: mismo tipo de dato que las demás filas del producto (los códigos son números).
+            if (kcEsVacio(filaX.getCell(cols.colArticulo))) {
+                const hermana = delProducto[delProducto.length - 1];
+                filaX.getCell(cols.colArticulo).value = hermana ? hoja.getRow(hermana.fila).getCell(cols.colArticulo).value : n.producto;
+            }
+            filaX.getCell(cols.colDescripcion).value = kcDescripcionNueva(n.medida, n.color);
+
+            // C: en una fila reservada ya trae su enlace; al final de la hoja se enlaza como las demás; una fila INSERTADA no
+            // tiene fila equivalente en la hoja anterior, así que queda sin enlace (arranca en 0).
+            let saldoPrevio = 0;
+            const formulaC = kcFormulaTexto(plantilla.getCell(colC));
+            const mC = formulaC && formulaC.match(KC_FORMULA_ENLACE);
+            if (ubicacion === 'final' && mC && Number(mC[3]) === plantillaFila) {
+                saldoPrevio = hojaPrevia ? kcNumeroCelda(hojaPrevia.getRow(r).getCell(cols.colStock)) : 0;
+                filaX.getCell(colC).value = { formula: kcTrasladarFormula(formulaC, plantillaFila, r), result: saldoPrevio };
+            } else if (ubicacion === 'insertada') {
+                filaX.getCell(colC).value = null;
+            } else if (ubicacion === 'reservada') {
+                const cC = filaX.getCell(colC);
+                if (cC.type === ExcelJS.ValueType.Formula) saldoPrevio = kcNumeroCelda(cC);
+            }
+            // D (SALDO) y AJ (TOTAL EGRESO): fórmulas estándar de la fila (las de la fila de referencia, trasladadas).
+            const celdaD = filaX.getCell(cols.colStock), celdaAJ = filaX.getCell(cols.colTotalEgreso);
+            if (celdaD.type !== ExcelJS.ValueType.Formula) {
+                const formD = kcFormulaTexto(plantilla.getCell(cols.colStock));
+                celdaD.value = { formula: formD ? kcTrasladarFormula(formD, plantillaFila, r) : kcFormulaEstandarSaldo(hoja, cols, r), result: saldoPrevio };
+            } else celdaD.value = { formula: celdaD.formula, result: saldoPrevio };
+            if (celdaAJ.type !== ExcelJS.ValueType.Formula) {
+                const formAJ = kcFormulaTexto(plantilla.getCell(cols.colTotalEgreso));
+                celdaAJ.value = { formula: formAJ ? kcTrasladarFormula(formAJ, plantillaFila, r) : kcFormulaEstandarEgreso(hoja, cols, r), result: 0 };
+            } else celdaAJ.value = { formula: celdaAJ.formula, result: 0 };
+            return { fila: r, insertada, ubicacion, aviso };
+        }
+
         function kcAplicarCargaEnWorkbook(workbook, carrito, opciones) {
             const { planta, fechaISO } = opciones;
             if (!Array.isArray(carrito) || carrito.length === 0) throw new Error('El carrito de carga está vacío');
@@ -451,64 +656,28 @@
                 } else throw new Error('Línea de carrito desconocida');
             });
 
-            // 2) Filas nuevas: siempre al FINAL, alineadas con la hoja anterior.
-            let plantilla = null;
-            if (porAsignar.length) {
-                plantilla = hoja.getRow(indice.ultimaFilaConDatos);
-                const formulaC = kcFormulaTexto(plantilla.getCell(colC));
-                let hojaPrevia = null;
-                let vinculo = null;
-                if (formulaC) {
-                    const m = formulaC.match(/^'?([^'!]+)'?!\$?([A-Z]+)\$?(\d+)$/);
-                    if (m && Number(m[3]) === indice.ultimaFilaConDatos) {
-                        hojaPrevia = workbook.getWorksheet(m[1]) || null;
-                        vinculo = m;
-                    }
+            // 2) Filas nuevas: cada variante va al FINAL DE SU BLOQUE (producto o producto+medida), no al final de la hoja.
+            //    Primero se usa una fila RESERVADA del bloque (código en A, descripción vacía, ya con sus fórmulas y su
+            //    enlace a la hoja anterior); si no hay, se INSERTA una fila nueva justo después del bloque.
+            const avisos = [];
+            porAsignar.forEach(n => {
+                const pos = kcColocarVarianteNueva(workbook, hoja, cols, n);
+                n.fila = pos.fila;
+                if (pos.aviso) avisos.push(pos.aviso);
+                if (pos.insertada) {
+                    // Las filas de abajo se corrieron una posición: se actualizan las ya resueltas.
+                    const corridos = new Map();
+                    destinos.forEach((d, f) => {
+                        const nueva = f >= pos.fila ? f + 1 : f;
+                        d.fila = nueva;
+                        corridos.set(nueva, d);
+                    });
+                    destinos.clear();
+                    corridos.forEach((d, f) => destinos.set(f, d));
+                    porAsignar.forEach(o => { if (o !== n && o.fila && o.fila >= pos.fila) o.fila++; });
                 }
-                let siguiente = indice.ultimaFilaConDatos + 1;
-                porAsignar.forEach(n => {
-                    let tope = siguiente + 60;
-                    while (siguiente < tope && !kcFilaLibre(hoja, siguiente, cols, hojaPrevia)) siguiente++;
-                    if (siguiente >= tope) throw new Error('No se encontró una fila libre al final del Kardex para crear la variante nueva');
-                    n.fila = siguiente;
-                    siguiente++;
-                });
-
-                const letra = n => kcLetraColumna(hoja, n);
-                const diaMin = Math.min(...Object.values(cols.colesDias)), diaMax = Math.max(...Object.values(cols.colesDias));
-                porAsignar.forEach(n => {
-                    const r = n.fila;
-                    const fila = hoja.getRow(r);
-                    // Mismo formato (bordes, colores, formatos de número) que la última fila con datos.
-                    const total = Math.max(hoja.columnCount, cols.colTotalEgreso);
-                    for (let c = 1; c <= total; c++) fila.getCell(c).style = Object.assign({}, plantilla.getCell(c).style);
-                    if (plantilla.height) fila.height = plantilla.height;
-                    // A: mismo tipo de dato que las demás filas del producto (los códigos son números).
-                    const hermanas = indice.filas.filter(x => x.productoClave === n.prodClave);
-                    const hermana = hermanas[hermanas.length - 1];   // la más reciente (respeta mayúsculas/minúsculas actuales)
-                    fila.getCell(cols.colArticulo).value = hermana ? hoja.getRow(hermana.fila).getCell(cols.colArticulo).value : n.producto;
-                    fila.getCell(cols.colDescripcion).value = kcDescripcionNueva(n.medida, n.color);
-                    // C: enlace al SALDO de la hoja anterior (misma fila), si las demás filas lo tienen.
-                    let saldoPrevio = 0;
-                    if (vinculo) {
-                        const refPrev = kcTrasladarFormula(formulaC, indice.ultimaFilaConDatos, r);
-                        saldoPrevio = hojaPrevia ? kcNumeroCelda(hojaPrevia.getRow(r).getCell(cols.colStock)) : 0;
-                        fila.getCell(colC).value = { formula: refPrev, result: saldoPrevio };
-                    } else {
-                        fila.getCell(colC).value = null;
-                    }
-                    // D (SALDO) y AJ (TOTAL EGRESO): las MISMAS fórmulas de las filas existentes.
-                    const formD = kcFormulaTexto(plantilla.getCell(cols.colStock));
-                    const formAJ = kcFormulaTexto(plantilla.getCell(cols.colTotalEgreso));
-                    const dTexto = formD ? kcTrasladarFormula(formD, indice.ultimaFilaConDatos, r)
-                        : `${letra(colC)}${r}-${letra(cols.colTotalEgreso)}${r}+${letra(cols.colIngresoSanJacinto)}${r}+${letra(cols.colIngresoBellota)}${r}`;
-                    const ajTexto = formAJ ? kcTrasladarFormula(formAJ, indice.ultimaFilaConDatos, r)
-                        : `SUM(${letra(diaMin)}${r}:${letra(diaMax)}${r})`;
-                    fila.getCell(cols.colStock).value = { formula: dTexto, result: saldoPrevio };
-                    fila.getCell(cols.colTotalEgreso).value = { formula: ajTexto, result: 0 };
-                    destinos.set(r, { fila: r, cantidad: n.cantidad, descripcion: kcDescripcionNueva(n.medida, n.color), producto: n.producto, nueva: true });
-                });
-            }
+                destinos.set(n.fila, { fila: n.fila, cantidad: n.cantidad, descripcion: kcDescripcionNueva(n.medida, n.color), producto: n.producto, nueva: true, ubicacion: pos.ubicacion });
+            });
 
             // 3) Sumar el ingreso (AK/AL), refrescar SALDO y poner la fecha.
             const lineas = [];
@@ -545,12 +714,12 @@
                     articulo: kcNormalizar(kcTextoCelda(fila.getCell(cols.colArticulo))),
                     descripcion: kcNormalizar(kcTextoCelda(fila.getCell(cols.colDescripcion)))
                 });
-                lineas.push({ fila: d.fila, producto: d.producto, descripcion: d.descripcion, cantidad: d.cantidad, antes, despues: antes + d.cantidad, nueva: d.nueva });
+                lineas.push({ fila: d.fila, producto: d.producto, descripcion: d.descripcion, cantidad: d.cantidad, antes, despues: antes + d.cantidad, nueva: d.nueva, ubicacion: d.ubicacion || '' });
             });
 
             // Que Excel recalcule todo al abrir (los resultados cacheados de D/AJ no son confiables).
             workbook.calcProperties = Object.assign({}, workbook.calcProperties || {}, { fullCalcOnLoad: true });
-            return { hoja: nombreHoja, planta: aInicial ? 'inicial' : planta, lineas, marcadores };
+            return { hoja: nombreHoja, planta: aInicial ? 'inicial' : planta, lineas, marcadores, avisos };
         }
 
         // ¿Ya están aplicados estos cambios en este workbook? (para no duplicar tras un corte de red)
@@ -589,7 +758,7 @@
         //  - 1 descarga + 1 subida por intento; si falla algo, Dropbox no recibe nada.
         //  - Conflicto (409): el archivo NO se escribió -> se descarga la versión nueva y se reaplica TODO.
         //  - Corte de red/5xx (resultado incierto): antes de reintentar se comprueba si ya quedó guardado.
-        async function kcGuardarCargaMasiva(carrito, opciones, io) {
+        async function kcGuardarAtomico(aplicarFn, io) {
             const servicios = Object.assign({
                 obtenerToken: obtenerAccessTokenDropbox,
                 descargar: descargarKardexParaEscritura,
@@ -614,8 +783,9 @@
                 }
 
                 const formulasAntes = kcContarFormulas(workbook);
-                const resultado = kcAplicarCargaEnWorkbook(workbook, carrito, opciones);
+                const resultado = aplicarFn(workbook);
                 kcExigirFormulasIntactas(formulasAntes, kcContarFormulas(workbook));
+                if (resultado.sinCambios) return Object.assign({ yaAplicado: false, intentos: intento }, resultado); // nada que subir
                 let exito;
                 try {
                     exito = await servicios.subir(token, workbook, rev);
@@ -633,4 +803,9 @@
             const fin = new Error('No se pudo guardar la carga tras varios intentos' + (ultimoError ? ` (${ultimoError.message})` : ' (mucha actividad simultánea)') + '. Verifica el Kardex antes de repetirla.');
             if (pendienteIncierto) fin.incierto = true;
             throw fin;
+        }
+
+        // Carga masiva de ingresos: aplica el carrito y lo guarda de forma atómica.
+        async function kcGuardarCargaMasiva(carrito, opciones, io) {
+            return kcGuardarAtomico(workbook => kcAplicarCargaEnWorkbook(workbook, carrito, opciones), io);
         }

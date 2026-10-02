@@ -18,8 +18,20 @@
             selMed: '',
             busqueda: '',
             pegado: [],
-            resultado: null
+            resultado: null,
+            modo: 'ingreso',        // 'ingreso' (carga masiva) | 'salida' (salida por tienda / descarte)
+            tipoSalida: 'tienda',   // 'tienda' | 'descarte'
+            nota: '',
+            precios: {}             // { fila: precio unitario } de la salida por tienda
         };
+
+        // Los selectores Producto/Medida (kcSelProd, kcSelMed) están ocultos a pedido: se busca con "Buscar color"
+        // (acepta código, producto, medida o color) o pegando una lista. "Ver tabla" abre producto+medida igual.
+        // Para mostrarlos de nuevo: true.
+        const KC_MOSTRAR_SELECTORES = false;
+
+        function kcEsSalida() { return KC.modo === 'salida'; }
+        function kcSigno() { return KC.modo === 'salida' ? -1 : 1; }
 
         function kcEsc(t) {
             return String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -31,11 +43,23 @@
         function kcEl(id) { return document.getElementById(id); }
 
         // ---------- Apertura / clave ----------
-        function abrirCargaMasivaKardex() {
+        function abrirCargaMasivaKardex() { kcAbrirModo('ingreso'); }
+        function abrirSalidaTienda() { kcAbrirModo('salida'); }
+
+        // La carga masiva pide la clave de "Editar Kardex"; la salida por tienda NO (la controlan los
+        // permisos de la pestaña Control Diario). Al abrir se vuelve a leer el Kardex si el índice es viejo.
+        function kcAbrirModo(modo) {
             kcAsegurarModal();
+            if (KC.modo !== modo) {
+                KC.modo = modo; KC.carrito = []; KC.pegado = []; KC.vista = 'editor'; KC.resultado = null; KC.precios = {}; KC.nota = '';
+            }
+            kcEl('kcTitulo').textContent = modo === 'salida' ? 'Salida por tienda' : 'Carga masiva de ingresos';
             kcEl('kcModal').classList.add('active');
-            if (!KC.desbloqueado) { kcRenderClave(); return; }
-            kcIniciar();
+            if (modo === 'ingreso' && !KC.desbloqueado) { kcRenderClave(); return; }
+            const viejo = !KC.indiceHora || (Date.now() - KC.indiceHora.getTime()) > 120000;
+            if (KC.indice && !viejo) { kcRenderTodo(); return; }
+            KC.indice = null;
+            kcCargarIndice();
         }
 
         function cerrarCargaMasivaKardex() {
@@ -107,7 +131,7 @@
             div.innerHTML = `
                 <div class="modal-content kc-content">
                     <div class="modal-header">
-                        <h2 class="modal-title">Carga masiva de ingresos</h2>
+                        <h2 class="modal-title" id="kcTitulo">Carga masiva de ingresos</h2>
                         <button type="button" class="modal-close" data-kc="cerrar" aria-label="Cerrar">×</button>
                     </div>
                     <div id="kcCuerpo"></div>
@@ -138,7 +162,7 @@
                 case 'agregar-busqueda': kcAgregarDesdeTabla('kcTablaBusq'); break;
                 case 'buscar-color': kcBuscarColor(); break;
                 case 'limpiar-busqueda': KC.busqueda = ''; kcEl('kcBuscarColor').value = ''; kcRenderBusqueda(); break;
-                case 'abrir-variante': KC.selProd = el.dataset.prod; KC.selMed = el.dataset.med; kcEl('kcSelProd').value = KC.selProd; kcRenderSelector(); { const t = kcEl('kcTablaWrap'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } break;
+                case 'abrir-variante': KC.selProd = el.dataset.prod; KC.selMed = el.dataset.med; kcEl('kcSelProd').value = KC.selProd; kcRenderSelector(); { const np = kcEl('kcNuevaProd'); if (np && !kcEl('kcNuevaColor').value) { np.value = KC.selProd; kcRefrescarMedidasNueva(KC.selMed); } } { const t = kcEl('kcTablaWrap'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } break;
                 case 'toggle-nueva': { const p = kcEl('kcNuevaPanel'); p.style.display = p.style.display === 'none' ? 'block' : 'none'; kcActualizarNuevaPreview(); break; }
                 case 'agregar-nueva': kcAgregarNueva(); break;
                 case 'analizar': kcAnalizarPegado(); break;
@@ -159,14 +183,19 @@
             if (t.matches && t.matches('#kcTabla input[data-fila], #kcTablaBusq input[data-fila]')) kcActualizarSaldoFila(t);
             if (t.id === 'kcBuscarColor') kcBuscarColor();
             if (t.id === 'kcNuevaValor' || t.id === 'kcNuevaColor') kcActualizarNuevaPreview();
+            if (t.dataset && t.dataset.precio !== undefined) kcActualizarPrecio(t);
+            if (t.id === 'kcNota') KC.nota = t.value;
         }
 
         function kcManejarChange(e) {
             const t = e.target;
             if (t.id === 'kcSelProd') { KC.selProd = t.value; KC.selMed = ''; kcRenderSelector(); }
-            else if (t.id === 'kcSelMed') { KC.selMed = t.value; kcRenderTabla(); kcRenderNuevaPanel(); }
+            else if (t.id === 'kcSelMed') { KC.selMed = t.value; kcRenderTabla(); }
             else if (t.id === 'kcNuevaTipo') kcActualizarNuevaPreview();
+            else if (t.id === 'kcNuevaProd') kcRefrescarMedidasNueva('');
+            else if (t.id === 'kcNuevaMed') kcMostrarCamposMedidaNueva();
             else if (t.id === 'kcPlanta') { const f = kcEl('kcFecha'); if (f) f.disabled = !t.value; }
+            else if (t.id === 'kcTipoSalida') KC.tipoSalida = t.value;
         }
 
         // ---------- Render principal ----------
@@ -177,16 +206,8 @@
             const validas = ind.filas.filter(f => f.estado === 'ok').length;
             const hora = KC.indiceHora ? KC.indiceHora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '';
             const planta = kcEl('kcPlanta') ? kcEl('kcPlanta').value : '';
-            const fecha = kcEl('kcFecha') ? kcEl('kcFecha').value : new Date().toLocaleDateString('en-CA');
-            kcEl('kcCuerpo').innerHTML = `
-                <div class="kc-barra">
-                    <div class="kc-barra-info">
-                        Hoja de destino: <strong>${kcEsc(KC.hoja)}</strong> · ${validas} variantes válidas ·
-                        <a href="#" data-kc="tab" data-tab="dudosas" style="color:var(--chip-warning-text);font-weight:600;">${ind.dudosas.length} dudosas (excluidas)</a>
-                        <span class="kc-tenue">· índice de las ${kcEsc(hora)}</span>
-                        <button type="button" class="btn btn-secondary kc-mini" data-kc="actualizar-indice">Actualizar</button>
-                    </div>
-                    <div class="kc-barra-ctrl">
+            const fecha = kcEl('kcFecha') ? kcEl('kcFecha').value : ksFechaHoyISO();
+            const controlesIngreso = `
                         <label>Planta que recibe
                             <select class="form-input" id="kcPlanta">
                                 <option value="">Ninguna → columna C (Cant. inicial)</option>
@@ -196,7 +217,29 @@
                         </label>
                         <label>Fecha de ingreso <span class="kc-tenue">(solo con planta)</span>
                             <input type="date" class="form-input" id="kcFecha" value="${kcEsc(fecha)}"${planta ? '' : ' disabled'}>
+                        </label>`;
+            const controlesSalida = `
+                        <label>Tipo de salida
+                            <select class="form-input" id="kcTipoSalida">
+                                <option value="tienda"${KC.tipoSalida === 'tienda' ? ' selected' : ''}>Venta en tienda</option>
+                                <option value="descarte"${KC.tipoSalida === 'descarte' ? ' selected' : ''}>Descarte (merma, rotura)</option>
+                            </select>
                         </label>
+                        <label>Fecha de la salida
+                            <input type="date" class="form-input" id="kcFecha" value="${kcEsc(fecha)}">
+                        </label>
+                        <label>Nota (cliente / boleta)
+                            <input type="text" class="form-input" id="kcNota" value="${kcEsc(KC.nota)}" placeholder="Opcional" autocomplete="off">
+                        </label>`;
+            kcEl('kcCuerpo').innerHTML = `
+                <div class="kc-barra">
+                    <div class="kc-barra-info">
+                        Hoja de destino: <strong>${kcEsc(KC.hoja)}</strong> · ${validas} variantes válidas ·
+                        <a href="#" data-kc="tab" data-tab="dudosas" style="color:var(--chip-warning-text);font-weight:600;">${ind.dudosas.length} dudosas (excluidas)</a>
+                        <span class="kc-tenue">· índice de las ${kcEsc(hora)}</span>
+                        <button type="button" class="btn btn-secondary kc-mini" data-kc="actualizar-indice">Actualizar</button>
+                    </div>
+                    <div class="kc-barra-ctrl">${kcEsSalida() ? controlesSalida : controlesIngreso}
                     </div>
                 </div>
                 <div class="kc-layout">
@@ -206,7 +249,7 @@
                     </div>
                     <aside class="kc-carrito" id="kcCarrito"></aside>
                 </div>`;
-            if (planta) kcEl('kcPlanta').value = planta;
+            if (planta && kcEl('kcPlanta')) kcEl('kcPlanta').value = planta;
             kcRenderTabs();
             kcRenderCarrito();
         }
@@ -224,12 +267,12 @@
             const productos = kcListarProductos(KC.indice);
             kcEl('kcTabContenido').innerHTML = `
                 <div class="kc-buscador">
-                    <input type="search" class="form-input" id="kcBuscarColor" value="${kcEsc(KC.busqueda)}" placeholder="Buscar color en todos los productos (ej: azul marino, verde, 14 oz)…" autocomplete="off">
+                    <input type="search" class="form-input" id="kcBuscarColor" value="${kcEsc(KC.busqueda)}" placeholder="Buscar color, código o producto (ej: azul marino, 7015 verde, belen 30*30)…" autocomplete="off">
                     <button type="button" class="btn btn-primary" data-kc="buscar-color">Buscar color</button>
                     <button type="button" class="btn btn-secondary" data-kc="limpiar-busqueda">Limpiar</button>
                 </div>
                 <div id="kcBusquedaRes"></div>
-                <div class="kc-selectores">
+                <div class="kc-selectores"${KC_MOSTRAR_SELECTORES ? '' : ' hidden style="display:none;"'}>
                     <label>Producto / código
                         <select class="form-input" id="kcSelProd">
                             <option value="">Elige…</option>
@@ -243,6 +286,7 @@
                 <div id="kcTablaWrap"></div>
                 <div id="kcNuevaWrap"></div>`;
             kcRenderSelector();
+            kcRenderNuevaPanel();
             kcRenderBusqueda();
         }
 
@@ -253,13 +297,12 @@
         function kcRenderSelector() {
             const prod = kcProductoActual();
             const sel = kcEl('kcSelMed');
-            if (!prod) { sel.innerHTML = '<option value="">Primero elige un producto</option>'; sel.disabled = true; kcEl('kcTablaWrap').innerHTML = ''; kcEl('kcNuevaWrap').innerHTML = ''; return; }
+            if (!prod) { sel.innerHTML = '<option value="">Primero elige un producto</option>'; sel.disabled = true; kcEl('kcTablaWrap').innerHTML = ''; return; }
             const medidas = kcListarMedidas(prod);
             if (!medidas.some(m => m.clave === KC.selMed)) KC.selMed = medidas.length === 1 ? medidas[0].clave : '';
             sel.disabled = false;
             sel.innerHTML = `<option value="">Elige…</option>` + medidas.map(m => `<option value="${kcEsc(m.clave)}"${m.clave === KC.selMed ? ' selected' : ''}>${kcEsc(m.texto)} (${m.filas.length} ${m.filas.length === 1 ? 'variante' : 'variantes'})</option>`).join('');
             kcRenderTabla();
-            kcRenderNuevaPanel();
         }
 
         function kcRenderTabla() {
@@ -272,7 +315,7 @@
             wrap.innerHTML = `
                 <div class="kc-tabla-scroll">
                 <table class="kc-tabla" id="kcTabla">
-                    <thead><tr><th>Color / variante</th><th class="num">Saldo actual</th><th class="num">Cantidad que ingresa</th><th class="num">Saldo resultante</th></tr></thead>
+                    <thead><tr><th>Color / variante</th><th class="num">Saldo actual</th><th class="num">${kcEsSalida() ? 'Cantidad que sale' : 'Cantidad que ingresa'}</th><th class="num">Saldo resultante</th></tr></thead>
                     <tbody>
                     ${filas.map(f => {
                         const enCarrito = KC.carrito.find(c => c.tipo === 'existente' && c.fila === f.fila);
@@ -282,7 +325,7 @@
                             <td>${kcEsc(f.color)} ${aviso} <span class="kc-tenue">fila ${f.fila}</span></td>
                             <td class="num">${kcNum(f.saldo)}</td>
                             <td class="num"><input type="number" min="0" step="any" inputmode="decimal" class="form-input kc-cant" data-fila="${f.fila}" data-saldo="${f.saldo}" data-res="kcRes${f.fila}" value="${cant}" placeholder="0"></td>
-                            <td class="num kc-res" id="kcRes${f.fila}">${cant !== '' ? kcNum(f.saldo + cant) : '—'}</td>
+                            <td class="num kc-res${cant !== '' && f.saldo + kcSigno() * cant < 0 ? ' kc-mal' : ''}" id="kcRes${f.fila}">${cant !== '' ? kcNum(f.saldo + kcSigno() * cant) : '—'}</td>
                         </tr>`;
                     }).join('')}
                     </tbody>
@@ -338,7 +381,7 @@
                             <td>${kcEsc(f.color)}${aviso} <span class="kc-tenue">fila ${f.fila}</span></td>
                             <td class="num">${kcNum(f.saldo)}</td>
                             <td class="num"><input type="number" min="0" step="any" inputmode="decimal" class="form-input kc-cant" data-fila="${f.fila}" data-saldo="${f.saldo}" data-res="kcResB${f.fila}" value="${cant}" placeholder="0"></td>
-                            <td class="num kc-res" id="kcResB${f.fila}">${cant !== '' ? kcNum(f.saldo + cant) : '—'}</td>
+                            <td class="num kc-res${cant !== '' && f.saldo + kcSigno() * cant < 0 ? ' kc-mal' : ''}" id="kcResB${f.fila}">${cant !== '' ? kcNum(f.saldo + kcSigno() * cant) : '—'}</td>
                             <td><button type="button" class="kc-sug" data-kc="abrir-variante" data-prod="${kcEsc(f.productoClave)}" data-med="${kcEsc(f.medidaClave)}" title="Ver todos los colores de esta medida">Ver tabla</button></td>
                         </tr>`;
                     }).join('')}
@@ -358,8 +401,9 @@
             if (!celda) return;
             if (input.value === '') { celda.textContent = '—'; celda.classList.remove('kc-mal'); return; }
             if (!(cant >= 0)) { celda.textContent = 'inválido'; celda.classList.add('kc-mal'); return; }
-            celda.classList.remove('kc-mal');
-            celda.textContent = kcNum(saldo + cant);
+            const resultado = saldo + kcSigno() * cant;
+            celda.classList.toggle('kc-mal', resultado < 0);   // salida que deja el saldo en negativo
+            celda.textContent = kcNum(resultado);
         }
 
         function kcLineaExistente(f, cantidad) {
@@ -392,28 +436,38 @@
         }
 
         // ---------- Crear variante nueva (color o medida inexistente) ----------
+        // El panel tiene sus PROPIOS selectores de producto/código y medida (los de la tabla principal están ocultos).
+        // La variante se ubica sola al final de su bloque (producto o producto+medida), ver kcColocarVarianteNueva.
+        const KC_MEDIDA_NUEVA = '__nueva__';
+
         function kcRenderNuevaPanel() {
-            const prod = kcProductoActual();
             const wrap = kcEl('kcNuevaWrap');
-            if (!prod) { wrap.innerHTML = ''; return; }
-            const med = KC.selMed ? kcListarMedidas(prod).find(m => m.clave === KC.selMed) : null;
-            const tipo = med && med.medida ? med.medida.tipo : 'sin';
-            const valor = med && med.medida ? (med.medida.tipo === 'talla' ? med.medida.valor : med.medida.valor) : '';
+            if (!wrap) return;
+            if (kcEsSalida()) { wrap.innerHTML = ''; return; }   // no se puede dar salida a lo que no existe
+            const productos = kcListarProductos(KC.indice);
             wrap.innerHTML = `
                 <div class="kc-nueva">
                     <button type="button" class="btn btn-secondary" data-kc="toggle-nueva">+ Crear variante nueva (color o medida que no existe)</button>
                     <div id="kcNuevaPanel" style="display:none;margin-top:12px;">
                         <div class="kc-selectores">
-                            <label>Tipo de medida
-                                <select class="form-input" id="kcNuevaTipo">
-                                    <option value="sin"${tipo === 'sin' ? ' selected' : ''}>Sin medida</option>
-                                    <option value="dim"${tipo === 'dim' ? ' selected' : ''}>Dimensión (cm)</option>
-                                    <option value="plz"${tipo === 'plz' ? ' selected' : ''}>Plaza (PLZ)</option>
-                                    <option value="talla"${tipo === 'talla' ? ' selected' : ''}>Talla</option>
+                            <label>Producto / código
+                                <select class="form-input" id="kcNuevaProd">
+                                    <option value="">Elige…</option>
+                                    ${productos.map(p => `<option value="${kcEsc(p.clave)}"${p.clave === KC.selProd ? ' selected' : ''}>${kcEsc(p.nombre)}</option>`).join('')}
                                 </select>
                             </label>
                             <label>Medida
-                                <input type="text" class="form-input" id="kcNuevaValor" value="${kcEsc(valor)}" placeholder="140*75 · 2 PLZ · 30 · XL">
+                                <select class="form-input" id="kcNuevaMed"></select>
+                            </label>
+                            <label id="kcNuevaTipoWrap" hidden>Tipo de medida nueva
+                                <select class="form-input" id="kcNuevaTipo">
+                                    <option value="dim">Dimensión (cm)</option>
+                                    <option value="plz">Plaza (PLZ)</option>
+                                    <option value="talla">Talla</option>
+                                </select>
+                            </label>
+                            <label id="kcNuevaValorWrap" hidden>Medida nueva
+                                <input type="text" class="form-input" id="kcNuevaValor" placeholder="140*75 · 2 PLZ · 30 · XL" autocomplete="off">
                             </label>
                             <label>Color
                                 <input type="text" class="form-input" id="kcNuevaColor" placeholder="Ej: AZUL MARINO" autocomplete="off">
@@ -426,15 +480,45 @@
                         <button type="button" class="btn btn-success" data-kc="agregar-nueva">Agregar variante nueva al carrito</button>
                     </div>
                 </div>`;
+            kcRefrescarMedidasNueva(KC.selMed);
         }
 
-        // Lee el formulario de variante nueva; devuelve { medida, color, desc, conflicto, parecidos } o { error }.
+        // Llena las medidas del producto elegido en el panel (+ "Otra medida") y muestra/oculta los campos de medida nueva.
+        function kcRefrescarMedidasNueva(preseleccion) {
+            const selMed = kcEl('kcNuevaMed');
+            if (!selMed) return;
+            const prod = kcListarProductos(KC.indice).find(p => p.clave === kcEl('kcNuevaProd').value);
+            const medidas = prod ? kcListarMedidas(prod) : [];
+            selMed.disabled = !prod;
+            selMed.innerHTML = !prod ? '<option value="">Primero elige un producto</option>'
+                : medidas.map(m => `<option value="m:${kcEsc(m.clave)}">${kcEsc(m.texto)} (${m.filas.length})</option>`).join('')
+                    + `<option value="${KC_MEDIDA_NUEVA}">Otra medida (nueva)…</option>`;
+            if (prod) {
+                const quiere = preseleccion ? `m:${preseleccion}` : '';
+                selMed.value = medidas.some(m => `m:${m.clave}` === quiere) ? quiere : (medidas.length === 1 ? `m:${medidas[0].clave}` : (medidas[0] ? `m:${medidas[0].clave}` : KC_MEDIDA_NUEVA));
+            }
+            kcMostrarCamposMedidaNueva();
+        }
+
+        function kcMostrarCamposMedidaNueva() {
+            const nueva = kcEl('kcNuevaMed') && kcEl('kcNuevaMed').value === KC_MEDIDA_NUEVA;
+            ['kcNuevaTipoWrap', 'kcNuevaValorWrap'].forEach(id => { const e = kcEl(id); if (e) e.hidden = !nueva; });
+            kcActualizarNuevaPreview();
+        }
+
+        // Lee el formulario de variante nueva; devuelve { prod, medida, color, desc, iguales, parecidos } o { error }.
         function kcLeerNueva() {
-            const prod = kcProductoActual();
-            if (!prod) return { error: 'Elige un producto' };
-            const tipo = kcEl('kcNuevaTipo').value;
+            const prod = kcListarProductos(KC.indice).find(p => p.clave === kcEl('kcNuevaProd').value);
+            if (!prod) return { error: 'Elige el producto / código' };
+            const seleccion = kcEl('kcNuevaMed').value;
             let medida = null;
-            try { medida = kcMedidaDesdeEntrada(tipo, kcEl('kcNuevaValor').value); } catch (e) { return { error: e.message }; }
+            if (seleccion === KC_MEDIDA_NUEVA) {
+                if (!kcEl('kcNuevaValor').value.trim()) return { error: 'Escribe la medida nueva' };
+                try { medida = kcMedidaDesdeEntrada(kcEl('kcNuevaTipo').value, kcEl('kcNuevaValor').value); } catch (e) { return { error: e.message }; }
+            } else if (seleccion.startsWith('m:')) {
+                const grupo = kcListarMedidas(prod).find(m => `m:${m.clave}` === seleccion);
+                medida = grupo ? grupo.medida : null;
+            } else return { error: 'Elige la medida' };
             const color = kcEl('kcNuevaColor').value.toUpperCase().replace(/\s+/g, ' ').trim();
             if (!color) return { error: 'Escribe el color' };
             if (/[()]/.test(color)) return { error: 'El color no debe llevar paréntesis' };
@@ -452,8 +536,9 @@
             if (!box) return;
             const r = kcLeerNueva();
             if (r.error) { box.innerHTML = `<span class="kc-tenue">${kcEsc(r.error)}</span>`; return; }
-            let html = `Se agregará al final del Kardex: <strong>${kcEsc(r.prod.nombre)}</strong> · "${kcEsc(r.desc)}"`;
-            if (r.iguales.length) html += `<br><span class="kc-mal">Ya existe (fila ${r.iguales.map(f => f.fila).join(', ')}). Búscala en la tabla en vez de crearla.</span>`;
+            const delGrupo = r.prod.filas.some(f => f.medidaClave === kcClaveMedida(r.medida));
+            let html = `Se agregará dentro de <strong>${kcEsc(r.prod.nombre)}</strong>, ${delGrupo ? `al final de la medida <strong>${kcEsc(kcTextoMedida(r.medida))}</strong>` : 'al final del producto (medida nueva)'}: "${kcEsc(r.desc)}"`;
+            if (r.iguales.length) html += `<br><span class="kc-mal">Ya existe (fila ${r.iguales.map(f => f.fila).join(', ')}). Búscala con "Buscar color" en vez de crearla.</span>`;
             if (r.parecidos.length) html += `<br><span class="kc-aviso">Parecidos ya existentes en esa medida: ${r.parecidos.map(f => kcEsc(f.color)).join(', ')}. ¿Es el mismo color?</span>`;
             box.innerHTML = html;
         }
@@ -514,7 +599,7 @@
                         }
                         const sug = r.sugerencias.map((s, j) => {
                             if (s.tipo === 'fila') return `<button type="button" class="kc-sug" data-kc="pegado-usar" data-i="${i}" data-j="${j}">${kcEsc(s.etiqueta)}</button>`;
-                            if (s.tipo === 'nueva') return `<button type="button" class="kc-sug kc-sug-nueva" data-kc="pegado-crear" data-i="${i}" data-j="${j}">${kcEsc(s.etiqueta)}</button>`;
+                            if (s.tipo === 'nueva') return kcEsSalida() ? '' : `<button type="button" class="kc-sug kc-sug-nueva" data-kc="pegado-crear" data-i="${i}" data-j="${j}">${kcEsc(s.etiqueta)}</button>`;
                             return `<span class="kc-tenue">${kcEsc(s.etiqueta)}</span>`;
                         }).join(' ');
                         return `<tr class="kc-fila-mal"><td class="kc-ico kc-mal-ico">✗</td><td class="kc-linea">${kcEsc(r.linea)}</td><td><span class="kc-mal">${kcEsc(r.motivo || 'no se pudo interpretar')}</span>${sug ? '<div class="kc-sugs">' + sug + '</div>' : ''}</td><td class="num">${r.cantidad ? kcNum(r.cantidad) : ''}</td></tr>`;
@@ -584,13 +669,13 @@
                 grupos.get(k).lineas.push({ c, idx });
             });
             box.innerHTML = `
-                <h3>Carrito de carga</h3>
+                <h3>${kcEsSalida() ? 'Carrito de salida' : 'Carrito de carga'}</h3>
                 ${KC.carrito.length ? [...grupos.values()].map(g => `
                     <div class="kc-grupo">
                         <div class="kc-grupo-t">${kcEsc(g.producto)} · ${kcEsc(g.medida)}</div>
                         ${g.lineas.map(({ c, idx }) => `<div class="kc-linea-c">
                             <span>${kcEsc(c.color)}${c.tipo === 'nueva' ? ' <span class="kc-chip kc-chip-info">NUEVA</span>' : ''}</span>
-                            <span><strong>+${kcNum(c.cantidad)}</strong> <button type="button" class="kc-x" data-kc="quitar-linea" data-i="${idx}" aria-label="Quitar">×</button></span>
+                            <span><strong>${kcEsSalida() ? '−' : '+'}${kcNum(c.cantidad)}</strong> <button type="button" class="kc-x" data-kc="quitar-linea" data-i="${idx}" aria-label="Quitar">×</button></span>
                         </div>`).join('')}
                     </div>`).join('') : '<p class="kc-tenue">Vacío. Agrega cantidades desde la tabla o pegando una lista.</p>'}
                 <div class="kc-total">${KC.carrito.length} línea(s) · <strong>${kcNum(unidades)}</strong> unidades</div>
@@ -600,6 +685,14 @@
 
         // ---------- Vista previa ----------
         function kcIrAPrevia() {
+            if (kcEsSalida()) {
+                const fechaS = kcEl('kcFecha').value;
+                if (!fechaS) { mostrarNotificacion('Elige la fecha de la salida', 'warning'); return; }
+                KC.fecha = fechaS; KC.nota = kcEl('kcNota').value.trim(); KC.tipoSalida = kcEl('kcTipoSalida').value;
+                KC.vista = 'previa';
+                kcRenderPreviaSalida();
+                return;
+            }
             const planta = kcEl('kcPlanta').value;
             const fecha = kcEl('kcFecha').value;
             if (planta && !fecha) { mostrarNotificacion('Elige la fecha de ingreso', 'warning'); return; }
@@ -616,6 +709,7 @@
         }
 
         function kcRenderPrevia() {
+            if (kcEsSalida()) { kcRenderPreviaSalida(); return; }
             const grupos = new Map();
             KC.carrito.forEach(c => {
                 const k = `${c.producto}||${c.medidaTexto}`;
@@ -627,7 +721,7 @@
             kcEl('kcCuerpo').innerHTML = `
                 <div class="kc-previa-cab">
                     Hoja <strong>${kcEsc(KC.hoja)}</strong> · ${KC.planta ? 'ingreso de' : 'se suma en la'} <strong>${kcEtiquetaPlanta(KC.planta)}</strong>${KC.planta ? ` · fecha <strong>${kcEsc(KC.fecha.split('-').reverse().join('/'))}</strong>` : ''} ·
-                    <strong>${KC.carrito.length}</strong> línea(s), <strong>${kcNum(total)}</strong> unidades${nuevas ? ` · ${nuevas} variante(s) nueva(s) al final del Kardex` : ''}
+                    <strong>${KC.carrito.length}</strong> línea(s), <strong>${kcNum(total)}</strong> unidades${nuevas ? ` · ${nuevas} variante(s) nueva(s) dentro de su producto` : ''}
                 </div>
                 ${[...grupos.values()].map(g => {
                     const sub = g.lineas.reduce((s, c) => s + c.cantidad, 0);
@@ -635,7 +729,7 @@
                     <div class="kc-tabla-scroll"><table class="kc-tabla"><thead><tr><th>Color / variante</th><th class="num">Saldo antes</th><th class="num">Ingreso</th><th class="num">Saldo después</th></tr></thead><tbody>
                     ${g.lineas.map(c => {
                         const antes = c.tipo === 'nueva' ? 0 : c.saldo;
-                        return `<tr><td>${kcEsc(c.color)}${c.tipo === 'nueva' ? ' <span class="kc-chip kc-chip-info">NUEVA · fila al final</span>' : ` <span class="kc-tenue">fila ${c.fila}</span>`}</td><td class="num">${kcNum(antes)}</td><td class="num">+${kcNum(c.cantidad)}</td><td class="num"><strong>${kcNum(antes + c.cantidad)}</strong></td></tr>`;
+                        return `<tr><td>${kcEsc(c.color)}${c.tipo === 'nueva' ? ' <span class="kc-chip kc-chip-info">NUEVA · al final de su bloque</span>' : ` <span class="kc-tenue">fila ${c.fila}</span>`}</td><td class="num">${kcNum(antes)}</td><td class="num">+${kcNum(c.cantidad)}</td><td class="num"><strong>${kcNum(antes + c.cantidad)}</strong></td></tr>`;
                     }).join('')}
                     </tbody></table></div></div>`;
                 }).join('')}
@@ -654,6 +748,7 @@
         }
 
         async function kcGuardar() {
+            if (kcEsSalida()) { await kcGuardarSalida(); return; }
             if (KC.guardando || !KC.carrito.length) return;
             const total = KC.carrito.reduce((s, c) => s + c.cantidad, 0);
             if (!await confirmarAccion({
@@ -692,6 +787,7 @@
         function kcRenderResultado() {
             const r = KC.resultado;
             if (!r) { KC.vista = 'editor'; kcRenderTodo(); return; }
+            if (r.modoSalida) { kcRenderResultadoSalida(r); return; }
             const total = r.lineas.reduce((s, l) => s + l.cantidad, 0);
             kcEl('kcCuerpo').innerHTML = `
                 <div class="kc-exito">
@@ -699,11 +795,168 @@
                     ${r.yaAplicado ? '<br>Hubo un corte de conexión; se comprobó que los cambios ya estaban guardados y <strong>no se repitieron</strong>.' : ''}
                     ${r.intentos > 1 && !r.yaAplicado ? `<br>Alguien más guardó al mismo tiempo; se aplicó sobre la versión más reciente (intento ${r.intentos}).` : ''}
                 </div>
+                ${(r.avisos || []).map(a => `<div class="kc-alerta">${kcEsc(a)}</div>`).join('')}
                 <div class="kc-tabla-scroll"><table class="kc-tabla"><thead><tr><th>Fila</th><th>Producto</th><th>Variante</th><th class="num">Saldo antes</th><th class="num">Ingreso</th><th class="num">Saldo después</th></tr></thead><tbody>
-                ${r.lineas.map(l => `<tr><td>${l.fila}</td><td>${kcEsc(l.producto)}</td><td>${kcEsc(l.descripcion)}${l.nueva ? ' <span class="kc-chip kc-chip-info">NUEVA</span>' : ''}</td><td class="num">${kcNum(l.antes)}</td><td class="num">+${kcNum(l.cantidad)}</td><td class="num"><strong>${kcNum(l.despues)}</strong></td></tr>`).join('')}
+                ${r.lineas.map(l => `<tr><td>${l.fila}</td><td>${kcEsc(l.producto)}</td><td>${kcEsc(l.descripcion)}${l.nueva ? ` <span class="kc-chip kc-chip-info" title="${kcEsc({ reservada: 'Se usó una fila reservada de su bloque', insertada: 'Se insertó una fila nueva al final de su bloque', final: 'Se agregó al final de la hoja' }[l.ubicacion] || '')}">NUEVA${l.ubicacion === 'insertada' ? ' · fila insertada' : l.ubicacion === 'reservada' ? ' · fila reservada' : ''}</span>` : ''}</td><td class="num">${kcNum(l.antes)}</td><td class="num">+${kcNum(l.cantidad)}</td><td class="num"><strong>${kcNum(l.despues)}</strong></td></tr>`).join('')}
                 </tbody></table></div>
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary" data-kc="cerrar">Cerrar</button>
                     <button type="button" class="btn btn-success" data-kc="nueva-carga">Hacer otra carga</button>
+                </div>`;
+        }
+
+        // ============================================
+        // SALIDA POR TIENDA / DESCARTE (modo 'salida')
+        // ============================================
+        // Cada salida se anota en la columna del DÍA del Kardex (varias el mismo día se suman como términos),
+        // TOTAL EGRESO y SALDO conservan su fórmula, y cada movimiento queda registrado en el historial
+        // (Control Diario). La venta en tienda guarda además precio y total.
+
+        // Precio de lista del cotizador para un producto del Kardex (según la cantidad); '' si no está en el catálogo.
+        function kcPrecioCatalogo(c) {
+            try {
+                const prod = (typeof productosDB !== 'undefined') ? productosDB.find(p => String(p.codigo) === String(c.producto)) : null;
+                if (!prod) return '';
+                const base = obtenerPrecio(prod, c.cantidad);
+                const precio = (typeof mostrarConIGV !== 'undefined' && mostrarConIGV) ? calcularPrecioConIGV(base) : base;
+                return Math.round(precio * 100) / 100;
+            } catch (e) { return ''; }
+        }
+
+        function kcMoneda(n) { return 'S/ ' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
+
+        function kcAdvertenciaMesSalida() {
+            const m = ksMesDeNombreHoja(KC.hoja);
+            const [anio, mes, dia] = KC.fecha.split('-').map(Number);
+            const etiqueta = `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}`;
+            if (m && (m.anio !== anio || m.mes !== mes - 1)) {
+                return `La hoja "${KC.hoja}" no es del mes de la fecha ${KC.fecha.split('-').reverse().join('/')}: la salida se anotará en el día ${dia} de esa hoja y en el Detalle diario se verá como ${etiqueta}.`;
+            }
+            const hoy = new Date();
+            if (anio !== hoy.getFullYear() || mes !== hoy.getMonth() + 1) {
+                return `La fecha ${KC.fecha.split('-').reverse().join('/')} es de otro mes: en el Detalle diario del Kardex se verá como ${etiqueta}.`;
+            }
+            return '';
+        }
+
+        function kcActualizarPrecio(input) {
+            const fila = input.dataset.precio;
+            const v = parseFloat(input.value);
+            KC.precios[fila] = isNaN(v) ? '' : v;
+            const c = KC.carrito.find(x => String(x.fila) === String(fila));
+            const celda = kcEl('kcTot' + fila);
+            if (c && celda) celda.textContent = isNaN(v) ? '—' : kcMoneda(v * c.cantidad);
+            kcActualizarTotalSalida();
+        }
+
+        function kcTotalSalida() {
+            return KC.carrito.reduce((s, c) => s + (parseFloat(KC.precios[c.fila]) || 0) * c.cantidad, 0);
+        }
+
+        function kcActualizarTotalSalida() {
+            const t = kcEl('kcTotalGeneral');
+            if (t) t.textContent = kcMoneda(kcTotalSalida());
+        }
+
+        function kcRenderPreviaSalida() {
+            const esTienda = KC.tipoSalida === 'tienda';
+            if (esTienda) KC.carrito.forEach(c => { if (KC.precios[c.fila] === undefined) KC.precios[c.fila] = kcPrecioCatalogo(c); });
+            const grupos = new Map();
+            KC.carrito.forEach(c => {
+                const k = `${c.producto}||${c.medidaTexto}`;
+                if (!grupos.has(k)) grupos.set(k, { producto: c.producto, medida: c.medidaTexto, lineas: [] });
+                grupos.get(k).lineas.push(c);
+            });
+            const unidades = KC.carrito.reduce((s, c) => s + c.cantidad, 0);
+            const negativos = KC.carrito.filter(c => c.saldo - c.cantidad < 0);
+            const aviso = kcAdvertenciaMesSalida();
+            kcEl('kcCuerpo').innerHTML = `
+                ${aviso ? `<div class="kc-alerta">${kcEsc(aviso)}</div>` : ''}
+                <div class="kc-previa-cab">
+                    ${esTienda ? 'Venta en tienda' : 'Descarte'} · hoja <strong>${kcEsc(KC.hoja)}</strong> · día <strong>${kcEsc(KC.fecha.split('-').reverse().join('/'))}</strong>${KC.nota ? ` · nota: <strong>${kcEsc(KC.nota)}</strong>` : ''} ·
+                    <strong>${KC.carrito.length}</strong> línea(s), <strong>${kcNum(unidades)}</strong> unidades
+                    ${esTienda ? ` · total <strong id="kcTotalGeneral">${kcMoneda(kcTotalSalida())}</strong>` : ''}
+                </div>
+                ${negativos.length ? `<div class="kc-alerta">Estas salidas dejan el saldo en negativo: ${negativos.map(c => kcEsc(c.color)).join(', ')}. Se puede guardar igual.</div>` : ''}
+                ${[...grupos.values()].map(g => `<div class="kc-previa-grupo"><div class="kc-grupo-t">${kcEsc(g.producto)} · ${kcEsc(g.medida)}</div>
+                    <div class="kc-tabla-scroll"><table class="kc-tabla"><thead><tr><th>Color / variante</th><th class="num">Saldo antes</th><th class="num">Sale</th>${esTienda ? '<th class="num">Precio unit. (S/)</th><th class="num">Total</th>' : ''}<th class="num">Saldo después</th></tr></thead><tbody>
+                    ${g.lineas.map(c => {
+                        const despues = c.saldo - c.cantidad;
+                        const precio = KC.precios[c.fila];
+                        return `<tr><td>${kcEsc(c.color)} <span class="kc-tenue">fila ${c.fila}</span></td><td class="num">${kcNum(c.saldo)}</td><td class="num">−${kcNum(c.cantidad)}</td>
+                        ${esTienda ? `<td class="num"><input type="number" min="0" step="0.01" inputmode="decimal" class="form-input kc-cant" data-precio="${c.fila}" value="${precio === '' || precio === undefined ? '' : precio}" placeholder="0.00"></td><td class="num" id="kcTot${c.fila}">${precio === '' || precio === undefined ? '—' : kcMoneda(precio * c.cantidad)}</td>` : ''}
+                        <td class="num${despues < 0 ? ' kc-mal' : ''}"><strong>${kcNum(despues)}</strong></td></tr>`;
+                    }).join('')}
+                    </tbody></table></div></div>`).join('')}
+                <p class="kc-tenue" style="margin-top:10px;">Se anota en la columna del día ${parseInt(KC.fecha.split('-')[2], 10)} del Kardex y en TOTAL EGRESO; SALDO se recalcula con su fórmula. Todo se guarda en una sola operación. Los saldos se vuelven a leer al guardar.</p>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" data-kc="volver"${KC.guardando ? ' disabled' : ''}>Volver</button>
+                    <button type="button" class="btn btn-success" id="kcBtnGuardar" data-kc="guardar"${KC.guardando ? ' disabled' : ''}>Registrar salida</button>
+                </div>`;
+        }
+
+        async function kcGuardarSalida() {
+            if (KC.guardando || !KC.carrito.length) return;
+            const esTienda = KC.tipoSalida === 'tienda';
+            if (esTienda) {
+                const sinPrecio = KC.carrito.filter(c => !(parseFloat(KC.precios[c.fila]) >= 0));
+                if (sinPrecio.length) { mostrarNotificacion(`Falta el precio de: ${sinPrecio.map(c => c.color).join(', ')}`, 'warning'); return; }
+            }
+            const unidades = KC.carrito.reduce((s, c) => s + c.cantidad, 0);
+            if (!await confirmarAccion({
+                titulo: esTienda ? 'Registrar venta en tienda' : 'Registrar descarte',
+                mensaje: `¿Registrar la salida de ${KC.carrito.length} línea(s) (${kcNum(unidades)} unidades)${esTienda ? ` por ${kcMoneda(kcTotalSalida())}` : ''} en el día ${parseInt(KC.fecha.split('-')[2], 10)} de la hoja "${KC.hoja}"?\n\nSe descuenta directamente en el Kardex de Dropbox.`,
+                confirmarTexto: 'Registrar',
+                destructivo: !esTienda
+            })) return;
+
+            KC.guardando = true;
+            const btn = kcEl('kcBtnGuardar');
+            if (btn) { btn.disabled = true; btn.textContent = 'Guardando en el Kardex…'; }
+            try {
+                const salidas = KC.carrito.map(c => ({ tipo: 'fila', fila: c.fila, productoClave: c.productoClave, descClave: c.descClave, descripcion: c.descripcion, cantidad: c.cantidad }));
+                const resultado = await ksGuardarSalidas(salidas, { fechaISO: KC.fecha });
+                if (resultado.sinCambios) {
+                    throw new Error('No se pudo aplicar ninguna línea: ' + resultado.noAplicadas.map(n => n.motivo).join('; '));
+                }
+                // Historial de movimientos (si falla, el Kardex ya quedó bien y se avisa).
+                const registros = ksRegistrosDesdeResultado(resultado, { tipo: KC.tipoSalida, nota: KC.nota, precios: esTienda ? KC.precios : null });
+                const reg = await ksRegistrarMovimientos(registros);
+                KC.resultado = Object.assign({}, resultado, { modoSalida: true, tipoSalida: KC.tipoSalida, nota: KC.nota, registro: reg,
+                    total: esTienda ? registros.reduce((s, r) => s + (r.total || 0), 0) : null });
+                KC.carrito = []; KC.pegado = []; KC.precios = {}; KC.nota = '';
+                KC.vista = 'resultado';
+                KC.indice = null;
+                KC.guardando = false;
+                kcRenderResultadoSalida(KC.resultado);
+                try { await cargarKardex(false); } catch (errRefresco) { console.warn('No se pudo refrescar el stock visible', errRefresco); }
+                if (typeof cargarMovimientosControlDiario === 'function') cargarMovimientosControlDiario();
+            } catch (e) {
+                console.error('Salida por tienda: error al guardar', e);
+                KC.guardando = false;
+                if (e && e.incierto) mostrarAlerta({ titulo: 'Revisa el Kardex antes de repetir', mensaje: e.message, tipo: 'warning' });
+                else mostrarAlerta({ titulo: 'No se registró la salida', mensaje: 'El Kardex de Dropbox no se modificó. Puedes reintentar.', tipo: 'error', detalle: e.message });
+                if (KC.vista === 'previa') kcRenderPreviaSalida();
+            }
+        }
+
+        function kcRenderResultadoSalida(r) {
+            const esTienda = r.tipoSalida === 'tienda';
+            const unidades = r.lineas.reduce((s, l) => s + l.cantidad, 0);
+            kcEl('kcCuerpo').innerHTML = `
+                <div class="kc-exito">
+                    <strong>${esTienda ? 'Venta registrada' : 'Descarte registrado'}</strong> en el Kardex — hoja ${kcEsc(r.hoja)}, día ${r.dia}: ${r.lineas.length} línea(s), ${kcNum(unidades)} unidades${esTienda ? `, total ${kcMoneda(r.total)}` : ''}.
+                    ${r.yaAplicado ? '<br>Hubo un corte de conexión; se comprobó que ya estaba guardado y <strong>no se repitió</strong>.' : ''}
+                    ${r.intentos > 1 && !r.yaAplicado ? `<br>Alguien más guardó al mismo tiempo; se aplicó sobre la versión más reciente.` : ''}
+                </div>
+                ${r.advertenciaMes ? `<div class="kc-alerta">${kcEsc(r.advertenciaMes)}</div>` : ''}
+                ${r.noAplicadas && r.noAplicadas.length ? `<div class="kc-alerta">No se aplicaron: ${r.noAplicadas.map(n => kcEsc(`${n.item.descripcion || ''} (${n.motivo})`)).join('; ')}</div>` : ''}
+                ${r.registro && r.registro.fallidos ? `<div class="kc-alerta">El Kardex quedó bien, pero ${r.registro.fallidos} movimiento(s) no se pudieron registrar en el historial.</div>` : ''}
+                <div class="kc-tabla-scroll"><table class="kc-tabla"><thead><tr><th>Fila</th><th>Producto</th><th>Variante</th><th class="num">Saldo antes</th><th class="num">Sale</th><th class="num">Saldo después</th></tr></thead><tbody>
+                ${r.lineas.map(l => `<tr><td>${l.fila}</td><td>${kcEsc(l.producto)}</td><td>${kcEsc(l.descripcion)}</td><td class="num">${kcNum(l.antes)}</td><td class="num">−${kcNum(l.cantidad)}</td><td class="num${l.despues < 0 ? ' kc-mal' : ''}"><strong>${kcNum(l.despues)}</strong></td></tr>`).join('')}
+                </tbody></table></div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" data-kc="cerrar">Cerrar</button>
+                    <button type="button" class="btn btn-success" data-kc="nueva-carga">Nueva salida</button>
                 </div>`;
         }
