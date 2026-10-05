@@ -3,12 +3,13 @@
 // ============================================
 // Sube este número cada vez que publiques un cambio en GitHub Pages.
 // Puede ser lo que quieras mientras cambie (fecha, contador, etc.) — solo se compara como texto.
-const VERSION_APP = '2026-10-05';
+const VERSION_APP = '2026-10-05.1';
 
 // Texto (basado en los commits/PR que subes a GitHub) que se muestra junto al aviso de
 // actualización, para que quien lo vea sepa qué trae la versión nueva sin tener que ir a mirar
 // el repositorio. Actualízalo junto con VERSION_APP en cada publicación; una línea por cambio.
-const NOTAS_VERSION = `- Las Órdenes de Compra ya no descuentan stock del Kardex al guardarse (descuento automático desactivado)
+const NOTAS_VERSION = `- Kardex: ahora se detectan los colores y el stock de las toallas Belén, Silver y de las batas (por familia y medida), no solo las de código numérico
+- Las Órdenes de Compra ya no descuentan stock del Kardex al guardarse (descuento automático desactivado)
 - El buscador del Historial ahora permite buscar por fecha: dd/mm/aa, dd/mm/aaaa o parcial (dd/mm)
 - La búsqueda por fecha también consulta la nube, así que encuentra documentos antiguos
 - Despachos: al editarlos se guarda un historial de cambios (productos y destino) sin generar un N° nuevo
