@@ -45,18 +45,13 @@
         }
 
         .autocomplete-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
             background: var(--surface);
             border: 1.5px solid var(--border);
-            border-top: none;
-            border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+            border-radius: 8px;
+            margin-top: 10px;
             max-height: 300px;
             overflow-y: auto;
             display: none;
-            z-index: 1000;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
@@ -1162,26 +1157,6 @@
             font-size: 1em;
         }
         .historial-list { display: flex; flex-direction: column; gap: 10px; }
-        .chip-filtro-historial {
-            background: var(--gray-100);
-            color: var(--gray-600);
-            border: 1.5px solid var(--gray-200);
-            border-radius: 20px;
-            padding: 6px 14px;
-            font-size: 0.8em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.16s var(--ease-out), opacity 0.2s ease;
-            white-space: nowrap;
-        }
-        @media (hover: hover) and (pointer: fine) {
-.chip-filtro-historial:hover { background: var(--gray-200); }
-}
-        .chip-filtro-historial.active {
-            background: var(--secondary);
-            color: white;
-            border-color: var(--secondary);
-        }
 
         .historial-card {
             border: 1px solid var(--border);
@@ -1334,32 +1309,113 @@
 .btn-historial-ver:hover { background: var(--gray-100); border-color: var(--gray-400); color: var(--primary); }
 }
 
-        /* MODAL "VER COTIZACIÓN" — vista de solo lectura del documento guardado en el historial */
-        .ver-cotizacion-modal-content {
-            max-width: 780px;
+        /* MODAL "VER COTIZACIÓN" — vista de solo lectura del documento guardado en el historial
+           (verCotizacionDesdeHistorial en js/cotizacion.js). OJO: componentes.css se carga DESPUÉS
+           y su ".modal-content { max-width: 500px }" le ganaba a una regla de una sola clase, por
+           eso acá va con las dos clases. */
+        .modal-content.ver-cotizacion-modal-content {
+            max-width: 900px;
         }
+        .vd-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 10px 20px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+        .vd-head-main { min-width: 0; flex: 1 1 260px; }
+        .vd-head-total { text-align: right; }
+        .vd-badge { display: inline-block; font-weight: 800; padding: 3px 10px; border-radius: 6px; }
+        .vd-badge--oc { background: var(--chip-info-bg); color: var(--chip-info-text); }
+        .vd-badge--desp { background: var(--chip-success-bg); color: var(--chip-success-text); }
+        .vd-badge--cot { background: var(--gray-100); color: var(--gray-700); }
+        .vd-meta { font-size: 0.8em; color: var(--gray-500); margin-top: 4px; }
+        .vd-total { font-size: 1.3em; font-weight: 800; color: var(--primary); margin-top: 4px; white-space: nowrap; }
+        .vd-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+        .vd-chip { display: inline-flex; align-items: center; min-height: 28px; font-size: 0.8em; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
+        .vd-chip--oc { background: var(--chip-info-bg); color: var(--chip-info-text); }
+        .vd-chip--desp { background: var(--chip-success-bg); color: var(--chip-success-text); }
+        .vd-chip-btn { border: 1px solid var(--gray-300); background: var(--surface); color: var(--primary); cursor: pointer; font-family: inherit; }
+
         .ver-doc-info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 12px;
             margin-bottom: 14px;
         }
+        .vd-box { border-radius: var(--radius-md); padding: 11px 14px; border: 1px solid var(--border); background: var(--gray-50); min-width: 0; }
+        .vd-box--envio { background: var(--chip-success-bg); border-color: transparent; }
+        .vd-box-lbl { font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 6px; }
+        .vd-box-title { font-weight: 700; font-size: 0.95em; color: var(--primary); overflow-wrap: anywhere; }
+        .vd-line { font-size: 0.82em; color: var(--gray-600); margin-top: 4px; overflow-wrap: anywhere; }
+        .vd-line--nota { font-style: italic; }
+
         .ver-doc-table-wrap {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
             border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border);
         }
-        @media (max-width: 600px) {
-            .ver-cotizacion-modal-content {
-                padding: 20px 14px;
+        .vd-table { margin-bottom: 0; }
+        .vd-table th, .vd-table td { padding: 10px 12px; vertical-align: top; }
+        .vd-table .vd-cod { width: 96px; font-family: ui-monospace, monospace; font-size: 0.82em; color: var(--gray-500); white-space: nowrap; }
+        .vd-table th.vd-cod { font-family: inherit; color: #fff; font-size: inherit; }
+        .vd-table .vd-prod { font-size: 0.9em; }
+        .vd-table .vd-cant { width: 64px; text-align: center; }
+        .vd-table .vd-pu { width: 130px; text-align: right; font-size: 0.88em; white-space: nowrap; }
+        .vd-table .vd-pu small { display: block; font-size: 0.8em; color: var(--gray-400); }
+        .vd-table .vd-sub { width: 120px; text-align: right; font-weight: 700; white-space: nowrap; }
+        .vd-color { display: inline-block; background: var(--chip-info-bg); color: var(--chip-info-text); padding: 1px 6px; border-radius: 8px; font-size: 0.78em; font-weight: 600; margin-left: 3px; white-space: nowrap; }
+        .vd-desc { background: var(--chip-warning-bg); color: var(--chip-warning-text); padding: 1px 5px; border-radius: 4px; font-size: 0.78em; }
+
+        .vd-totales { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--border); }
+        .vd-totales-det { font-size: 0.85em; color: var(--gray-600); display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+        .vd-totales-det > div, .vd-totales-final { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .vd-totales-final strong { color: var(--primary); }
+
+        /* Celular: el modal ocupa todo el ancho y cada producto pasa a ser una tarjeta
+           (nombre arriba; código y cantidad; precio unitario y subtotal) — sin scroll lateral. */
+        @media (max-width: 640px) {
+            .modal-content.ver-cotizacion-modal-content {
+                padding: 18px 14px;
                 max-width: 100%;
+                border-radius: var(--radius-lg);
             }
-            .ver-doc-info-grid {
-                grid-template-columns: 1fr;
+            .vd-head-total { text-align: left; }
+            .ver-doc-info-grid { grid-template-columns: 1fr; }
+            .ver-doc-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+            .vd-table thead { display: none; }
+            .vd-table, .vd-table tbody { display: block; }
+            .vd-table tr {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-areas: "prod prod" "cod cant" "pu sub";
+                gap: 4px 12px;
+                padding: 12px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-md);
+                margin-bottom: 8px;
+                background: var(--surface);
             }
-            .ver-doc-table-wrap table {
-                min-width: 560px;
+            .vd-table.vd-table--desp tr { grid-template-areas: "prod prod" "cod cant"; }
+            .vd-table tbody tr:nth-child(even) { background: var(--surface); }
+            .vd-table td { padding: 0; border: 0; width: auto !important; }
+            .vd-table .vd-prod { grid-area: prod; font-weight: 600; font-size: 0.95em; }
+            .vd-table .vd-cod { grid-area: cod; align-self: center; }
+            .vd-table .vd-cant { grid-area: cant; text-align: right; }
+            .vd-table .vd-pu { grid-area: pu; text-align: left; }
+            .vd-table .vd-sub { grid-area: sub; text-align: right; align-self: end; }
+            .vd-table .vd-cant::before,
+            .vd-table .vd-pu::before,
+            .vd-table .vd-sub::before {
+                content: attr(data-label) " ";
+                font-size: 0.78em;
+                font-weight: 500;
+                color: var(--gray-500);
             }
+            .vd-table .vd-pu::before { display: block; }
         }
         .historial-header-row {
             display: flex;
@@ -1377,6 +1433,7 @@
             font-size: 0.8em;
             font-weight: 700;
         }
+
 
         /* Selector de páginas del historial (10 tarjetas por página) */
         .historial-paginador {
@@ -1413,6 +1470,349 @@
             font-size: 0.85em;
             color: var(--gray-500);
             font-weight: 600;
+        }
+
+        /* ============================================
+           REDISEÑO DE HISTORIAL — portado 1:1 de mockup-historial.html (referencia visual
+           obligatoria, en la raíz del proyecto). Todas las clases van con el prefijo "hx-" para no
+           chocar con nada existente. Los tokens de color son los mismos de css/variables.css (el
+           mockup los define igual en su propio :root, por eso el modo oscuro sale gratis acá — no
+           hace falta portar su bloque :root[data-theme="dark"]). Única sustitución: el mockup usa
+           --surface-sunken, que no existe en este proyecto; se usa var(--gray-50) en su lugar (el
+           tono más parecido ya disponible). Breakpoint móvil en 899px (no 768px, que es el que usa
+           el resto del sitio) porque así lo pide el mockup explícitamente. */
+
+        /* ---- Pestañas Cotizaciones / Órdenes de compra ---- */
+        .hx-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+        .hx-tab {
+            height: 46px;
+            padding: 0 16px;
+            border: 0;
+            background: transparent;
+            color: var(--gray-500);
+            font-size: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .hx-tab .cnt { font-size: 12px; font-weight: 700; background: var(--gray-200); color: var(--gray-600); border-radius: 99px; padding: 2px 8px; }
+        .hx-tab[aria-selected="true"] { color: var(--primary); box-shadow: inset 0 -3px 0 var(--secondary); }
+        .hx-tab[aria-selected="true"] .cnt { background: var(--secondary); color: #fff; }
+
+        /* ---- Buscador + chips ---- */
+        .hx-toolbar { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+        .hx-search {
+            flex: 1;
+            min-width: 0;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            background: var(--surface);
+            color: var(--gray-500);
+        }
+        .hx-search:focus-within { border-color: var(--secondary); box-shadow: 0 0 0 3px var(--secondary-light); }
+        .hx-search input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 14px; color: var(--primary); outline: none; }
+        .hx-search .hx-clear { width: 28px; height: 28px; border: 0; border-radius: 99px; background: var(--gray-200); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .hx-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+        .hx-chip {
+            height: 44px;
+            padding: 0 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            color: var(--gray-700);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .hx-chip .dot { width: 8px; height: 8px; border-radius: 99px; flex-shrink: 0; }
+        .hx-chip b { color: var(--primary); }
+        .hx-chip[aria-pressed="true"] { border-color: var(--secondary); box-shadow: 0 0 0 1px var(--secondary); }
+
+        /* ---- Tarjeta de OC (fila en escritorio) ---- */
+        .hx-oc-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+        .hx-oc-card.is-open { border-color: var(--secondary); box-shadow: var(--shadow-md); }
+        .hx-oc-row {
+            display: grid;
+            grid-template-columns: minmax(200px, 1fr) auto minmax(180px, 244px) minmax(180px, 256px) 400px;
+            column-gap: 18px;
+            align-items: center;
+            padding: 14px 18px;
+        }
+        .hx-oc-head, .hx-oc-info { display: contents; }
+        .hx-oc-main { min-width: 0; }
+        .hx-tag { font-size: 11px; font-weight: 700; letter-spacing: .06em; border-radius: 5px; padding: 2px 6px; }
+        .hx-tag-oc { color: var(--chip-info-text); background: var(--chip-info-bg); }
+        .hx-tag-cot { color: var(--gray-600); background: var(--gray-100); }
+        .hx-oc-num { display: flex; align-items: baseline; gap: 8px; }
+        .hx-oc-num strong { font-size: 17px; font-weight: 700; }
+        .hx-oc-cliente { font-size: 15px; font-weight: 600; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hx-oc-sub { font-size: 13px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hx-oc-total { font-size: 17px; font-weight: 700; white-space: nowrap; text-align: right; }
+
+        .hx-info { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--gray-50); border-radius: 12px; min-width: 0; }
+        .hx-info svg { color: var(--gray-500); }
+        .hx-info-txt { flex: 1; min-width: 0; }
+        .hx-info-lbl { font-size: 11.5px; color: var(--gray-500); }
+        .hx-info-val { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hx-info-btn { border: 0; text-align: left; cursor: pointer; width: 100%; font: inherit; color: inherit; }
+        .hx-bar { width: 48px; height: 6px; border-radius: 99px; background: var(--gray-200); overflow: hidden; flex-shrink: 0; }
+        .hx-bar i { display: block; height: 100%; border-radius: 99px; }
+        .hx-mini-steps { display: flex; gap: 3px; flex-shrink: 0; }
+        .hx-mini-steps i { width: 12px; height: 5px; border-radius: 99px; background: var(--gray-200); display: block; }
+
+        .hx-oc-actions { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; }
+
+        /* ---- Botones ---- */
+        .hx-btn { height: 46px; border-radius: 11px; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 0 12px; min-width: 44px; }
+        .hx-btn-outline { border: 1px solid var(--gray-300); background: var(--surface); color: inherit; }
+        @media (hover: hover) and (pointer: fine) {
+.hx-btn-outline:hover { background: var(--gray-100); }
+}
+        .hx-btn-primary { border: 0; background: var(--secondary); color: #fff; }
+        @media (hover: hover) and (pointer: fine) {
+.hx-btn-primary:hover { background: var(--secondary-hover); }
+}
+        .hx-btn-crear { border: 1px dashed var(--secondary-light-border); background: var(--secondary-light); color: var(--chip-info-text); }
+        .hx-btn-link { border: 0; background: transparent; color: var(--secondary); font-size: 13.5px; height: auto; min-height: 44px; }
+        .hx-btn-desp { border: 1px solid var(--secondary); background: var(--surface); justify-content: flex-start; text-align: left; color: inherit; }
+        .hx-btn-desp .t { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+        .hx-btn-desp .t b { font-size: 13.5px; }
+        .hx-btn-desp .t span { font-size: 11.5px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hx-btn-desp[aria-expanded="true"] { background: var(--secondary); color: #fff; }
+        .hx-btn-desp[aria-expanded="true"] .t span { color: #DCE6E8; }
+        .hx-btn:focus-visible,
+        .hx-tab:focus-visible,
+        .hx-chip:focus-visible,
+        .hx-desp-tab:focus-visible,
+        .hx-desp-close:focus-visible,
+        .hx-search .hx-clear:focus-visible {
+            outline: 2px solid var(--secondary);
+            outline-offset: 2px;
+        }
+
+        /* ---- Panel de despacho dentro de la tarjeta ---- */
+        .hx-desp { border-top: 1px solid var(--border); background: var(--gray-50); }
+        .hx-desp-top { padding: 12px 18px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--gray-100); flex-wrap: wrap; }
+        .hx-desp-top h3 { margin: 0 6px 0 0; font-size: 13px; color: var(--gray-700); font-weight: 600; }
+        .hx-desp-tab { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; display: flex; align-items: center; gap: 8px; color: inherit; }
+        .hx-desp-tab b { font-size: 13.5px; }
+        .hx-desp-tab span { font-size: 11px; font-weight: 600; color: var(--gray-500); }
+        .hx-desp-tab[aria-selected="true"] { border-color: var(--secondary); background: var(--secondary-light); }
+        .hx-desp-close { margin-left: auto; width: 36px; height: 36px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--gray-500); }
+        @media (hover: hover) and (pointer: fine) {
+.hx-desp-close:hover { background: var(--gray-100); }
+}
+        .hx-desp-grid { padding: 16px 18px; display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
+        .hx-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+        .hx-box-lbl { font-size: 12px; font-weight: 600; color: var(--gray-500); }
+        .hx-dest-city { font-size: 19px; font-weight: 700; margin-top: 4px; }
+        .hx-dest-sub { font-size: 13px; color: var(--gray-600); }
+
+        .hx-steps { display: flex; align-items: flex-start; margin-top: 12px; }
+        .hx-steps .ln { flex: 1; height: 2px; margin-top: 10px; background: var(--gray-200); }
+        .hx-steps .ln.on { background: var(--secondary); }
+        .hx-steps .st { width: 62px; margin: 0 -15px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .hx-steps .dt { width: 22px; height: 22px; border-radius: 99px; border: 2px solid var(--gray-300); background: var(--surface); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; color: var(--gray-500); }
+        .hx-steps .st span { font-size: 10.5px; text-align: center; color: var(--gray-500); }
+        .hx-steps .done .dt { background: var(--secondary); border-color: var(--secondary); color: #fff; }
+        .hx-steps .cur .dt { background: var(--chip-warning-bg); border-color: var(--warning); color: var(--chip-warning-text); }
+        .hx-steps .now span { font-weight: 700; color: var(--primary); }
+
+        .hx-tbl { padding: 0; overflow: hidden; }
+        .hx-tbl-h, .hx-tbl-r { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px; padding: 9px 14px; }
+        .hx-tbl-h { background: var(--gray-50); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-500); }
+        .hx-tbl-r { border-top: 1px solid var(--gray-100); font-size: 13.5px; }
+        .hx-tbl-r span:nth-child(n+2), .hx-tbl-h span:nth-child(n+2) { text-align: right; }
+        .hx-tbl-r span:nth-child(2) { color: var(--gray-500); }
+        .hx-tbl-r span:nth-child(3) { font-weight: 700; }
+        .hx-tbl-nota { padding: 9px 14px; border-top: 1px solid var(--gray-100); font-size: 12.5px; color: var(--gray-600); background: var(--gray-50); }
+
+        .hx-tl-item { display: flex; gap: 10px; }
+        .hx-tl-rail { display: flex; flex-direction: column; align-items: center; width: 10px; flex-shrink: 0; }
+        .hx-tl-rail i { width: 10px; height: 10px; border-radius: 99px; margin-top: 4px; background: var(--gray-300); display: block; }
+        .hx-tl-rail u { width: 2px; flex: 1; background: var(--border); margin: 3px 0; display: block; }
+        .hx-tl-item.last .hx-tl-rail i { background: var(--secondary); }
+        .hx-tl-body { padding-bottom: 12px; min-width: 0; }
+        .hx-tl-body b { font-size: 13px; }
+        .hx-tl-body small { display: block; font-size: 12px; color: var(--gray-500); }
+        .hx-tl-body p { margin: 2px 0 0; font-size: 12.5px; color: var(--chip-warning-text); }
+
+        .hx-desp-foot { padding: 12px 18px 16px; border-top: 1px solid var(--gray-100); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .hx-desp-foot .sp { flex: 1; }
+
+        /* ---- Tarjeta de Cotización (fila en escritorio) ---- */
+        .hx-cot-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            display: grid;
+            grid-template-columns: minmax(200px, 1fr) auto minmax(260px, 490px) 330px;
+            column-gap: 18px;
+            align-items: center;
+            padding: 14px 18px;
+        }
+        .hx-status-chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+        .hx-status-chip--ok { background: var(--chip-success-bg); color: var(--chip-success-text); }
+        .hx-status-chip--neu { background: var(--gray-100); color: var(--gray-600); }
+        .hx-status-chip--bad { background: var(--chip-danger-bg); color: var(--chip-danger-text); }
+        .hx-cot-estado { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+        .hx-cot-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+        .hx-only-web { display: inline; }
+
+        /* Fila genérica simple (despachos huérfanos / documentos "_prueba") — fuera del alcance del
+           mockup, reutiliza el look de tarjeta suelta de siempre (.historial-card-*, ver arriba) con
+           un layout mínimo propio en vez del grid de .hx-oc-row. */
+        .hx-generica-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+        .hx-generica-lateral { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+        /* ---- Responsive por ANCHO DEL CONTENEDOR, no del viewport ----
+           Con el sidebar desplegado (264px) el área de contenido queda mucho más angosta que la
+           ventana, así que un @media (max-width) dejaba el grid de columnas fijas en modo "fila"
+           sin espacio y los textos se sobreponían. Con container queries el diseño reacciona al
+           ancho real disponible en #tab-historial (sidebar abierto o cerrado). */
+        #tab-historial { container-type: inline-size; container-name: hx; }
+
+        /* Tres escalones según el ancho real de #tab-historial:
+             ≥ 1360px  fila única (como el mockup de escritorio).
+             760–1359  dos filas: N°/cliente + total arriba; pago, destino y botones abajo.
+                       Es el caso típico de una laptop con el sidebar desplegado — antes caía
+                       directo al formato móvil apilado y la tarjeta quedaba larguísima.
+             < 760px   apilado (formato móvil). */
+        @container hx (max-width: 1359px) {
+            .hx-oc-row {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(360px, 400px);
+                grid-template-areas: "main main total" "pago dest acts";
+                row-gap: 12px;
+            }
+            .hx-oc-main { grid-area: main; }
+            .hx-oc-total { grid-area: total; align-self: start; }
+            .hx-oc-info > :first-child { grid-area: pago; }
+            .hx-oc-info > :last-child { grid-area: dest; }
+            .hx-oc-actions { grid-area: acts; }
+
+            .hx-cot-card {
+                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-areas: "main total" "estado acts";
+                row-gap: 12px;
+            }
+            .hx-cot-card > .hx-oc-main { grid-area: main; }
+            .hx-cot-card > .hx-oc-total { grid-area: total; align-self: start; }
+            .hx-cot-estado { grid-area: estado; }
+            .hx-cot-actions { grid-area: acts; grid-template-columns: repeat(3, minmax(96px, auto)); }
+
+            /* El panel de despacho pasa a 2 columnas para no apretar la tabla de productos. */
+            .hx-desp-grid { grid-template-columns: 280px minmax(0, 1fr); }
+            .hx-desp-grid > .hx-box:nth-child(3) { grid-column: 1 / -1; }
+        }
+
+        /* Pestañas en píldora y buscador en columna cuando el contenido mide < 900px. */
+        @container hx (max-width: 899px) {
+            .hx-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 4px; background: var(--gray-100); border-radius: 12px; border: 0; }
+            .hx-tab { height: 40px; border-radius: 9px; justify-content: center; font-size: 13.5px; white-space: nowrap; padding: 0 8px; }
+            .hx-tab[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(43,46,51,.14); }
+            .hx-tab[aria-selected="true"] .cnt { background: transparent; color: var(--gray-500); }
+            .hx-toolbar { flex-direction: column; align-items: stretch; }
+            .hx-search { flex: none; height: 48px; }
+            .hx-search input { font-size: 16px; }
+            .hx-chips { overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; flex-wrap: nowrap; }
+            .hx-chip { height: 38px; border-radius: 99px; flex-shrink: 0; }
+            .hx-only-web { display: none; }
+            .hx-cot-actions { grid-template-columns: repeat(2, minmax(96px, auto)); }
+
+            .hx-desp-top { padding: 12px 14px; }
+            .hx-desp-top h3 { width: 100%; }
+            .hx-desp-foot { flex-wrap: wrap; padding: 12px 14px 16px; }
+            .hx-desp-foot .sp { display: none; }
+            .hx-desp-foot .hx-btn-outline, .hx-desp-foot .hx-btn-primary { flex: 1 1 45%; }
+            .hx-desp-foot .hx-btn-link { order: 3; width: 100%; }
+            .hx-cot-actions .hx-only-web { display: none; }
+        }
+
+        /* Formato móvil apilado (va al final para ganarle a los bloques anteriores). */
+        @container hx (max-width: 759px) {
+            .hx-oc-row { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+            .hx-oc-actions { grid-template-columns: 1fr 1fr; }
+            .hx-oc-actions > :nth-child(3) { grid-column: 1 / -1; }
+            .hx-oc-head { display: flex; align-items: flex-start; gap: 10px; }
+            .hx-oc-main { flex: 1; }
+            .hx-oc-info { display: block; background: var(--gray-50); border-radius: 12px; }
+            .hx-oc-info .hx-info { background: transparent; border-radius: 0; }
+            .hx-oc-info .hx-info + .hx-info { border-top: 1px solid var(--border); }
+            .hx-bar { width: 64px; }
+            .hx-cot-card { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+            .hx-cot-actions { grid-template-columns: 1fr 1fr; }
+            .hx-desp-grid { grid-template-columns: 1fr; padding: 14px; }
+            .hx-desp-grid > .hx-box:nth-child(3) { grid-column: auto; }
+        }
+
+        /* IMPRESIÓN NATIVA de la guía de despacho (window.print, ver imprimirGuiaDespacho en
+           js/cotizacion.js): solo se imprime #cotizacionPrint, que normalmente vive fuera de
+           pantalla para html2canvas. */
+        @media print {
+            body > *:not(#cotizacionPrint) { display: none !important; }
+            body { background: #fff !important; padding: 0 !important; }
+            #cotizacionPrint {
+                display: block !important;
+                position: static !important;
+                left: auto !important;
+                width: 100% !important;
+                padding: 0 !important;
+            }
+        }
+
+        /* MODO COMPACTO — pantallas de PC de poca altura (ver css/layout.css).
+           Achica los paneles colapsables, la tabla y la barra de totales de Cotizar
+           para que quede más alto real disponible para ver filas de productos sin
+           scrollear tanto. Se activa solo por altura, nunca afecta tablet/celular. */
+        @media (min-width: 769px) and (max-height: 760px) {
+            .cliente-panel {
+                margin-bottom: 10px;
+            }
+
+            .cliente-panel-header {
+                padding: 8px 16px;
+            }
+
+            .cliente-panel-body {
+                padding: 10px 16px;
+            }
+
+            .products-table th {
+                padding: 8px 10px;
+            }
+
+            .products-table td {
+                padding: 7px 10px;
+            }
+
+            .total-section {
+                padding: 10px 18px;
+            }
+
+            .total-row {
+                margin-bottom: 4px;
+            }
+
+            .total-amount {
+                font-size: 1.3em;
+                margin-bottom: 2px;
+            }
+
+            .action-buttons {
+                margin-top: 6px;
+            }
         }
 
         /* ================================================

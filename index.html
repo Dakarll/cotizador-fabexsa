@@ -43,6 +43,7 @@
     <link rel="stylesheet" href="css/sucursales-nube.css">
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/ui-alerts.css">
+    <link rel="stylesheet" href="css/kardex-carga.css">
 </head>
 <body>
     <!-- PANTALLA DE ACCESO -->
@@ -659,6 +660,21 @@
 
             <!-- TAB: SUCURSALES -->
             <div class="tab-content" id="tab-sucursales">
+                <!-- IMAGEN DE SUCURSALES POR PROVINCIA → se copia al portapapeles
+                     (generarImagenSucursalesPorProvincia en js/sucursales-nube.js, portado de SIA) -->
+                <div class="add-product-section">
+                    <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar imagen de sucursales por provincia</div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                        <div style="flex:1; min-width:220px;">
+                            <label class="form-label">Provincia</label>
+                            <input type="text" class="form-input" id="provinciaImagenInput" list="listaProvincias" placeholder="Escribe o elige una provincia...">
+                            <datalist id="listaProvincias"></datalist>
+                        </div>
+                        <button type="button" class="btn btn-success" id="btnGenerarImagenSucursalesProvincia"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar y copiar imagen</button>
+                    </div>
+                    <div id="provinciaImagenStatus" style="margin-top:10px; font-size:0.85em;"></div>
+                </div>
+
                 <div class="add-product-section">
                     <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar Sucursal para Envío</div>
                     <div class="search-container">
@@ -730,7 +746,9 @@
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
                         <button type="button" id="btnActualizarStock" class="btn btn-success" onclick="cargarKardex(true)"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg> Actualizar desde Dropbox</button>
                         <button type="button" id="btnExportarStock" class="btn btn-primary" onclick="abrirModalExportarStock()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg> Exportar Stock</button>
-                        <button type="button" id="btnEditarKardex" class="btn" style="background:var(--secondary);color:white;" onclick="abrirModalEditarKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4m0 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/></svg> Editar Kardex</button>
+                        <button type="button" id="btnSalidaTiendaKardex" class="btn btn-warning" onclick="abrirSalidaTienda()">Salida tienda</button>
+                        <button type="button" id="btnEditarKardex" class="btn" hidden style="display:none;background:var(--secondary);color:white;" onclick="abrirModalEditarKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4m0 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/></svg> Editar Kardex</button>
+                        <button type="button" id="btnCargaMasivaKardex" class="btn btn-primary" onclick="abrirCargaMasivaKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg> Carga masiva</button>
                         <button type="button" id="btnGuardarEdicionKardex" class="btn btn-success" style="display:none;" onclick="guardarEdicionKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar cambios</button>
                         <button type="button" id="btnCancelarEdicionKardex" class="btn btn-secondary" style="display:none;" onclick="cancelarEdicionKardex()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg> Cancelar edición</button>
                         <div id="kardexUltimaActualizacion" style="color:white;font-size:0.85em;opacity:0.85;"></div>
@@ -786,30 +804,15 @@
             <!-- TAB: CONTROL DIARIO (descarte directo de stock en el Kardex) -->
             <div class="tab-content" id="tab-controldiario">
                 <div class="new-form-section">
-                    <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Control Diario — Descarte de Stock</h3>
+                    <h3><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Control Diario — Salida por tienda y descartes</h3>
                     <p style="color:white;font-size:0.85em;opacity:0.9;margin-bottom:14px;">
-                        Registra aquí el descarte diario de productos (mermas, roturas, control de calidad, etc.).
-                        Al registrar, se descuenta el stock <strong>directamente en el Kardex</strong> (igual que una Orden de Compra)
-                        y queda guardado en el historial de movimientos para su consulta.
+                        Registra aquí lo que sale por <strong>tienda</strong> (el cliente viene y compra) y los <strong>descartes</strong> (mermas, roturas).
+                        Busca el producto o pega una lista, indica las cantidades y listo: se anota en la <strong>columna del día</strong> del Kardex
+                        (varias salidas el mismo día se suman) y queda en el historial de abajo. Las órdenes de compra también se anotan ahí automáticamente.
                     </p>
-                    <div class="form-group" style="position:relative;">
-                        <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg> Buscar producto (código o nombre/descripción)</label>
-                        <input type="text" class="form-input" id="cdBuscarProducto" placeholder="Ej: 7015, o 'toalla belleza baño'..." autocomplete="off" oninput="buscarProductosControlDiario(this.value)">
-                        <div class="cliente-db-dropdown" id="cdBuscarDropdown"></div>
-                    </div>
-                    <div id="cdProductoInfo" style="display:none;background:rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:white;font-size:0.88em;">
-                        <div id="cdProductoStockActual"></div>
-                    </div>
-                    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
-                        <div class="form-group" style="max-width:160px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Cantidad a descartar</label>
-                            <input type="number" min="0.01" step="0.01" class="form-input" id="cdCantidad" placeholder="0">
-                        </div>
-                        <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0;">
-                            <label class="form-label" style="color:white;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/></svg> Motivo (opcional)</label>
-                            <input type="text" class="form-input" id="cdMotivo" placeholder="Ej: producto dañado, control de calidad...">
-                        </div>
-                        <button type="button" id="btnRegistrarControlDiario" class="btn btn-warning" onclick="registrarControlDiario()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Registrar Descarte</button>
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                        <button type="button" id="btnNuevaSalidaTienda" class="btn btn-success" onclick="abrirSalidaTienda()">+ Nueva salida por tienda</button>
+                        <div id="cdResumenHoy" style="color:white;font-size:0.9em;"></div>
                     </div>
                 </div>
 
@@ -824,8 +827,17 @@
                             <label class="form-label">Hasta</label>
                             <input type="date" class="form-input" id="cdFiltroHasta" onchange="cargarMovimientosControlDiario()">
                         </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-input" id="cdFiltroTipo" onchange="pintarMovimientosControlDiario()">
+                                <option value="">Todos</option>
+                                <option value="tienda">Venta en tienda</option>
+                                <option value="descarte">Descarte</option>
+                                <option value="oc">Orden de compra</option>
+                            </select>
+                        </div>
                         <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0;">
-                            <label class="form-label">Buscar por código, descripción o usuario</label>
+                            <label class="form-label">Buscar por código, descripción, nota u usuario</label>
                             <input type="text" class="form-input" id="cdFiltroTexto" placeholder="Buscar..." oninput="pintarMovimientosControlDiario()">
                         </div>
                         <button type="button" class="btn btn-primary" onclick="cargarMovimientosControlDiario()"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg> Actualizar</button>
@@ -834,12 +846,13 @@
                 <div class="products-table-container" style="overflow-x:auto;">
                     <table class="products-table">
                         <thead>
-                            <tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Registrado por</th></tr>
+                            <tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Total</th><th>Nota / Referencia</th><th>Registrado por</th></tr>
                         </thead>
                         <tbody id="cdMovimientosBody">
-                            <tr><td colspan="5" style="text-align:center;color:#a8a29e;padding:16px;">Presiona "<svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg> Actualizar" para ver los movimientos.</td></tr>
+                            <tr><td colspan="8" style="text-align:center;color:#a8a29e;padding:16px;">Presiona "<svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg> Actualizar" para ver los movimientos.</td></tr>
                         </tbody>
                     </table>
+                    <div id="cdTotales" style="padding:10px 4px;font-size:0.88em;color:#57534e;"></div>
                 </div>
             </div>
 
@@ -1017,20 +1030,6 @@
                         </form>
                     </div>
 
-                    <!-- GENERAR IMAGEN DE SUCURSALES POR PROVINCIA -->
-                    <div class="add-product-section">
-                        <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar imagen de sucursales por provincia</div>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                            <div style="flex:1; min-width:220px;">
-                                <label class="form-label">Provincia</label>
-                                <input type="text" class="form-input" id="provinciaImagenInput" list="listaProvincias" placeholder="Escribe o elige una provincia...">
-                                <datalist id="listaProvincias"></datalist>
-                            </div>
-                            <button type="button" class="btn btn-success" id="btnGenerarImagenSucursalesProvincia"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"/></svg> Generar imagen</button>
-                        </div>
-                        <div id="provinciaImagenStatus" style="margin-top:10px; font-size:0.85em;"></div>
-                    </div>
-
                     <!-- LISTA DE SUCURSALES -->
                     <div class="add-product-section">
                         <div class="add-product-title"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/><path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/></svg> Lista de Sucursales (<span id="sucursalCount">0</span>)</div>
@@ -1081,6 +1080,10 @@
             <button class="btn btn-small" id="btnToggleMaster" onclick="toggleVerTodasCotizaciones()" style="display:none;font-size:0.8em;background:#f5f5f4;color:var(--primary);">👥 Ver todas</button>
             <button class="btn btn-danger btn-small" onclick="limpiarHistorial()" style="font-size:0.8em;"><svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Ocultar todo</button>
         </div>
+    </div>
+    <div class="hx-tabs" id="historialSeccionesArea" role="tablist" aria-label="Tipo de documento">
+        <button type="button" class="hx-tab" role="tab" data-seccion="cotizacion" aria-selected="true" onclick="cambiarSeccionHistorial('cotizacion')">Cotizaciones <span class="cnt num" id="historialCountCotizaciones">0</span></button>
+        <button type="button" class="hx-tab" role="tab" data-seccion="orden_compra" aria-selected="false" onclick="cambiarSeccionHistorial('orden_compra')">Órdenes de compra <span class="cnt num" id="historialCountOrdenes">0</span></button>
     </div>
     <div id="historialList">
         <div class="historial-empty">No hay cotizaciones guardadas aún.<br><br>Después de armar una cotización, haz clic en <strong>"<svg viewBox="0 0 16 16" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0;" aria-hidden="true"><path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4.5h2a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 5.5 6.5h2V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1z"/></svg> Guardar"</strong> o genera un PDF/Imagen para guardarla automáticamente.</div>
@@ -1606,6 +1609,9 @@
     <script src="js/auth.js"></script>
     <script src="js/productos.js"></script>
     <script src="js/kardex.js"></script>
+    <script src="js/kardex-carga.js"></script>
+    <script src="js/kardex-salidas.js"></script>
+    <script src="js/kardex-carga-ui.js"></script>
     <script src="js/clientes.js"></script>
     <script src="js/cotizacion.js"></script>
     <script src="js/sucursales.js"></script>
@@ -1772,100 +1778,56 @@
 
     <!-- ============================================
          PAGINACIÓN DE HISTORIAL — muestra máx. 10 tarjetas a la vez con un
-         selector de páginas fijo abajo, para no renderizar/animar de golpe
-         todas las cotizaciones (eso es lo que ponía lento el sistema con
-         historiales largos). No toca cargarHistorialDesdeNube ni
-         renderHistorial/renderListaCotizaciones/renderUsuariosHistorial de
-         js/cotizacion.js: observa el resultado que esas funciones ya pintan
-         en #historialResultsArea (siempre "<div class="historial-list">"
-         con tarjetas ".historial-card" como hijos directos, tanto en la
-         vista normal como en la agrupada por usuario) y solo oculta/muestra
-         tarjetas + dibuja el paginador al lado.
+         selector de páginas fijo abajo.
+
+         REHECHA (antes observaba el DOM con MutationObserver y solo escondía
+         con display:none las tarjetas que ya estaban armadas — pero
+         renderListaCotizaciones()/renderUsuariosHistorial() en
+         js/cotizacion.js construían igual el HTML de TODAS las filas antes
+         de que esto las escondiera, así que con historiales grandes el
+         costo ya estaba pagado de todas formas — ver check 1 de
+         tests/stress-historial.html: 5.000 filas tardaban ~1.1s). Ahora
+         js/cotizacion.js (ver HISTORIAL_PAGINA_TAM/pintarPaginaHistorial en
+         ese archivo) corta la lista ANTES de construir el HTML — solo arma
+         la página actual — y este script queda reducido a dibujar los
+         botones "‹ Anterior/Siguiente ›", sin observar nada del DOM.
          ============================================ -->
     <script>
-        (function () {
-            var historialList = document.getElementById('historialList');
-            if (!historialList) return;
+        // Dibuja (o quita, si totalPaginas<=1) los controles de paginación del historial. La
+        // llama pintarPaginaHistorial() (js/cotizacion.js) cada vez que redibuja una página — este
+        // script no decide nada por su cuenta, solo pinta lo que se le pide y avisa los clics.
+        function dibujarPaginadorHistorial(listaEl, paginaActual, totalPaginas) {
+            var existente = document.getElementById('historialPaginador');
+            if (existente) existente.remove();
+            if (!listaEl || totalPaginas <= 1) return;
 
-            var PAGINA_TAM = 10;
-            var paginaActual = 1;
-            var observer;
+            var nav = document.createElement('div');
+            nav.id = 'historialPaginador';
+            nav.className = 'historial-paginador';
 
-            function obtenerTarjetas() {
-                var lista = historialList.querySelector('.historial-list');
-                if (!lista) return null;
-                return { lista: lista, tarjetas: Array.prototype.filter.call(lista.children, function (el) {
-                    return el.classList && el.classList.contains('historial-card');
-                }) };
-            }
+            var btnPrev = document.createElement('button');
+            btnPrev.type = 'button';
+            btnPrev.className = 'historial-pagina-btn';
+            btnPrev.textContent = '‹ Anterior';
+            btnPrev.disabled = paginaActual <= 1;
+            btnPrev.addEventListener('click', function () { irAPaginaHistorial(paginaActual - 1); });
 
-            function dibujarPaginador(lista, totalPaginas) {
-                var existente = document.getElementById('historialPaginador');
-                if (existente) existente.remove();
-                if (totalPaginas <= 1) return;
+            var info = document.createElement('span');
+            info.className = 'historial-pagina-info';
+            info.textContent = 'Página ' + paginaActual + ' de ' + totalPaginas;
 
-                var nav = document.createElement('div');
-                nav.id = 'historialPaginador';
-                nav.className = 'historial-paginador';
+            var btnNext = document.createElement('button');
+            btnNext.type = 'button';
+            btnNext.className = 'historial-pagina-btn';
+            btnNext.textContent = 'Siguiente ›';
+            btnNext.disabled = paginaActual >= totalPaginas;
+            btnNext.addEventListener('click', function () { irAPaginaHistorial(paginaActual + 1); });
 
-                var btnPrev = document.createElement('button');
-                btnPrev.type = 'button';
-                btnPrev.className = 'historial-pagina-btn';
-                btnPrev.textContent = '‹ Anterior';
-                btnPrev.disabled = paginaActual <= 1;
-                btnPrev.addEventListener('click', function () { irAPagina(paginaActual - 1); });
-
-                var info = document.createElement('span');
-                info.className = 'historial-pagina-info';
-                info.textContent = 'Página ' + paginaActual + ' de ' + totalPaginas;
-
-                var btnNext = document.createElement('button');
-                btnNext.type = 'button';
-                btnNext.className = 'historial-pagina-btn';
-                btnNext.textContent = 'Siguiente ›';
-                btnNext.disabled = paginaActual >= totalPaginas;
-                btnNext.addEventListener('click', function () { irAPagina(paginaActual + 1); });
-
-                nav.appendChild(btnPrev);
-                nav.appendChild(info);
-                nav.appendChild(btnNext);
-                lista.insertAdjacentElement('afterend', nav);
-            }
-
-            function aplicar(resetearPagina) {
-                var datos = obtenerTarjetas();
-                if (observer) observer.disconnect();
-                try {
-                    if (!datos || !datos.tarjetas.length) {
-                        var previo = document.getElementById('historialPaginador');
-                        if (previo) previo.remove();
-                        return;
-                    }
-                    if (resetearPagina) paginaActual = 1;
-                    var totalPaginas = Math.max(1, Math.ceil(datos.tarjetas.length / PAGINA_TAM));
-                    if (paginaActual > totalPaginas) paginaActual = totalPaginas;
-                    var desde = (paginaActual - 1) * PAGINA_TAM;
-                    var hasta = desde + PAGINA_TAM;
-                    datos.tarjetas.forEach(function (tarjeta, i) {
-                        tarjeta.style.display = (i >= desde && i < hasta) ? '' : 'none';
-                    });
-                    dibujarPaginador(datos.lista, totalPaginas);
-                } finally {
-                    if (observer) observer.observe(historialList, { childList: true, subtree: true });
-                }
-            }
-
-            function irAPagina(n) {
-                paginaActual = n;
-                aplicar(false);
-                var lista = historialList.querySelector('.historial-list');
-                if (lista) lista.scrollIntoView({ block: 'nearest' });
-            }
-
-            observer = new MutationObserver(function () { aplicar(true); });
-            observer.observe(historialList, { childList: true, subtree: true });
-            aplicar(true);
-        })();
+            nav.appendChild(btnPrev);
+            nav.appendChild(info);
+            nav.appendChild(btnNext);
+            listaEl.insertAdjacentElement('afterend', nav);
+        }
     </script>
 </body>
 </html>

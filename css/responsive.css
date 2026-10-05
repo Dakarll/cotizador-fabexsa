@@ -122,6 +122,20 @@
                 font-size: 0.76em;
             }
 
+            .historial-secciones {
+                gap: 4px;
+            }
+
+            .historial-seccion-btn {
+                font-size: 0.85em;
+                padding: 8px 2px 9px;
+            }
+
+            .historial-quick-btn {
+                min-width: 100%;
+                flex-basis: 100%;
+            }
+
             .header-user-panel #correlativoPreview > div {
                 text-align: left !important;
                 align-items: flex-start !important;

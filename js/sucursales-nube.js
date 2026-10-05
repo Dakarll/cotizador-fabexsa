@@ -304,6 +304,16 @@ function poblarListaProvincias() {
 }
 
 // ---------- Imagen de sucursales por provincia ----------
+// Portado de SIA (js/catalogo/sucursales-crud.js → generarImagenSucursalesPorProvincia):
+// genera la imagen de las sucursales de la provincia elegida y la COPIA al portapapeles
+// (antes aquí se descargaba). Adaptaciones al stack de este proyecto: variables globales
+// (sucursalesDB) en vez de state, copiarBlobImagenPortapapeles() de js/envios/papeleta.js
+// en vez del copiarImagenAlPortapapeles() de SIA, colores con los tokens de acá, y los
+// textos de la sucursal escapados antes de meterlos al HTML.
+
+function escaparHtmlSucursal(t) {
+    return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 async function generarImagenSucursalesPorProvincia() {
     const input = document.getElementById('provinciaImagenInput');
@@ -312,26 +322,30 @@ async function generarImagenSucursalesPorProvincia() {
     const textoIngresado = input.value.trim();
 
     if (!textoIngresado) {
-        mostrarNotificacion('Escribe o elige una provincia', 'warning');
+        mostrarNotificacion('⚠️ Escribe o elige una provincia', 'warning');
         return;
     }
 
+    // Coincidencia exacta (sin distinguir mayúsculas/acentos simples)
+    // contra las provincias reales, para evitar generar una imagen
+    // vacía por un error de tipeo.
+    const sinTildes = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     const provinciasDisponibles = [...new Set((sucursalesDB || []).map(s => s.provincia).filter(Boolean))];
-    const provinciaReal = provinciasDisponibles.find(p => p.toLowerCase() === textoIngresado.toLowerCase());
+    const provinciaReal = provinciasDisponibles.find(p => sinTildes(p) === sinTildes(textoIngresado));
 
     if (!provinciaReal) {
-        if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);">No se encontró la provincia "${textoIngresado}". Elige una de la lista.</span>`;
+        statusEl.innerHTML = `<span style="color:var(--danger);">No se encontró la provincia "${escaparHtmlSucursal(textoIngresado)}". Elige una de la lista.</span>`;
         return;
     }
 
     const sucursalesFiltradas = (sucursalesDB || []).filter(s => s.provincia === provinciaReal);
     if (sucursalesFiltradas.length === 0) {
-        if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);">No hay sucursales registradas en "${provinciaReal}".</span>`;
+        statusEl.innerHTML = `<span style="color:var(--danger);">No hay sucursales registradas en "${escaparHtmlSucursal(provinciaReal)}".</span>`;
         return;
     }
 
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--gray-500);">Generando imagen…</span>';
-    if (typeof showLoading === 'function') showLoading(true);
+    statusEl.innerHTML = '<span style="color:var(--gray-500);">Generando imagen…</span>';
+    showLoading(true);
 
     try {
         document.getElementById('spImgProvinciaNombre').textContent = provinciaReal;
@@ -340,19 +354,19 @@ async function generarImagenSucursalesPorProvincia() {
 
         const iconosPorTipo = {
             'Grande / Co': '🏢', 'Mediana': '🏪', 'Pequeña': '🏠',
-            'Terminal': '🚌', 'Micro': '📦', 'Mini-micro': '📦', 'Micro E/r': '📦'
+            'Terminal': '🚌', 'Micro': '📦', 'Mini-micro': '📦'
         };
 
         document.getElementById('spImgLista').innerHTML = sucursalesFiltradas
             .slice()
-            .sort((a, b) => (a.ciudad || '').localeCompare(b.ciudad || '') || a.nombre.localeCompare(b.nombre))
+            .sort((a, b) => (a.ciudad || '').localeCompare(b.ciudad || '') || (a.nombre || '').localeCompare(b.nombre || ''))
             .map(s => `
                 <div style="display:flex; gap:14px; align-items:flex-start; padding:14px 16px; background:#f7fafc; border-radius:10px; border:1px solid #e2e8f0;">
                     <div style="font-size:1.5em; line-height:1;">${iconosPorTipo[s.tipo] || '📍'}</div>
                     <div style="flex:1;">
-                        <div style="font-weight:700; color:var(--primary); font-size:1.05em;">${s.nombre}</div>
-                        <div style="color:var(--gray-500); font-size:0.9em; margin-top:2px;">${s.direccion}</div>
-                        <div style="color:var(--gray-400); font-size:0.82em; margin-top:2px;">${s.ciudad} · ${s.tipo}${s.telefono ? ' · 📞 ' + s.telefono : ''}</div>
+                        <div style="font-weight:700; color:var(--primary); font-size:1.05em;">${escaparHtmlSucursal(s.nombre)}</div>
+                        <div style="color:var(--gray-500); font-size:0.9em; margin-top:2px;">${escaparHtmlSucursal(s.direccion)}</div>
+                        <div style="color:var(--gray-400); font-size:0.82em; margin-top:2px;">${escaparHtmlSucursal(s.ciudad)} · ${escaparHtmlSucursal(s.tipo)}</div>
                     </div>
                 </div>
             `).join('');
@@ -369,18 +383,22 @@ async function generarImagenSucursalesPorProvincia() {
             height: elemento.scrollHeight
         });
 
-        const nombreArchivo = `Sucursales_${provinciaReal.replace(/\s+/g, '_')}_${Date.now()}.png`;
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        await descargarArchivo(blob, nombreArchivo, 'image/png');
+        const copiada = await copiarBlobImagenPortapapeles(blob);
 
-        if (statusEl) statusEl.innerHTML = `<span style="color:var(--success);">✅ Imagen generada: ${sucursalesFiltradas.length} sucursales en ${provinciaReal}</span>`;
-        mostrarNotificacion('✅ Imagen de sucursales generada', 'success');
+        statusEl.innerHTML = copiada
+            ? `<span style="color:var(--success);">✅ Imagen copiada al portapapeles: ${sucursalesFiltradas.length} sucursales en ${escaparHtmlSucursal(provinciaReal)}</span>`
+            : `<span style="color:var(--danger);">⚠️ Tu navegador no permite copiar automáticamente la imagen</span>`;
+        mostrarNotificacion(
+            copiada ? '✅ Imagen de sucursales copiada al portapapeles' : '⚠️ Tu navegador no permite copiar automáticamente la imagen',
+            copiada ? 'success' : 'warning'
+        );
     } catch (err) {
         console.error(err);
-        if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);">❌ Error al generar la imagen: ${err.message}</span>`;
+        statusEl.innerHTML = `<span style="color:var(--danger);">❌ Error al generar la imagen: ${escaparHtmlSucursal(err.message)}</span>`;
         mostrarNotificacion('❌ Error al generar la imagen', 'warning');
     } finally {
-        if (typeof showLoading === 'function') showLoading(false);
+        showLoading(false);
     }
 }
 
