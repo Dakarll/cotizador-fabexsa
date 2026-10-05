@@ -1245,6 +1245,9 @@
             });
             stockKardex = nuevoStock;
             coloresPorProducto = nuevoColores;
+            // Productos del catálogo sin código en el Kardex (Belén, Silver, batas...): se emparejan por familia + medida.
+            try { completarStockPorFamilia(filas, colCodigo, colColor, colStock); }
+            catch (e) { console.warn('Kardex: no se pudo detectar stock por familia:', e); }
         }
 
         function cargarKardexDesdeCache() {
