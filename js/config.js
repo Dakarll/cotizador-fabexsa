@@ -12,8 +12,11 @@ const NOTAS_VERSION = `- Las Órdenes de Compra ya no descuentan stock del Karde
 - El buscador del Historial ahora permite buscar por fecha: dd/mm/aa, dd/mm/aaaa o parcial (dd/mm)
 - La búsqueda por fecha también consulta la nube, así que encuentra documentos antiguos
 - Despachos: al editarlos se guarda un historial de cambios (productos y destino) sin generar un N° nuevo
-- Nuevo módulo de carga masiva y salidas en el Kardex
-- Cotizar: el autocompletado de productos es más limpio (sin círculos de color)`;
+- Cotizar: el autocompletado de productos es más limpio (sin círculos de color)
+- Kardex: nueva "Carga masiva" de ingresos (elegir producto/medida/color, pegar lista y buscar color)
+- Kardex: las variantes nuevas se agregan al final con sus formulas y la cantidad se carga en la planta elegida o en la columna C
+- Kardex: "Editar Kardex" ahora carga el stock en la columna C y conserva la formula de SALDO
+- Kardex: se usa siempre la ultima hoja con datos y se corrigio el error de espacio del navegador`;
 
 // Opción B (recarga forzada): apagada por defecto. Solo cámbiala a "true" el día que subas
 // una corrección urgente y necesites que TODOS actualicen sí o sí — y vuelve a apagarla después.
