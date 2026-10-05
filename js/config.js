@@ -3,12 +3,17 @@
 // ============================================
 // Sube este número cada vez que publiques un cambio en GitHub Pages.
 // Puede ser lo que quieras mientras cambie (fecha, contador, etc.) — solo se compara como texto.
-const VERSION_APP = '2026-09-30.1';
+const VERSION_APP = '2026-10-05';
 
 // Texto (basado en los commits/PR que subes a GitHub) que se muestra junto al aviso de
 // actualización, para que quien lo vea sepa qué trae la versión nueva sin tener que ir a mirar
 // el repositorio. Actualízalo junto con VERSION_APP en cada publicación; una línea por cambio.
-const NOTAS_VERSION = `- Kardex: nueva "Carga masiva" de ingresos (elegir producto/medida/color, pegar lista y buscar color)
+const NOTAS_VERSION = `- Las Órdenes de Compra ya no descuentan stock del Kardex al guardarse (descuento automático desactivado)
+- El buscador del Historial ahora permite buscar por fecha: dd/mm/aa, dd/mm/aaaa o parcial (dd/mm)
+- La búsqueda por fecha también consulta la nube, así que encuentra documentos antiguos
+- Despachos: al editarlos se guarda un historial de cambios (productos y destino) sin generar un N° nuevo
+- Cotizar: el autocompletado de productos es más limpio (sin círculos de color)
+- Kardex: nueva "Carga masiva" de ingresos (elegir producto/medida/color, pegar lista y buscar color)
 - Kardex: las variantes nuevas se agregan al final con sus formulas y la cantidad se carga en la planta elegida o en la columna C
 - Kardex: "Editar Kardex" ahora carga el stock en la columna C y conserva la formula de SALDO
 - Kardex: se usa siempre la ultima hoja con datos y se corrigio el error de espacio del navegador`;

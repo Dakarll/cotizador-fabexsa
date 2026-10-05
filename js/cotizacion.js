@@ -1532,7 +1532,7 @@
                 // Kardex por la diferencia. Así, si se agrega un producto nuevo en una edición, solo
                 // se descuenta ESE producto (no se vuelve a descontar lo que ya estaba), y si se quita
                 // o se reduce algo, esa diferencia se DEVUELVE al Kardex.
-                if (tipoContador === 'orden_compra') {
+                if (tipoContador === 'orden_compra' && DESCUENTO_KARDEX_POR_OC) {
                     try {
                         const productosActuales = productosEnTabla.map(p => ({ codigo: p.codigo, cantidad: p.cantidad, color: p.color || '' }));
                         const productosAnteriores = esPrimerGuardado ? [] : (registroExistente?.productosDescontados || []);
@@ -1596,6 +1596,10 @@
                 modoDesarrollador || (!e.esPrueba && !String(e.tipoDocumento || '').endsWith('_prueba'))
             );
         }
+
+        // Descuento automático de stock del Kardex al guardar una Orden de Compra: DESHABILITADO a pedido.
+        // Poner en true para reactivarlo (el resto de la lógica sigue intacta en guardarEnHistorial).
+        const DESCUENTO_KARDEX_POR_OC = false;
 
         let usuarioSeleccionadoHistorial = null; // username filtrado dentro de la vista "Ver todas" (master)
 
@@ -1993,9 +1997,22 @@
         // cliente, empresa, teléfono, vendedor o ciudad/destino (sucursal del despacho, o el
         // "destino" del envío Shalom si ya está registrado) — ver textoBusquedaHistorial(). Ignora
         // mayúsculas y tildes en ambos lados de la comparación.
+        // Fecha del documento como dd/mm/aa y dd/mm/aaaa (hora local), para buscar escribiéndola.
+        function fechasTextoEntry(entry) {
+            const f = new Date(entry.createdAt);
+            if (isNaN(f)) return [];
+            const dd = String(f.getDate()).padStart(2, '0'), mm = String(f.getMonth() + 1).padStart(2, '0');
+            const aaaa = String(f.getFullYear());
+            return [`${dd}/${mm}/${aaaa.slice(2)}`, `${dd}/${mm}/${aaaa}`];
+        }
+
         function filtrarCotizaciones(lista, filtroNormalizado) {
             if (!filtroNormalizado) return lista;
+            const esFecha = /^\d{1,2}\/(\d{1,2}(\/\d{0,4})?)?$/.test(filtroNormalizado);
+            // "5/10/26" -> "05/10/26" para que calce con el formato dd/mm/aa
+            const filtroFecha = esFecha ? filtroNormalizado.replace(/\b(\d)(?=\/)/g, '0$1') : '';
             return lista.filter(entry => {
+                if (esFecha && fechasTextoEntry(entry).some(t => t.includes(filtroFecha))) return true;
                 const telefonoNorm = normalizarBusquedaHistorial(entry.telefono || '');
                 const vendedorNorm = normalizarBusquedaHistorial(entry.usuarioNombre || '');
                 return (
@@ -2029,6 +2046,14 @@
                 // correlativo (correlativo se guarda como número, no como texto).
                 if (/^\d+$/.test(texto)) {
                     condiciones.push({ correlativo: parseInt(texto, 10) });
+                }
+                // Fecha completa dd/mm/aa o dd/mm/aaaa: se busca por el día de creación.
+                const mf = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+                if (mf) {
+                    const anio = mf[3].length === 2 ? 2000 + parseInt(mf[3], 10) : parseInt(mf[3], 10);
+                    const ini = new Date(anio, parseInt(mf[2], 10) - 1, parseInt(mf[1], 10));
+                    const fin = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 1);
+                    if (!isNaN(ini)) condiciones.push({ createdAt: { $gte: { __type: 'Date', iso: ini.toISOString() }, $lt: { __type: 'Date', iso: fin.toISOString() } } });
                 }
                 const where = { activo: true, $or: condiciones };
                 if (!(esMaster && verTodasLasCotizaciones)) {
