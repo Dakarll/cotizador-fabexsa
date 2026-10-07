@@ -2339,7 +2339,7 @@
                     <div class="hx-cot-estado">${estadoHTML}<span class="num" style="color:${vencida ? 'var(--chip-danger-text)' : 'var(--gray-600)'}">${escaparHtml(validezTexto)}</span></div>
                     <div class="hx-cot-actions">
                         <button class="hx-btn hx-btn-outline" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">Ver</button>
-                        <button class="hx-btn hx-btn-outline hx-only-web" onclick="cargarDesdeHistorial('${entry.objectId}')">Cargar</button>
+                        <button class="hx-btn hx-btn-outline" onclick="cargarDesdeHistorial('${entry.objectId}')">Cargar</button>
                         <button class="hx-btn hx-btn-crear" style="border-style:solid;border-color:transparent" onclick="crearOCDesdeCotizacion('${entry.objectId}')">Convertir en OC</button>
                     </div>
                 </article>`;
@@ -2379,7 +2379,7 @@
                         </div>
                         <div class="hx-oc-actions">
                             <button class="hx-btn hx-btn-outline" onclick="verCotizacionDesdeHistorial('${entry.objectId}')">${HX_ICON.eye}Ver OC</button>
-                            <button class="hx-btn hx-btn-outline" onclick="cargarDesdeHistorial('${entry.objectId}')" title="Cargar la OC en Cotizar para editarla (mantiene su mismo N°)">${HX_ICON.edit}Editar</button>
+                            <button class="hx-btn hx-btn-outline" onclick="cargarDesdeHistorial('${entry.objectId}')" title="Cargar la OC en Cotizar para editarla (mantiene su mismo N°)">${HX_ICON.edit}Cargar OC</button>
                             ${despBtn}
                         </div>
                     </div>
