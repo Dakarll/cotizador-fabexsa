@@ -1671,6 +1671,10 @@
 
         .hx-only-web { display: inline; }
 
+        /* "Ocultar todo" del encabezado del Historial: solo en vista móvil (en web se oculta). */
+        .hx-only-movil { display: none; }
+        @media (max-width: 768px) { .hx-only-movil { display: inline-flex; } }
+
         /* Fila genérica simple (despachos huérfanos / documentos "_prueba") — fuera del alcance del
            mockup, reutiliza el look de tarjeta suelta de siempre (.historial-card-*, ver arriba) con
            un layout mínimo propio en vez del grid de .hx-oc-row. */
